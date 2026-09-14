@@ -46,6 +46,9 @@ jobs:
           -p:Version=${{ env.VERSION }}
           -p:PackageVersion=${{ env.VERSION }}
 
+      - name: Test
+        run: dotnet test CmdWarden.sln -c Release --no-build --verbosity normal --filter "Category!=Process"
+
       - name: Pack tool (nupkg)
         # Pack rebuilds/publishes for PackAsTool so agent/ + shim-payload/ inject correctly.
         run: >
