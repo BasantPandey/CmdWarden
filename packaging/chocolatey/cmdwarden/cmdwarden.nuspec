@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>cmdwarden</id>
+    <version>0.1.0</version>
+    <title>CmdWarden</title>
+    <authors>CmdWarden</authors>
+    <owners>CmdWarden</owners>
+    <projectUrl>https://github.com/BasantPandey/CmdWarden</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/BasantPandey/CmdWarden</projectSourceUrl>
+    <docsUrl>https://github.com/BasantPandey/CmdWarden/blob/main/docs/install.md</docsUrl>
+    <bugTrackerUrl>https://github.com/BasantPandey/CmdWarden/issues</bugTrackerUrl>
+    <tags>cmdwarden secrets security cli github agent windows admin</tags>
+    <summary>Windows CLI secret gate by tool and launcher identity (cw).</summary>
+    <description>
+CmdWarden gates CLI secret use on Windows by tool and launcher identity so AI harnesses and supply-chain code cannot freely use your credentials.
+
+This package installs the global **dotnet tool** `CmdWarden` (commands: `cw`, `cmdwarden`) by downloading the matching GitHub Release nupkg.
+
+**Requirements**
+- Windows
+- .NET 10 SDK or runtime (dotnet on PATH)
+
+**After install**
+```
+cw version
+cw doctor
+```
+See the repo user guide for enroll + harden.
+    </description>
+    <releaseNotes>https://github.com/BasantPandey/CmdWarden/releases/tag/v0.1.0</releaseNotes>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

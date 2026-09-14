@@ -1,0 +1,29 @@
+# Windows Package Manager (winget) installer manifest - TEMPLATE
+# Validate: winget validate packaging/winget
+# Local install: winget install --manifest packaging/winget
+# Public catalog: submit via https://github.com/microsoft/winget-pkgs (package must be publicly downloadable)
+# Schema: https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+PackageIdentifier: BasantPandey.CmdWarden
+PackageVersion: 0.1.0
+InstallerLocale: en-US
+InstallerType: zip
+Scope: user
+InstallModes:
+  - interactive
+  - silent
+UpgradeBehavior: install
+Commands:
+  - cw
+  - cmdwarden
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/BasantPandey/CmdWarden/releases/download/v0.1.0/CmdWarden.0.1.0-win-x64.zip
+    InstallerSha256: AF5B4C9D7E467C5A04AFDE0E52E053208A8E0042A6A25EA08BE02634A8E42396
+    NestedInstallerType: portable
+    NestedInstallerFiles:
+      - RelativeFilePath: cw.exe
+        PortableCommandAlias: cw
+      - RelativeFilePath: cmdwarden.exe
+        PortableCommandAlias: cmdwarden
+ManifestType: installer
+ManifestVersion: 1.6.0

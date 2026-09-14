@@ -1,0 +1,17 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+.DS_Store
+*.DotSettings.user
+TestResults/
+artifacts/
+.idea/
+
+agent-out.txt
+agent-err.txt
+
+# Generated package manager packages
+packaging/chocolatey/**/*.nupkg
+

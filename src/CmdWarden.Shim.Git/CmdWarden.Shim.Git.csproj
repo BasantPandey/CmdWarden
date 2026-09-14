@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>CmdWarden.Shim.Git</RootNamespace>
+    <AssemblyName>git</AssemblyName>
+    <Description>PATH shim for git: Authorize via Session Agent, then spawn pinned real binary (gate only).</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CmdWarden.Contracts\CmdWarden.Contracts.csproj" />
+  </ItemGroup>
+</Project>

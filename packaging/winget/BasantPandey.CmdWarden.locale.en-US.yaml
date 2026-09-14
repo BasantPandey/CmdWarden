@@ -1,0 +1,28 @@
+# Locale manifest for winget
+PackageIdentifier: BasantPandey.CmdWarden
+PackageVersion: 0.1.0
+PackageLocale: en-US
+Publisher: CmdWarden
+PublisherUrl: https://github.com/BasantPandey/CmdWarden
+PublisherSupportUrl: https://github.com/BasantPandey/CmdWarden/issues
+Author: CmdWarden
+PackageName: CmdWarden
+PackageUrl: https://github.com/BasantPandey/CmdWarden
+License: See repository
+LicenseUrl: https://github.com/BasantPandey/CmdWarden
+ShortDescription: Windows CLI secret gate by tool and launcher identity.
+Description: >
+  CmdWarden gates CLI secret use on Windows by tool and launcher identity
+  so AI harnesses cannot freely read or exfiltrate credentials. Provides cw CLI,
+  Session Agent, Approval Gate, and PATH shims for gh/git/az/docker.
+Moniker: cmdwarden
+Tags:
+  - security
+  - secrets
+  - cli
+  - github
+  - windows
+  - agent
+ReleaseNotesUrl: https://github.com/BasantPandey/CmdWarden/releases/tag/v0.1.0
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

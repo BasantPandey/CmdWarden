@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CmdWarden.Contracts\CmdWarden.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\CmdWarden.Cli\CmdWarden.Cli.csproj" />
+    <ProjectReference Include="..\..\src\CmdWarden.Agent\CmdWarden.Agent.csproj" />
+    <ProjectReference Include="..\..\src\CmdWarden.Shim.Gh\CmdWarden.Shim.Gh.csproj" />
+    <ProjectReference Include="..\..\src\CmdWarden.Shim.Git\CmdWarden.Shim.Git.csproj" />
+    <ProjectReference Include="..\..\src\CmdWarden.Helper.Git\CmdWarden.Helper.Git.csproj" />
+    <ProjectReference Include="..\..\src\CmdWarden.Shim.Az\CmdWarden.Shim.Az.csproj" />
+    <ProjectReference Include="..\..\src\CmdWarden.Shim.Docker\CmdWarden.Shim.Docker.csproj" />
+    <ProjectReference Include="..\..\src\CmdWarden.Helper.Docker\CmdWarden.Helper.Docker.csproj" />
+  </ItemGroup>
+
+</Project>

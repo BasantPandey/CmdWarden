@@ -1,0 +1,165 @@
+# Tag-triggered pack + publish exes + GitHub Release (PRD #67 + exe assets).
+# Push v0.1.0 → CmdWarden.0.1.0.nupkg + CmdWarden.0.1.0-win-x64.zip
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  pack-release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Derive package version from tag
+        id: ver
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^v.+') { throw "Tag must match v*: $tag" }
+          $version = $tag.Substring(1)
+          if ([string]::IsNullOrWhiteSpace($version)) { throw "Empty version after stripping v" }
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "Package version: $version (tag $tag)"
+
+      - name: Restore
+        run: dotnet restore CmdWarden.sln
+
+      - name: Build
+        run: >
+          dotnet build CmdWarden.sln
+          -c Release
+          --no-restore
+          -p:Version=${{ env.VERSION }}
+          -p:PackageVersion=${{ env.VERSION }}
+
+      - name: Test
+        run: dotnet test CmdWarden.sln -c Release --no-build --verbosity normal
+
+      - name: Pack tool (nupkg)
+        # Pack rebuilds/publishes for PackAsTool so agent/ + shim-payload/ inject correctly.
+        run: >
+          dotnet pack src/CmdWarden.Cli/CmdWarden.Cli.csproj
+          -c Release
+          -o ${{ github.workspace }}/artifacts/nupkg
+          -p:Version=${{ env.VERSION }}
+          -p:PackageVersion=${{ env.VERSION }}
+
+      - name: Publish Windows exes
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:GITHUB_WORKSPACE "artifacts/bin"
+          if (Test-Path $out) { Remove-Item $out -Recurse -Force }
+          New-Item -ItemType Directory -Path $out | Out-Null
+
+          # Framework-dependent publish (no RID): produces cw.exe (+ cmdwarden, agent/, shim-payload/).
+          # Avoid -r win-x64: nested Agent MSBuild lacks that RID in assets. Needs .NET 10 runtime to run.
+          dotnet publish src/CmdWarden.Cli/CmdWarden.Cli.csproj `
+            -c Release `
+            -o $out `
+            -p:Version=$env:VERSION `
+            -p:PackageVersion=$env:VERSION `
+            -p:PublishSingleFile=false
+
+          $required = @(
+            "cw.exe",
+            "cmdwarden.exe",
+            "agent\CmdWarden.Agent.exe",
+            "shim-payload\gh.exe",
+            "shim-payload\git.exe",
+            "shim-payload\az.exe",
+            "shim-payload\docker.exe",
+            "shim-payload\docker-credential-cmdwarden.exe"
+          )
+          foreach ($rel in $required) {
+            $p = Join-Path $out $rel
+            if (-not (Test-Path $p)) {
+              Write-Host "Publish tree:"
+              Get-ChildItem $out -Recurse -File | Select-Object -ExpandProperty FullName
+              throw "Missing expected binary after publish: $rel"
+            }
+          }
+
+          $zip = Join-Path $env:GITHUB_WORKSPACE "artifacts/CmdWarden.$($env:VERSION)-win-x64.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path (Join-Path $out '*') -DestinationPath $zip -Force
+          Write-Host "Wrote $zip"
+          Get-Item $zip | Format-List Name, Length
+
+      - name: Create GitHub Release and attach assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $nupkg = Join-Path $env:GITHUB_WORKSPACE "artifacts/nupkg/CmdWarden.$($env:VERSION).nupkg"
+          $zip = Join-Path $env:GITHUB_WORKSPACE "artifacts/CmdWarden.$($env:VERSION)-win-x64.zip"
+          if (-not (Test-Path $nupkg)) {
+            Get-ChildItem (Join-Path $env:GITHUB_WORKSPACE "artifacts/nupkg") -ErrorAction SilentlyContinue
+            throw "Missing nupkg: $nupkg"
+          }
+          if (-not (Test-Path $zip)) {
+            throw "Missing zip: $zip"
+          }
+
+          $v = $env:VERSION
+          $notes = @"
+          ## CmdWarden $v
+
+          First-catalog Windows CLI secret gate (Session Agent, vault, policy, harden/shims, scan).
+
+          ### Assets
+
+          | Asset | Use |
+          |-------|-----|
+          | ``CmdWarden.$v.nupkg`` | Preferred: install as a global **dotnet tool** |
+          | ``CmdWarden.$v-win-x64.zip`` | Unzipped binaries: ``cw.exe``, ``cmdwarden.exe``, ``agent/``, ``shim-payload/`` (needs .NET 10 runtime) |
+
+          ### Install as dotnet tool (preferred)
+
+          1. Download ``CmdWarden.$v.nupkg`` from this Release into a local folder (e.g. ``C:\packages``).
+             If the repository is private, sign in to GitHub in the browser first.
+          2. Install:
+
+          ``````powershell
+          dotnet tool install -g CmdWarden --add-source C:\packages --version $v
+          cw version
+          cw doctor
+          ``````
+
+          ### Use the zip (optional)
+
+          1. Download and extract ``CmdWarden.$v-win-x64.zip``.
+          2. Run ``cw.exe`` / ``cmdwarden.exe`` from the extract folder (or add it to PATH).
+          3. Session Agent is under ``agent\CmdWarden.Agent.exe``; harden payloads under ``shim-payload\``.
+
+          ### After install
+
+          See the repository README and user guide for ``cw agent start``, policy enroll, ``cw harden``, and ``cw scan``.
+          Install is binaries only; harden is opt-in for PATH shims.
+
+          ### Update (tool)
+
+          ``````powershell
+          dotnet tool update -g CmdWarden --add-source C:\packages --version <new-version>
+          ``````
+          "@
+          $notes = ($notes -split "`n" | ForEach-Object { $_ -replace '^          ', '' }) -join "`n"
+          $notesPath = Join-Path $env:RUNNER_TEMP "release-notes.md"
+          Set-Content -Path $notesPath -Value $notes.Trim() -Encoding utf8
+
+          gh release create $env:TAG $nupkg $zip `
+            --title "CmdWarden $v" `
+            --notes-file $notesPath `
+            --verify-tag

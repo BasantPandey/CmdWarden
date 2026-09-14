@@ -1,0 +1,297 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>CmdWarden.Cli</RootNamespace>
+    <AssemblyName>cw</AssemblyName>
+    <Description>CmdWarden CLI (primary binary name: cw; alias cmdwarden via copy).</Description>
+    <Version>0.1.0</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>cw</ToolCommandName>
+    <PackageId>CmdWarden</PackageId>
+    <PackageTags>cmdwarden;security;windows;cli</PackageTags>
+    <PackageDescription>CmdWarden CLI + Session Agent + Approval Gate helper (per-user). State under LocalAppData\CmdWarden; install is binaries-only (.NET desktop; no Windows App Runtime).</PackageDescription>
+    <Authors>CmdWarden</Authors>
+    <!-- Tool package layout: tools/net10.0/any/ -->
+    <PackageOutputPath>$(MSBuildThisFileDirectory)..\..\artifacts\nupkg\</PackageOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CmdWarden.Contracts\CmdWarden.Contracts.csproj" />
+    <!-- Build shims for payload copy only; do not pull tool apphosts into CLI output/publish root. -->
+    <ProjectReference Include="..\CmdWarden.Shim.Gh\CmdWarden.Shim.Gh.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+      <ExcludeAssets>all</ExcludeAssets>
+    </ProjectReference>
+    <ProjectReference Include="..\CmdWarden.Shim.Git\CmdWarden.Shim.Git.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+      <ExcludeAssets>all</ExcludeAssets>
+    </ProjectReference>
+    <ProjectReference Include="..\CmdWarden.Helper.Git\CmdWarden.Helper.Git.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+      <ExcludeAssets>all</ExcludeAssets>
+    </ProjectReference>
+    <ProjectReference Include="..\CmdWarden.Shim.Az\CmdWarden.Shim.Az.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+      <ExcludeAssets>all</ExcludeAssets>
+    </ProjectReference>
+    <ProjectReference Include="..\CmdWarden.Shim.Docker\CmdWarden.Shim.Docker.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+      <ExcludeAssets>all</ExcludeAssets>
+    </ProjectReference>
+    <ProjectReference Include="..\CmdWarden.Helper.Docker\CmdWarden.Helper.Docker.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+      <ExcludeAssets>all</ExcludeAssets>
+    </ProjectReference>
+  </ItemGroup>
+  <!-- Build agent for bundling without ProjectReference (avoids orphan apphosts in CLI output). -->
+  <Target Name="BuildAgentForBundle" BeforeTargets="Build;CopyAgentPayload">
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)..\CmdWarden.Agent\CmdWarden.Agent.csproj"
+      Targets="Build"
+      Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework)" />
+  </Target>
+  <!-- Build Approval Gate helper (net10.0-windows WPF) for agent/approval-gate/ bundle (#81). -->
+  <Target Name="BuildApprovalGateForBundle" BeforeTargets="Build;CopyApprovalGatePayload">
+    <!-- Force windows TFM: pack/global TargetFramework=net10.0 must not override the helper. -->
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)..\CmdWarden.ApprovalGate\CmdWarden.ApprovalGate.csproj"
+      Targets="Build"
+      Properties="Configuration=$(Configuration);TargetFramework=net10.0-windows" />
+  </Target>
+  <!-- Build Secrets Manager (net10.0-windows WPF) for secrets-manager/ bundle (#96). -->
+  <Target Name="BuildSecretsManagerForBundle" BeforeTargets="Build;CopySecretsManagerPayload">
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)..\CmdWarden.SecretsManager\CmdWarden.SecretsManager.csproj"
+      Targets="Build"
+      Properties="Configuration=$(Configuration);TargetFramework=net10.0-windows" />
+  </Target>
+  <!-- Alias: copy apphost only; it still loads cw.dll (name is baked into the host). -->
+  <Target Name="CopyCmdwardenAlias" AfterTargets="Build">
+    <Copy
+      SourceFiles="$(TargetDir)$(AssemblyName).exe"
+      DestinationFiles="$(TargetDir)cmdwarden.exe"
+      SkipUnchangedFiles="true"
+      Condition="Exists('$(TargetDir)$(AssemblyName).exe')" />
+  </Target>
+  <!-- Bundle gh + git shim outputs under shim-payload/ for `cw harden` (dev + tool package). -->
+  <Target Name="CopyGhShimPayload" AfterTargets="Build">
+    <PropertyGroup>
+      <_ShimOut>$(MSBuildThisFileDirectory)..\CmdWarden.Shim.Gh\bin\$(Configuration)\$(TargetFramework)\</_ShimOut>
+    </PropertyGroup>
+    <ItemGroup>
+      <_ShimFiles Include="$(_ShimOut)**\*.*"
+                  Exclude="$(_ShimOut)**\*.pdb;$(_ShimOut)**\*.xml"
+                  Condition="Exists('$(_ShimOut)gh.exe') or Exists('$(_ShimOut)gh.dll')" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(_ShimFiles)"
+      DestinationFiles="@(_ShimFiles->'$(TargetDir)shim-payload\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+      Condition="'@(_ShimFiles)' != ''" />
+  </Target>
+  <Target Name="CopyGitShimPayload" AfterTargets="Build">
+    <PropertyGroup>
+      <_GitShimOut>$(MSBuildThisFileDirectory)..\CmdWarden.Shim.Git\bin\$(Configuration)\$(TargetFramework)\</_GitShimOut>
+    </PropertyGroup>
+    <ItemGroup>
+      <_GitShimFiles Include="$(_GitShimOut)**\*.*"
+                     Exclude="$(_GitShimOut)**\*.pdb;$(_GitShimOut)**\*.xml"
+                     Condition="Exists('$(_GitShimOut)git.exe') or Exists('$(_GitShimOut)git.dll')" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(_GitShimFiles)"
+      DestinationFiles="@(_GitShimFiles->'$(TargetDir)shim-payload\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+      Condition="'@(_GitShimFiles)' != ''" />
+  </Target>
+  <Target Name="CopyGitHelperPayload" AfterTargets="Build;CopyGitShimPayload">
+    <PropertyGroup>
+      <_GitHelperOut>$(MSBuildThisFileDirectory)..\CmdWarden.Helper.Git\bin\$(Configuration)\$(TargetFramework)\</_GitHelperOut>
+    </PropertyGroup>
+    <ItemGroup>
+      <_GitHelperFiles Include="$(_GitHelperOut)**\*.*"
+                       Exclude="$(_GitHelperOut)**\*.pdb;$(_GitHelperOut)**\*.xml"
+                       Condition="Exists('$(_GitHelperOut)git-credential-cmdwarden.exe') or Exists('$(_GitHelperOut)git-credential-cmdwarden.dll')" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(_GitHelperFiles)"
+      DestinationFiles="@(_GitHelperFiles->'$(TargetDir)shim-payload\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+      Condition="'@(_GitHelperFiles)' != ''" />
+  </Target>
+  <Target Name="CopyAzShimPayload" AfterTargets="Build">
+    <PropertyGroup>
+      <_AzShimOut>$(MSBuildThisFileDirectory)..\CmdWarden.Shim.Az\bin\$(Configuration)\$(TargetFramework)\</_AzShimOut>
+    </PropertyGroup>
+    <ItemGroup>
+      <_AzShimFiles Include="$(_AzShimOut)**\*.*"
+                    Exclude="$(_AzShimOut)**\*.pdb;$(_AzShimOut)**\*.xml"
+                    Condition="Exists('$(_AzShimOut)az.exe') or Exists('$(_AzShimOut)az.dll')" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(_AzShimFiles)"
+      DestinationFiles="@(_AzShimFiles->'$(TargetDir)shim-payload\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+      Condition="'@(_AzShimFiles)' != ''" />
+  </Target>
+  <Target Name="CopyDockerShimPayload" AfterTargets="Build">
+    <PropertyGroup>
+      <_DockerShimOut>$(MSBuildThisFileDirectory)..\CmdWarden.Shim.Docker\bin\$(Configuration)\$(TargetFramework)\</_DockerShimOut>
+    </PropertyGroup>
+    <ItemGroup>
+      <_DockerShimFiles Include="$(_DockerShimOut)**\*.*"
+                       Exclude="$(_DockerShimOut)**\*.pdb;$(_DockerShimOut)**\*.xml"
+                       Condition="Exists('$(_DockerShimOut)docker.exe') or Exists('$(_DockerShimOut)docker.dll')" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(_DockerShimFiles)"
+      DestinationFiles="@(_DockerShimFiles->'$(TargetDir)shim-payload\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+      Condition="'@(_DockerShimFiles)' != ''" />
+  </Target>
+  <Target Name="CopyDockerHelperPayload" AfterTargets="Build">
+    <PropertyGroup>
+      <_DockerHelperOut>$(MSBuildThisFileDirectory)..\CmdWarden.Helper.Docker\bin\$(Configuration)\$(TargetFramework)\</_DockerHelperOut>
+    </PropertyGroup>
+    <ItemGroup>
+      <_DockerHelperFiles Include="$(_DockerHelperOut)**\*.*"
+                         Exclude="$(_DockerHelperOut)**\*.pdb;$(_DockerHelperOut)**\*.xml"
+                         Condition="Exists('$(_DockerHelperOut)docker-credential-cmdwarden.exe')" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(_DockerHelperFiles)"
+      DestinationFiles="@(_DockerHelperFiles->'$(TargetDir)shim-payload\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+      Condition="'@(_DockerHelperFiles)' != ''" />
+  </Target>
+  <!-- Bundle Session Agent under agent/ for cw agent start and tool package (#36/#37). -->
+  <Target Name="CopyAgentPayload" AfterTargets="Build">
+    <PropertyGroup>
+      <_AgentOut>$(MSBuildThisFileDirectory)..\CmdWarden.Agent\bin\$(Configuration)\$(TargetFramework)\</_AgentOut>
+    </PropertyGroup>
+    <ItemGroup>
+      <_AgentFiles Include="$(_AgentOut)**\*.*"
+                   Exclude="$(_AgentOut)**\*.xml;$(_AgentOut)**\*.pdb;$(_AgentOut)**\*.staticwebassets.*"
+                   Condition="Exists('$(_AgentOut)CmdWarden.Agent.dll') or Exists('$(_AgentOut)CmdWarden.Agent.exe')" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(_AgentFiles)"
+      DestinationFiles="@(_AgentFiles->'$(TargetDir)agent\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+      Condition="'@(_AgentFiles)' != ''" />
+  </Target>
+  <!--
+    Bundle Approval Gate helper under agent/approval-gate/ (ticket #81).
+    Isolated folder so net10.0-windows WPF deps do not clash with agent net10.0.
+    Process gate looks for agent/approval-gate/CmdWarden.ApprovalGate.exe (baseDir = agent/).
+  -->
+  <Target Name="CopyApprovalGatePayload" AfterTargets="Build;CopyAgentPayload" DependsOnTargets="BuildApprovalGateForBundle">
+    <PropertyGroup>
+      <_ApprovalGateOut>$(MSBuildThisFileDirectory)..\CmdWarden.ApprovalGate\bin\$(Configuration)\net10.0-windows\</_ApprovalGateOut>
+    </PropertyGroup>
+    <ItemGroup>
+      <_ApprovalGateFiles Include="$(_ApprovalGateOut)**\*.*"
+                          Exclude="$(_ApprovalGateOut)**\*.pdb;$(_ApprovalGateOut)**\*.xml"
+                          Condition="Exists('$(_ApprovalGateOut)CmdWarden.ApprovalGate.exe') or Exists('$(_ApprovalGateOut)CmdWarden.ApprovalGate.dll')" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(_ApprovalGateFiles)"
+      DestinationFiles="@(_ApprovalGateFiles->'$(TargetDir)agent\approval-gate\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+      Condition="'@(_ApprovalGateFiles)' != ''" />
+  </Target>
+  <!--
+    Bundle Secrets Manager under secrets-manager/ (ticket #96).
+    Isolated at tool root (not under agent/) so net10.0-windows WPF deps stay separate.
+  -->
+  <Target Name="CopySecretsManagerPayload" AfterTargets="Build" DependsOnTargets="BuildSecretsManagerForBundle">
+    <PropertyGroup>
+      <_SecretsManagerOut>$(MSBuildThisFileDirectory)..\CmdWarden.SecretsManager\bin\$(Configuration)\net10.0-windows\</_SecretsManagerOut>
+    </PropertyGroup>
+    <ItemGroup>
+      <_SecretsManagerFiles Include="$(_SecretsManagerOut)**\*.*"
+                            Exclude="$(_SecretsManagerOut)**\*.pdb;$(_SecretsManagerOut)**\*.xml"
+                            Condition="Exists('$(_SecretsManagerOut)CmdWarden.SecretsManager.exe') or Exists('$(_SecretsManagerOut)CmdWarden.SecretsManager.dll')" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(_SecretsManagerFiles)"
+      DestinationFiles="@(_SecretsManagerFiles->'$(TargetDir)secrets-manager\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+      Condition="'@(_SecretsManagerFiles)' != ''" />
+  </Target>
+  <!--
+    PackAsTool packs the publish directory under tools/$(TFM)/any/.
+    Inject agent/, shim-payload/, secrets-manager/, and cmdwarden.exe so tool install is self-contained
+    (AgentLocator + cw harden gh without a source tree). Issue #37 / #96.
+  -->
+  <Target Name="IncludePayloadsInPublish"
+          AfterTargets="ComputeFilesToPublish"
+          DependsOnTargets="BuildAgentForBundle;CopyAgentPayload;BuildApprovalGateForBundle;CopyApprovalGatePayload;BuildSecretsManagerForBundle;CopySecretsManagerPayload;CopyGhShimPayload;CopyGitShimPayload;CopyGitHelperPayload;CopyAzShimPayload;CopyDockerShimPayload;CopyCmdwardenAlias">
+    <!-- Drop accidental root-level tool shim apphosts if any residual files remain from older builds. -->
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+                             Condition="'%(Filename)%(Extension)' == 'gh.exe'
+                                        or '%(Filename)%(Extension)' == 'gh.dll'
+                                        or '%(Filename)%(Extension)' == 'gh.deps.json'
+                                        or '%(Filename)%(Extension)' == 'gh.runtimeconfig.json'
+                                        or '%(Filename)%(Extension)' == 'gh.pdb'
+                                        or '%(Filename)%(Extension)' == 'git.exe'
+                                        or '%(Filename)%(Extension)' == 'git.dll'
+                                        or '%(Filename)%(Extension)' == 'git.deps.json'
+                                        or '%(Filename)%(Extension)' == 'git.runtimeconfig.json'
+                                        or '%(Filename)%(Extension)' == 'git.pdb'
+                                        or '%(Filename)%(Extension)' == 'git-credential-cmdwarden.exe'
+                                        or '%(Filename)%(Extension)' == 'git-credential-cmdwarden.dll'
+                                        or '%(Filename)%(Extension)' == 'git-credential-cmdwarden.deps.json'
+                                        or '%(Filename)%(Extension)' == 'git-credential-cmdwarden.runtimeconfig.json'
+                                        or '%(Filename)%(Extension)' == 'git-credential-cmdwarden.pdb'
+                                        or '%(Filename)%(Extension)' == 'az.exe'
+                                        or '%(Filename)%(Extension)' == 'az.dll'
+                                        or '%(Filename)%(Extension)' == 'az.deps.json'
+                                        or '%(Filename)%(Extension)' == 'az.runtimeconfig.json'
+                                        or '%(Filename)%(Extension)' == 'az.pdb'
+                                        or '%(Filename)%(Extension)' == 'docker.exe'
+                                        or '%(Filename)%(Extension)' == 'docker.dll'
+                                        or '%(Filename)%(Extension)' == 'docker.deps.json'
+                                        or '%(Filename)%(Extension)' == 'docker.runtimeconfig.json'
+                                        or '%(Filename)%(Extension)' == 'docker.pdb'" />
+    </ItemGroup>
+    <ItemGroup Condition="Exists('$(TargetDir)agent')">
+      <_AgentPublish Include="$(TargetDir)agent\**\*.*" />
+      <ResolvedFileToPublish Include="@(_AgentPublish)">
+        <RelativePath>agent\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+    <ItemGroup Condition="Exists('$(TargetDir)shim-payload')">
+      <_ShimPublish Include="$(TargetDir)shim-payload\**\*.*" />
+      <ResolvedFileToPublish Include="@(_ShimPublish)">
+        <RelativePath>shim-payload\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+    <ItemGroup Condition="Exists('$(TargetDir)cmdwarden.exe')">
+      <ResolvedFileToPublish Include="$(TargetDir)cmdwarden.exe">
+        <RelativePath>cmdwarden.exe</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+    <ItemGroup Condition="Exists('$(TargetDir)secrets-manager')">
+      <_SecretsManagerPublish Include="$(TargetDir)secrets-manager\**\*.*" />
+      <ResolvedFileToPublish Include="@(_SecretsManagerPublish)">
+        <RelativePath>secrets-manager\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+</Project>

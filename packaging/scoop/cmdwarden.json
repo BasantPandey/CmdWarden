@@ -1,0 +1,32 @@
+{
+  "version": "0.1.0",
+  "description": "Windows CLI secret gate by tool and launcher identity (cw).",
+  "homepage": "https://github.com/BasantPandey/CmdWarden",
+  "license": "Unknown",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/BasantPandey/CmdWarden/releases/download/v0.1.0/CmdWarden.0.1.0-win-x64.zip",
+      "hash": "af5b4c9d7e467c5a04afde0e52e053208a8e0042a6a25ea08be02634a8e42396"
+    }
+  },
+  "bin": [
+    "cw.exe",
+    "cmdwarden.exe"
+  ],
+  "checkver": {
+    "github": "https://github.com/BasantPandey/CmdWarden"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/BasantPandey/CmdWarden/releases/download/v$version/CmdWarden.$version-win-x64.zip"
+      }
+    }
+  },
+  "notes": [
+    "CmdWarden needs .NET 10 runtime.",
+    "After install: cw doctor",
+    "Private GitHub releases need a public URL or Scoop with auth proxy.",
+    "Global tool install remains: scripts/Install-CmdWarden.ps1"
+  ]
+}

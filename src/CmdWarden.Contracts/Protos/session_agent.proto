@@ -1,0 +1,210 @@
+syntax = "proto3";
+
+option csharp_namespace = "CmdWarden.Contracts.Grpc";
+
+package cmdwarden;
+
+// Session Agent surface.
+service SessionAgent {
+  rpc GetHealth (HealthRequest) returns (HealthResponse);
+  rpc ResolveCallerIdentity (CallerIdentityRequest) returns (CallerIdentityResponse);
+  rpc SaveSecret (SaveSecretRequest) returns (SaveSecretResponse);
+  rpc ReleaseSecret (ReleaseSecretRequest) returns (ReleaseSecretResponse);
+  rpc DeleteSecret (DeleteSecretRequest) returns (DeleteSecretResponse);
+  // Names only — never blobs, never values, on the wire.
+  rpc ListSecretNames (ListSecretNamesRequest) returns (ListSecretNamesResponse);
+  // Authorize tool invocation (gh spike vertical) — Grant | Denial via status.
+  rpc Authorize (AuthorizeRequest) returns (AuthorizeResponse);
+  // Active "Allow for session" grants (#134). Read-only; never prompts; names only, never values.
+  rpc ListSessionAllows (ListSessionAllowsRequest) returns (ListSessionAllowsResponse);
+  // Withdraw one grant by id, or all. Returns the count removed. Never prompts.
+  rpc RevokeSessionAllow (RevokeSessionAllowRequest) returns (RevokeSessionAllowResponse);
+  // Credential helper gate (#202). The Agent derives vault name and class; the caller sends none.
+  rpc HelperCredential (HelperCredentialRequest) returns (HelperCredentialResponse);
+  // Strong gh (#208): after a granted auth login/refresh/logout run, move stock gh tokens into the vault.
+  rpc MigrateToolStore (MigrateToolStoreRequest) returns (MigrateToolStoreResponse);
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  string product = 1;
+  string version = 2;
+  bool alive = 3;
+  int32 process_id = 4;
+  string user_name = 5;
+  string machine_name = 6;
+  string pipe_name = 7;
+  string session_id = 8;
+  // Caller identity summary (issue #4)
+  int32 client_pid = 9;
+  string launcher_policy_key = 10;
+  string launcher_kind = 11;
+  bool auto_approve_eligible = 12;
+  string launcher_path = 13;
+}
+
+message CallerIdentityRequest {}
+
+message ProcessIdentity {
+  int32 pid = 1;
+  string path = 2;
+  string kind = 3; // authenticode | pathhash | unknown
+  string policy_key = 4;
+  string publisher = 5;
+  string thumbprint = 6;
+  string sha256 = 7;
+  bool pid_reuse_suspected = 8;
+  string file_name = 9;
+}
+
+message CallerIdentityResponse {
+  int32 client_pid = 1;
+  bool client_pid_from_pipe = 2;
+  string selected_policy_key = 3;
+  string selected_kind = 4;
+  bool auto_approve_eligible = 5;
+  string selected_path = 6;
+  repeated ProcessIdentity chain = 7;
+  string notes = 8;
+}
+
+message SaveSecretRequest {
+  string name = 1;
+  bytes value = 2;
+}
+
+message SaveSecretResponse {
+  string target_name = 1;
+}
+
+message ReleaseSecretRequest {
+  string name = 1;
+  // Caller purpose label (e.g. inject) — audit only; not the policy class.
+  string purpose = 2;
+  // Tool id for policy lookup (e.g. gh, inject). Empty → "inject".
+  string tool = 3;
+  // Command class: read | write | secret-reveal | unknown. Empty → unknown (fail closed).
+  string command_class = 4;
+  // Child command line for the Approval card and approval memory (#200). Display only.
+  string command_line = 5;
+}
+
+message ReleaseSecretResponse {
+  string name = 1;
+  bytes value = 2;
+  string target_name = 3;
+  string launcher_policy_key = 4;
+  string launcher_kind = 5;
+  string tool = 6;
+  string command_class = 7;
+  string policy_level = 8;
+  string decision = 9; // auto-allow
+  string enrollment_kind = 10;
+}
+
+message DeleteSecretRequest {
+  string name = 1;
+}
+
+message DeleteSecretResponse {
+  bool deleted = 1;
+}
+
+message ListSecretNamesRequest {}
+
+message ListSecretNamesResponse {
+  repeated string names = 1;
+}
+
+message AuthorizeRequest {
+  string tool = 1;              // e.g. "gh"
+  repeated string argv = 2;     // args after tool name (or full including tool — server normalizes)
+  string secret_name = 3;       // vault name for GH_TOKEN inject; empty → "GH_TOKEN"
+  // Caller env the Agent classifies or routes by: GIT_CONFIG_KEY_<n> (#207), GH_HOST (#208). Never secrets.
+  map<string, string> caller_env = 4;
+}
+
+message ListSessionAllowsRequest {}
+
+// One active session allow. Names only — no secret values, no command lines.
+message SessionAllowRow {
+  string id = 1;
+  string launcher_policy_key = 2;
+  string launcher_kind = 3;
+  int32 pid = 4;
+  string tool = 5;
+  string secret_name = 6;
+  string command_class = 7;      // read | write | unknown (never secret-reveal)
+  string granted_at_utc = 8;     // ISO 8601 round-trip
+  string last_used_utc = 9;      // ISO 8601 round-trip
+  string idle_expires_utc = 10;  // ISO 8601 round-trip
+}
+
+message ListSessionAllowsResponse {
+  repeated SessionAllowRow rows = 1;
+}
+
+message RevokeSessionAllowRequest {
+  string id = 1;    // ignored when all = true
+  bool all = 2;
+}
+
+message RevokeSessionAllowResponse {
+  int32 removed = 1;
+}
+
+message AuthorizeResponse {
+  bool allowed = 1;
+  string real_path = 2;
+  string real_sha256 = 3;
+  map<string, string> env = 4;  // child-only, e.g. GH_TOKEN + GH_PATH
+  string decision = 5;          // auto-allow | allow-once
+  string command_class = 6;
+  string policy_level = 7;
+  string launcher_policy_key = 8;
+  string launcher_kind = 9;
+  string enrollment_kind = 10;
+  string tool = 11;
+  string reason_code = 12;      // empty when allowed
+  string message = 13;
+  repeated string strip_env = 14;  // env names the shim removes from the child (#207 strong git)
+  bool migrate_after_run = 15;     // strong gh: call MigrateToolStore when the child exits 0 (#208)
+}
+
+message HelperCredentialRequest {
+  string tool = 1;        // docker | git
+  string action = 2;      // get | store | erase | list
+  string server_url = 3;  // vault key under CmdWarden/<tool>/; empty for list
+  string username = 4;    // get lookup and store
+  string secret = 5;      // store / erase compare
+  string password_expiry_utc = 6;   // git store / get
+  string oauth_refresh_token = 7;   // git store / get
+  bool ephemeral = 8;               // git store: never persist
+}
+
+message HelperCredentialEntry {
+  string server_url = 1;
+  string username = 2;
+}
+
+message HelperCredentialResponse {
+  string username = 1;                    // get
+  string secret = 2;                      // get
+  repeated HelperCredentialEntry entries = 3;  // list: no secret values
+  string decision = 4;
+  string reason_code = 5;
+  string command_class = 6;
+  string password_expiry_utc = 7;         // git get
+  string oauth_refresh_token = 8;         // git get
+}
+
+message MigrateToolStoreRequest {
+  string tool = 1;            // gh
+  repeated string argv = 2;   // the run that just exited 0; logout reconciles, login/refresh migrate
+}
+
+message MigrateToolStoreResponse {
+  repeated string migrated = 1;  // vault keys written or confirmed equal
+  repeated string deleted = 2;   // stock targets or vault keys removed
+}
