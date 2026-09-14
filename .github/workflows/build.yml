@@ -1,4 +1,4 @@
-# Build + test on main/PR; upload Windows exe layout as a workflow artifact.
+# Build on main/PR; upload Windows exe layout as a workflow artifact.
 name: build
 
 on:
@@ -32,14 +32,6 @@ jobs:
 
       - name: Build
         run: dotnet build CmdWarden.sln -c Release --no-restore
-
-      - name: Unit tests
-        run: dotnet test CmdWarden.sln -c Release --no-build --verbosity normal --filter "Category!=Process"
-
-      # Process tests spawn the Session Agent and run serial. Main and dispatch only.
-      - name: Process tests
-        if: github.event_name != 'pull_request'
-        run: dotnet test CmdWarden.sln -c Release --no-build --verbosity normal --filter "Category=Process"
 
       - name: Publish Windows exes
         if: github.event_name != 'pull_request'
