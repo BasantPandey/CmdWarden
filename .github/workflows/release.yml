@@ -12,6 +12,7 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+      packages: write
 
     steps:
       - name: Checkout
@@ -56,6 +57,13 @@ jobs:
           -o ${{ github.workspace }}/artifacts/nupkg
           -p:Version=${{ env.VERSION }}
           -p:PackageVersion=${{ env.VERSION }}
+
+      - name: Push nupkg to GitHub Packages
+        run: >
+          dotnet nuget push ${{ github.workspace }}/artifacts/nupkg/CmdWarden.${{ env.VERSION }}.nupkg
+          --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+          --api-key ${{ secrets.GITHUB_TOKEN }}
+          --skip-duplicate
 
       - name: Publish Windows exes
         shell: pwsh

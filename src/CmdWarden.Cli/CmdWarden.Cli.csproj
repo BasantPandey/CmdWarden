@@ -16,6 +16,8 @@
     <PackageTags>cmdwarden;security;windows;cli</PackageTags>
     <PackageDescription>CmdWarden CLI + Session Agent + Approval Gate helper (per-user). State under LocalAppData\CmdWarden; install is binaries-only (.NET desktop; no Windows App Runtime).</PackageDescription>
     <Authors>CmdWarden</Authors>
+    <RepositoryUrl>https://github.com/BasantPandey/CmdWarden</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/BasantPandey/CmdWarden</PackageProjectUrl>
     <!-- Tool package layout: tools/net10.0/any/ -->
     <PackageOutputPath>$(MSBuildThisFileDirectory)..\..\artifacts\nupkg\</PackageOutputPath>
   </PropertyGroup>
