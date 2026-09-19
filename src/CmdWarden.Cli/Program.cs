@@ -71,16 +71,16 @@ public static class CliApp
         try
         {
             var result = DockerStrongHarden.Unharden(new DockerStrongOptions());
-            Console.WriteLine($"{ProductInfo.Name} unharden docker");
+            Ui.Title($"{ProductInfo.Name} unharden docker");
             if (result.RestoredCredsStore is not null)
             {
-                Console.WriteLine($"  credentials: {result.RestoredUrls.Count} registries written back to the Docker store");
-                Console.WriteLine($"  credsStore:  {(result.RestoredCredsStore.Length == 0 ? "(removed)" : result.RestoredCredsStore)}");
+                Ui.Kv("credentials", $"{result.RestoredUrls.Count} registries written back to the Docker store");
+                Ui.Kv("credsStore", (result.RestoredCredsStore.Length == 0 ? "(removed)" : result.RestoredCredsStore));
             }
-            Console.WriteLine($"  pin:         {(result.PinRemoved ? "removed" : "none")}");
-            Console.WriteLine($"  shim:        {(result.ShimRemoved ? "removed" : "none")}");
-            Console.WriteLine($"  helper:      {(result.HelperRemoved ? "removed" : "none")}");
-            Console.WriteLine("next: run cw doctor");
+            Ui.Kv("pin", (result.PinRemoved ? "removed" : "none"));
+            Ui.Kv("shim", (result.ShimRemoved ? "removed" : "none"));
+            Ui.Kv("helper", (result.HelperRemoved ? "removed" : "none"));
+            Ui.Line(Ui.Dim("next: run cw doctor"));
             return 0;
         }
         catch (Exception ex)
@@ -95,16 +95,16 @@ public static class CliApp
         try
         {
             var result = GitStrongHarden.Unharden(new GitStrongOptions());
-            Console.WriteLine($"{ProductInfo.Name} unharden git");
+            Ui.Title($"{ProductInfo.Name} unharden git");
             if (result.RestoredHelpers is not null)
             {
-                Console.WriteLine($"  credentials: {result.RestoredKeys.Count} entries written back to the GCM store");
-                Console.WriteLine($"  helper:      credential.helper = {(result.RestoredHelpers.Count == 0 ? "(unset)" : string.Join(", ", result.RestoredHelpers))}");
+                Ui.Kv("credentials", $"{result.RestoredKeys.Count} entries written back to the GCM store");
+                Ui.Kv("helper", $"credential.helper = {(result.RestoredHelpers.Count == 0 ? "(unset)" : string.Join(", ", result.RestoredHelpers))}");
             }
-            Console.WriteLine($"  pin:         {(result.PinRemoved ? "removed" : "none")}");
-            Console.WriteLine($"  shim:        {(result.ShimRemoved ? "removed" : "none")}");
-            Console.WriteLine($"  helper exe:  {(result.HelperRemoved ? "removed" : "none")}");
-            Console.WriteLine("next: run cw doctor");
+            Ui.Kv("pin", (result.PinRemoved ? "removed" : "none"));
+            Ui.Kv("shim", (result.ShimRemoved ? "removed" : "none"));
+            Ui.Kv("helper exe", (result.HelperRemoved ? "removed" : "none"));
+            Ui.Line(Ui.Dim("next: run cw doctor"));
             return 0;
         }
         catch (Exception ex)
@@ -119,12 +119,12 @@ public static class CliApp
         try
         {
             var result = GhStrongHarden.Unharden(new GhStrongOptions());
-            Console.WriteLine($"{ProductInfo.Name} unharden gh");
+            Ui.Title($"{ProductInfo.Name} unharden gh");
             if (result.WasStrong)
-                Console.WriteLine($"  tokens:      {result.Restored.Count} entries written back to the gh store (compat GH_TOKEN left in the vault)");
-            Console.WriteLine($"  pin:         {(result.PinRemoved ? "removed" : "none")}");
-            Console.WriteLine($"  shim:        {(result.ShimRemoved ? "removed" : "none")}");
-            Console.WriteLine("next: run cw doctor");
+                Ui.Kv("tokens", $"{result.Restored.Count} entries written back to the gh store (compat GH_TOKEN left in the vault)");
+            Ui.Kv("pin", (result.PinRemoved ? "removed" : "none"));
+            Ui.Kv("shim", (result.ShimRemoved ? "removed" : "none"));
+            Ui.Line(Ui.Dim("next: run cw doctor"));
             return 0;
         }
         catch (Exception ex)
@@ -477,7 +477,7 @@ public static class CliApp
     {
         var status = HardenedToolStatus.Probe(tool);
         if (status.Reason?.StartsWith(HardenedToolStatus.ShimNotFirstPrefix, StringComparison.Ordinal) == true)
-            Console.WriteLine($"Hint: {status.Reason}");
+            Ui.Line($"{Ui.Warn("Hint:")} {Ui.E(status.Reason)}");
     }
 
     private static async Task<int> WhoAmIAsync()
@@ -843,9 +843,6 @@ public static class CliApp
                     Console.Error.WriteLine(
                         "Warning: current launcher is not auto-approve eligible; enrollment still saved.");
                 }
-
-                Ui.Line($"Using selected policy key: [bold]{Ui.E(policyKey)}[/]");
-                Ui.Kv("path", id.SelectedPath);
             }
             catch (Exception ex) when (AgentHealthClient.IsAgentUnreachable(ex))
             {
@@ -863,11 +860,16 @@ public static class CliApp
         var store = LoadPolicyStore();
         store.Enroll(policyKey, kind, displayPath);
         store.Save();
-        Ui.Line($"{Ui.Ok("Enrolled")} [bold]{Ui.E(policyKey)}[/] as {Ui.E(LauncherEnrollmentKindNames.Format(kind))}.");
+        Ui.Title($"{ProductInfo.Name} policy enroll");
+        Ui.Line($"  {Ui.Dim("launcher:")} [bold]{Ui.E(policyKey)}[/]");
+        if (!string.IsNullOrEmpty(displayPath))
+            Ui.Kv("path", displayPath);
+        Ui.Kv("kind", LauncherEnrollmentKindNames.Format(kind));
         Ui.Kv("default level", kind == LauncherEnrollmentKind.AiHarness
             ? PolicyLevelNames.Format(store.DefaultAiHarnessLevel)
             : PolicyLevelNames.Format(store.DefaultTerminalLevel));
         Ui.Kv("policy file", store.Path);
+        Ui.Line($"  {Ui.Ok("Enrolled.")} {Ui.Dim("Next: cw policy set <policyKey> <tool> <Deny|Read|Trusted|Full>")}");
         return 0;
     }
 
@@ -1232,7 +1234,7 @@ public static class CliApp
                     return code;
             }
 
-            Console.WriteLine($"{ProductInfo.Name} harden gh ({(strong ? "strong" : "compat")} mode)");
+            Ui.Title($"{ProductInfo.Name} harden gh ({(strong ? "strong" : "compat")} mode)");
             var result = await Ui.StatusAsync("Pinning gh and installing the shim...", () => GhHarden.RunAsync(new GhHardenOptions
             {
                 RealGhPath = realPath,
@@ -1241,27 +1243,27 @@ public static class CliApp
                 SkipUserPath = skipPath,
             })).ConfigureAwait(false);
 
-            Console.WriteLine($"  real gh:     {result.RealGhPath}");
-            Console.WriteLine($"  pin sha256:  {result.PinSha256}");
-            Console.WriteLine($"  shim:        {result.ShimExePath}");
-            Console.WriteLine($"  shims dir:   {result.ShimsDir}");
-            Console.WriteLine($"  user PATH:   {(result.UserPathUpdated ? "updated (prepended shims dir)" : "unchanged / skipped")}");
+            Ui.Kv("real gh", result.RealGhPath);
+            Ui.Kv("pin sha256", result.PinSha256);
+            Ui.Kv("shim", result.ShimExePath);
+            Ui.Kv("shims dir", result.ShimsDir);
+            Ui.Kv("user PATH", (result.UserPathUpdated ? "updated (prepended shims dir)" : "unchanged / skipped"));
             if (strong && OperatingSystem.IsWindows())
             {
                 var migrated = GhStrongHarden.Migrate(new GhStrongOptions { TokenOverride = tokenOverride, Hostname = hostname });
-                Console.WriteLine($"  tokens:      {migrated.Migrated.Count} entries in the vault; {migrated.Deleted.Count} stock entries erased{(migrated.HostsStripped ? "; oauth_token stripped from hosts.yml" : "")}");
+                Ui.Kv("tokens", $"{migrated.Migrated.Count} entries in the vault; {migrated.Deleted.Count} stock entries erased{(migrated.HostsStripped ? "; oauth_token stripped from hosts.yml" : "")}");
                 foreach (var h in migrated.Hosts)
-                    Console.WriteLine($"  host:        {h.Host} - {h.Users.Count} accounts, active {h.ActiveUser ?? "(none)"}");
+                    Ui.Kv("host", $"{h.Host} - {h.Users.Count} accounts, active {h.ActiveUser ?? "(none)"}");
             }
             else
             {
-                Console.WriteLine($"  token:       {(result.TokenImported ? "imported as GH_TOKEN" : result.TokenImportNote)}");
+                Ui.Kv("token", (result.TokenImported ? "imported as GH_TOKEN" : result.TokenImportNote));
             }
             Console.WriteLine();
-            Console.WriteLine("Next: cw policy enroll --kind terminal");
-            Console.WriteLine("Then: open a new shell (PATH refresh) and run gh via PATH.");
+            Ui.Line(Ui.Dim("Next: cw policy enroll --kind terminal"));
+            Ui.Line(Ui.Dim("Then: open a new shell (PATH refresh) and run gh via PATH."));
             if (!strong)
-                Console.WriteLine("Note: absolute-path to real gh bypasses the shim (compat residual). Run cw harden gh --strong to move the tokens.");
+                Ui.Line(Ui.Dim("Note: absolute-path to real gh bypasses the shim (compat residual). Run cw harden gh --strong to move the tokens."));
             PrintShimOrderHint("gh");
             return 0;
         }
@@ -1290,32 +1292,32 @@ public static class CliApp
             }));
             // A compat re-pin keeps an earlier strong mode.
             strong = strong || new ToolPinStore().TryGet(GitHarden.ToolId)?.IsStrong == true;
-            Console.WriteLine($"{ProductInfo.Name} harden git ({(strong ? "strong" : "compat")} mode)");
+            Ui.Title($"{ProductInfo.Name} harden git ({(strong ? "strong" : "compat")} mode)");
 
-            Console.WriteLine($"  real git:    {result.RealGitPath}");
-            Console.WriteLine($"  pin sha256:  {result.PinSha256}");
-            Console.WriteLine($"  shim:        {result.ShimExePath}");
-            Console.WriteLine($"  shims dir:   {result.ShimsDir}");
-            Console.WriteLine($"  user PATH:   {(result.UserPathUpdated ? "updated (prepended shims dir)" : "unchanged / skipped")}");
+            Ui.Kv("real git", result.RealGitPath);
+            Ui.Kv("pin sha256", result.PinSha256);
+            Ui.Kv("shim", result.ShimExePath);
+            Ui.Kv("shims dir", result.ShimsDir);
+            Ui.Kv("user PATH", (result.UserPathUpdated ? "updated (prepended shims dir)" : "unchanged / skipped"));
             if (strong && OperatingSystem.IsWindows())
             {
                 var migrated = GitStrongHarden.Migrate(new GitStrongOptions());
-                Console.WriteLine($"  credentials: {migrated.MigratedKeys.Count} {migrated.Namespace}: entries moved to the vault; legacy entries erased");
-                Console.WriteLine($"  helper:      credential.helper = [\"\", {migrated.HelperValue}] (was: {(migrated.PreviousHelpers.Count == 0 ? "(unset)" : string.Join(", ", migrated.PreviousHelpers))})");
+                Ui.Kv("credentials", $"{migrated.MigratedKeys.Count} {migrated.Namespace}: entries moved to the vault; legacy entries erased");
+                Ui.Kv("helper", $"credential.helper = [\"\", {migrated.HelperValue}] (was: {(migrated.PreviousHelpers.Count == 0 ? "(unset)" : string.Join(", ", migrated.PreviousHelpers))})");
                 foreach (var key in migrated.RemovedGhBlocks.Select(b => b.Key).Distinct())
-                    Console.WriteLine($"  gh block:    removed {key} (saved for cw unharden git)");
+                    Ui.Kv("gh block", $"removed {key} (saved for cw unharden git)");
             }
             else
             {
-                Console.WriteLine($"  credentials: {result.CredentialNote}");
+                Ui.Kv("credentials", result.CredentialNote);
             }
             Console.WriteLine();
-            Console.WriteLine("Next: cw policy enroll --kind terminal");
-            Console.WriteLine("Then: open a new shell (PATH refresh) and run git via PATH.");
+            Ui.Line(Ui.Dim("Next: cw policy enroll --kind terminal"));
+            Ui.Line(Ui.Dim("Then: open a new shell (PATH refresh) and run git via PATH."));
             if (!strong)
             {
-                Console.WriteLine("Note: absolute-path to real git bypasses the shim (compat residual).");
-                Console.WriteLine("Note: allowed git still uses ambient GCM / credential stores (gate only). Run cw harden git --strong to move them.");
+                Ui.Line(Ui.Dim("Note: absolute-path to real git bypasses the shim (compat residual)."));
+                Ui.Line(Ui.Dim("Note: allowed git still uses ambient GCM / credential stores (gate only). Run cw harden git --strong to move them."));
             }
             PrintShimOrderHint("git");
             return 0;
@@ -1331,24 +1333,24 @@ public static class CliApp
     {
         try
         {
-            Console.WriteLine($"{ProductInfo.Name} harden az (compat mode)");
+            Ui.Title($"{ProductInfo.Name} harden az (compat mode)");
             var result = Ui.Status("Pinning az and installing the shim...", () => AzHarden.Run(new AzHardenOptions
             {
                 RealAzPath = realPath,
                 SkipUserPath = skipPath,
             }));
 
-            Console.WriteLine($"  real az:     {result.RealAzPath}");
-            Console.WriteLine($"  pin sha256:  {result.PinSha256}");
-            Console.WriteLine($"  shim:        {result.ShimExePath}");
-            Console.WriteLine($"  shims dir:   {result.ShimsDir}");
-            Console.WriteLine($"  user PATH:   {(result.UserPathUpdated ? "updated (prepended shims dir)" : "unchanged / skipped")}");
-            Console.WriteLine($"  credentials: {result.CredentialNote}");
+            Ui.Kv("real az", result.RealAzPath);
+            Ui.Kv("pin sha256", result.PinSha256);
+            Ui.Kv("shim", result.ShimExePath);
+            Ui.Kv("shims dir", result.ShimsDir);
+            Ui.Kv("user PATH", (result.UserPathUpdated ? "updated (prepended shims dir)" : "unchanged / skipped"));
+            Ui.Kv("credentials", result.CredentialNote);
             Console.WriteLine();
-            Console.WriteLine("Next: cw policy enroll --kind terminal");
-            Console.WriteLine("Then: open a new shell (PATH refresh) and run az via PATH.");
-            Console.WriteLine("Note: absolute-path to real az bypasses the shim (compat residual).");
-            Console.WriteLine("Note: allowed az still uses ambient MSAL under ~/.azure (gate only).");
+            Ui.Line(Ui.Dim("Next: cw policy enroll --kind terminal"));
+            Ui.Line(Ui.Dim("Then: open a new shell (PATH refresh) and run az via PATH."));
+            Ui.Line(Ui.Dim("Note: absolute-path to real az bypasses the shim (compat residual)."));
+            Ui.Line(Ui.Dim("Note: allowed az still uses ambient MSAL under ~/.azure (gate only)."));
             PrintShimOrderHint("az");
             return 0;
         }
@@ -1370,32 +1372,32 @@ public static class CliApp
             }));
             // A compat re-pin keeps an earlier strong mode.
             strong = strong || new ToolPinStore().TryGet(DockerHarden.ToolId)?.IsStrong == true;
-            Console.WriteLine($"{ProductInfo.Name} harden docker ({(strong ? "strong" : "compat")} mode)");
+            Ui.Title($"{ProductInfo.Name} harden docker ({(strong ? "strong" : "compat")} mode)");
 
-            Console.WriteLine($"  real docker: {result.RealDockerPath}");
-            Console.WriteLine($"  pin sha256:  {result.PinSha256}");
-            Console.WriteLine($"  shim:        {result.ShimExePath}");
-            Console.WriteLine($"  shims dir:   {result.ShimsDir}");
-            Console.WriteLine($"  user PATH:   {(result.UserPathUpdated ? "updated (prepended shims dir)" : "unchanged / skipped")}");
+            Ui.Kv("real docker", result.RealDockerPath);
+            Ui.Kv("pin sha256", result.PinSha256);
+            Ui.Kv("shim", result.ShimExePath);
+            Ui.Kv("shims dir", result.ShimsDir);
+            Ui.Kv("user PATH", (result.UserPathUpdated ? "updated (prepended shims dir)" : "unchanged / skipped"));
             if (strong && OperatingSystem.IsWindows())
             {
                 var migrated = DockerStrongHarden.Migrate(new DockerStrongOptions());
-                Console.WriteLine($"  credentials: {migrated.MigratedUrls.Count} registries in vault; legacy entries erased");
-                Console.WriteLine($"  config:      {migrated.ConfigPath} (credsStore: cmdwarden, was: {migrated.PreviousCredsStore ?? "(none)"})");
+                Ui.Kv("credentials", $"{migrated.MigratedUrls.Count} registries in vault; legacy entries erased");
+                Ui.Kv("config", $"{migrated.ConfigPath} (credsStore: cmdwarden, was: {migrated.PreviousCredsStore ?? "(none)"})");
                 foreach (var warning in migrated.Warnings)
-                    Console.WriteLine($"  warning:     {warning}");
+                    Ui.Line($"  {Ui.Warn("warning:")} {Ui.E(warning)}");
             }
             else
             {
-                Console.WriteLine($"  credentials: {result.CredentialNote}");
+                Ui.Kv("credentials", result.CredentialNote);
             }
             Console.WriteLine();
-            Console.WriteLine("Next: cw policy enroll --kind terminal");
-            Console.WriteLine("Then: open a new shell (PATH refresh) and run docker via PATH.");
+            Ui.Line(Ui.Dim("Next: cw policy enroll --kind terminal"));
+            Ui.Line(Ui.Dim("Then: open a new shell (PATH refresh) and run docker via PATH."));
             if (!strong)
             {
-                Console.WriteLine("Note: absolute-path to real docker bypasses the shim (compat residual).");
-                Console.WriteLine($"Note: {HelperTools.DockerHelperExe} is installed. Run cw harden docker --strong to route registry credentials through it.");
+                Ui.Line(Ui.Dim("Note: absolute-path to real docker bypasses the shim (compat residual)."));
+                Ui.Line(Ui.Dim($"Note: {HelperTools.DockerHelperExe} is installed. Run cw harden docker --strong to route registry credentials through it."));
             }
             PrintShimOrderHint("docker");
             return 0;
