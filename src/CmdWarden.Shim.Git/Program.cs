@@ -29,7 +29,7 @@ public static class GitShimApp
             foreach (var (key, value) in ConfigEnv())
                 request.CallerEnv[key] = value;
 
-            using var cts = new CancellationTokenSource(timeout ?? TimeSpan.FromSeconds(30));
+            using var cts = new CancellationTokenSource(timeout ?? ApprovalGateTimeouts.Client);
             var grant = await client.AuthorizeAsync(request, cancellationToken: cts.Token).ConfigureAwait(false);
 
             if (!grant.Allowed)

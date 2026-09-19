@@ -11,7 +11,7 @@ namespace CmdWarden.Agent.Approval;
 [SupportedOSPlatform("windows")]
 public sealed class NativeApprovalGate : IApprovalGate
 {
-    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan DefaultTimeout = ApprovalGateTimeouts.Gate;
 
     private readonly TimeSpan _timeout;
 

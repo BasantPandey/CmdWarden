@@ -762,6 +762,11 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     }
 
     /// <summary>Drop approval memory that a policy edit (set or unenroll) just invalidated (#133).</summary>
+    private bool IsHarnessKey(string policyKey) =>
+        _policy.Launchers.TryGetValue(policyKey, out var entry)
+        && LauncherEnrollmentKindNames.TryParse(entry.Kind, out var kind)
+        && kind == LauncherEnrollmentKind.AiHarness;
+
     private void ApplyPolicyChanges(IReadOnlyList<PolicyStore.PolicyChange> changes)
     {
         foreach (var change in changes)
@@ -871,7 +876,8 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         try
         {
             var http = context.GetHttpContext();
-            return _identity.Resolve(http);
+            ApplyPolicyChanges(_policy.Load());
+            return LauncherIdentityResolver.PreferHarnessAncestor(_identity.Resolve(http), IsHarnessKey);
         }
         catch (Exception ex)
         {

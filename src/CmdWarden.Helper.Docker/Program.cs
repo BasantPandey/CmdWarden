@@ -82,9 +82,8 @@ public static class DockerHelperApp
 
         try
         {
-            // 30 s covers a human click at the Approval Gate.
             var response = await AgentHelperClient.CredentialAsync(
-                "docker", action, serverUrl, username, secret, pipeName, TimeSpan.FromSeconds(30)).ConfigureAwait(false);
+                "docker", action, serverUrl, username, secret, pipeName, ApprovalGateTimeouts.Client).ConfigureAwait(false);
             switch (action)
             {
                 case "get":

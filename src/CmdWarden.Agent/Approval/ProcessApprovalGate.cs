@@ -13,7 +13,7 @@ namespace CmdWarden.Agent.Approval;
 public sealed class ProcessApprovalGate : IApprovalGate
 {
     public const string HelperPathEnvVar = "CW_APPROVAL_GATE_PATH";
-    public static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(5);
+    public static readonly TimeSpan DefaultTimeout = ApprovalGateTimeouts.Gate;
 
     private readonly Func<string?> _resolveHelperPath;
     private readonly Func<ProcessStartInfo, Process?> _startProcess;
