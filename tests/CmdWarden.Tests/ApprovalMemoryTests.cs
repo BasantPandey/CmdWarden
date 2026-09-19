@@ -182,6 +182,23 @@ public class ApprovalMemoryTests
     }
 
     [Fact]
+    public void Transient_entry_lives_while_the_launcher_lives_and_is_swept_when_full()
+    {
+        var memory = new ApprovalMemory();
+        var live = ApprovalMemory.TransientKey(Request(Environment.ProcessId, "git credential fill"))!;
+        memory.RememberTransient(live, ApprovalOutcome.AllowOnce, "key", "git");
+
+        // Fill the map with dead-launcher keys (pid 0); the 256th remember sweeps them.
+        for (var i = 0; i < 256; i++)
+            memory.RememberTransient($"0\n0\nkey\ngit\nread\n\ncmd {i}", ApprovalOutcome.AllowOnce, "key", "git");
+
+        Assert.Equal(ApprovalOutcome.AllowOnce, memory.TryGetTransient(live));
+        Assert.Null(memory.TryGetTransient("0\n0\nkey\ngit\nread\n\ncmd 0"));
+        // Only the live entry and the one that triggered the sweep remain.
+        Assert.Equal(2, memory.ClearForTool("git"));
+    }
+
+    [Fact]
     public void ClearForLauncherKey_drops_only_that_launchers_entries()
     {
         var memory = new ApprovalMemory();

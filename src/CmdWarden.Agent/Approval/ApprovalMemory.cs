@@ -8,7 +8,7 @@ namespace CmdWarden.Agent.Approval;
 
 /// <summary>
 /// In-memory memory of human Approval Gate decisions (#131, #132). Two entry kinds:
-/// a transient entry reuses an exact request's outcome for a short window; a session grant
+/// a transient entry reuses an exact request's outcome while the launcher process lives; a session grant
 /// lets a launcher process pass a command class (and lower) for one tool + secret until the
 /// launcher exits or goes idle. Never persisted: agent restart forgets everything.
 /// </summary>
@@ -16,7 +16,8 @@ public sealed class ApprovalMemory
 {
     public const string TransientWindowEnvVar = "CW_TRANSIENT_REUSE_SECONDS";
     public const string SessionIdleEnvVar = "CW_SESSION_IDLE_SECONDS";
-    public static readonly TimeSpan DefaultTransientWindow = TimeSpan.FromMinutes(5);
+    /// <summary>No time cap: a transient entry lives as long as its launcher process (one session).</summary>
+    public static readonly TimeSpan DefaultTransientWindow = TimeSpan.MaxValue;
     public static readonly TimeSpan DefaultSessionIdle = TimeSpan.FromMinutes(60);
 
     private readonly ConcurrentDictionary<string, TransientEntry> _transient = new();
@@ -93,11 +94,26 @@ public sealed class ApprovalMemory
     {
         if (key is null || outcome is not (ApprovalOutcome.AllowOnce or ApprovalOutcome.Deny))
             return;
-        // ponytail: expired entries linger until their next lookup; sweep if the map ever grows.
-        _transient[key] = new TransientEntry(launcherPolicyKey, tool, outcome, DateTime.UtcNow + _transientWindow);
+        // The key starts with "<pid>\n<startTicks>" (see TransientKey); the sweep needs both.
+        // A key in another shape (unit tests) gets pid 0, which the sweep treats as dead.
+        var head = key.Split('\n', 3);
+        _ = int.TryParse(head[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var pid);
+        var ticks = head.Length > 1 && long.TryParse(head[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var t) ? t : 0;
+        var start = new DateTime(Math.Clamp(ticks, DateTime.MinValue.Ticks, DateTime.MaxValue.Ticks), DateTimeKind.Utc);
+        // ponytail: dead-launcher entries linger until this sweep; 256 bounds the map.
+        if (_transient.Count >= 256)
+            RemoveTransient(e => !IsLive(e.LauncherPid, e.LauncherStartUtc));
+        var expires = _transientWindow == TimeSpan.MaxValue ? DateTime.MaxValue : DateTime.UtcNow + _transientWindow;
+        _transient[key] = new TransientEntry(pid, start, launcherPolicyKey, tool, outcome, expires);
     }
 
-    private sealed record TransientEntry(string LauncherPolicyKey, string Tool, ApprovalOutcome Outcome, DateTime ExpiresUtc);
+    private sealed record TransientEntry(
+        int LauncherPid,
+        DateTime LauncherStartUtc,
+        string LauncherPolicyKey,
+        string Tool,
+        ApprovalOutcome Outcome,
+        DateTime ExpiresUtc);
 
     // ---- session allow (#132) ----
 
