@@ -830,7 +830,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         CommandClass commandClass,
         ApprovalRequest request)
     {
-        var transientKey = ApprovalMemory.TransientKey(launcher.ClientPid, launcher.ClientPidFromPipe, request);
+        var transientKey = ApprovalMemory.TransientKey(request);
         if (_memory.TryGetTransient(transientKey) is { } remembered)
         {
             return new GateResult(remembered, DecisionFor(remembered), PolicyReasonCodes.TransientReuse);

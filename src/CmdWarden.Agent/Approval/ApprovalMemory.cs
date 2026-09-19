@@ -64,17 +64,18 @@ public sealed class ApprovalMemory
     // ---- transient (#131) ----
 
     /// <summary>
-    /// Key for one exact request. Null when the caller is unknown, not pipe-bound, or its
-    /// process is gone, so the lookup counts as a miss. Start time in the key defeats pid reuse.
+    /// Key for one exact request from one launcher. The launcher (harness or terminal) is the
+    /// stable process; a shim client pid is fresh per call and would never match. Null when the
+    /// launcher pid is unknown or its process is gone, so the lookup counts as a miss. Start
+    /// time in the key defeats pid reuse.
     /// </summary>
-    public static string? TransientKey(int clientPid, bool clientPidFromPipe, ApprovalRequest request)
+    public static string? TransientKey(ApprovalRequest request)
     {
-        // A claimed or agent-pid fallback would share one decision across callers.
-        if (!clientPidFromPipe || ProcessStartUtc(clientPid) is not { } start)
+        if (request.LauncherPid is not { } launcherPid || ProcessStartUtc(launcherPid) is not { } start)
             return null;
         // ponytail: newline-joined string; pid + start time bound any field-boundary collision to one process.
-        return string.Join('\n', clientPid, start.Ticks, request.Tool, request.CommandClass,
-            request.SecretName, request.CommandLine ?? "");
+        return string.Join('\n', launcherPid, start.Ticks, request.LauncherPolicyKey, request.Tool,
+            request.CommandClass, request.SecretName, request.CommandLine ?? "");
     }
 
     public ApprovalOutcome? TryGetTransient(string? key)
