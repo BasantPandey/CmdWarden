@@ -214,7 +214,7 @@ Every green **build** on `main` uploads a Windows exe layout. Open [Actions](htt
 
 ### Package managers
 
-Templates for Chocolatey, winget, and Scoop live under [packaging/](../packaging/README.md). The public catalogs need a public download URL, so they work today only against a local or internal feed.
+Templates for Chocolatey, winget, and Scoop live under [packaging/](https://github.com/BasantPandey/CmdWarden/tree/main/packaging). The public catalogs need a public download URL, so they work today only against a local or internal feed.
 
 ---
 
@@ -288,4 +288,4 @@ Tool install location:
 
 ---
 
-Next: [Policy quick start](policy-quickstart.md) · [User guide](user-guide.md) · [README](../README.md)
+Next: [Policy quick start](policy-quickstart.md) · [User guide](user-guide.md) · [README](index.md)

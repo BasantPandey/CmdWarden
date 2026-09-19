@@ -2,7 +2,7 @@
 
 Good policy for `gh`, `git`, `az`, `docker`, and your own scripts, without reading the full [user guide](user-guide.md). Copy one block, pick one profile, work.
 
-Install first: [install.md](install.md). Terms: [CONTEXT.md](../CONTEXT.md).
+Install first: [install.md](install.md). Terms: [Glossary](glossary.md).
 
 ---
 
@@ -183,7 +183,7 @@ cw harden git --strong     # .git-credentials -> Vault; git uses git-credential-
 cw harden docker --strong  # config.json auths -> Vault; docker uses docker-credential-cmdwarden
 ```
 
-`az` has no strong mode. It stays compat. `cw unharden <tool>` writes the originals back. Detail: [user guide UC6](user-guide.md#uc6---gate-git--az--docker-the-agent-might-run).
+`az` has no strong mode. It stays compat. `cw unharden <tool>` writes the originals back. Detail: [UC6](use-cases/gate-git-az-docker.md).
 
 ---
 

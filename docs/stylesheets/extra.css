@@ -1,0 +1,25 @@
+/* Brand: the Fluent blue of the product mark. */
+:root {
+  --md-primary-fg-color: #0078d4;
+  --md-primary-fg-color--light: #60cdff;
+  --md-primary-fg-color--dark: #005a9e;
+  --md-accent-fg-color: #0078d4;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #0f2a44;
+  --md-accent-fg-color: #60cdff;
+  --md-typeset-a-color: #60cdff;
+}
+
+/* Screenshots: never wider than the text column, soft edge, centered. */
+.md-typeset img {
+  border-radius: 6px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
+}
+
+.md-typeset img.hero {
+  display: block;
+  margin: 0 auto;
+  max-width: 480px;
+}

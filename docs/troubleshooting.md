@@ -1,0 +1,10 @@
+# Troubleshooting
+
+1. **Session Agent down** - `cw doctor` / `cw agent status` → `cw agent start` (reinstall tool if agent binary missing). CmdWarden Vault shows a yellow **Session Agent not running** banner and disables actions.
+   If the detail says **pipe exists but denied access**, an agent runs elevated or as another user. That happens when an admin terminal ran `cw`. Stop that agent from an admin shell (`cw agent stop`), then run `cw agent start` from a normal shell. A normal Vault window cannot reach an elevated agent, and an elevated Vault window cannot reach a normal one.
+2. **Always blocked / no Approval Gate** - `cw whoami`, `cw policy list` → enroll; use interactive desktop for the Gate.
+3. **Tool skips CmdWarden** - `where.exe gh`, `cw scan` → new shell; PATH not absolute real binary; re-`cw harden …`.
+   `cw doctor` and `cw harden --list` show `Degraded - shim not first on PATH: <entry> (machine|user) precedes shims` when a real tool sits before the shims dir. A machine entry needs `cw doctor --fix-path`: one UAC prompt prepends `%LOCALAPPDATA%\CmdWarden\shims` to the machine PATH as `REG_EXPAND_SZ`, checks the logon PATH expands it (else it writes the literal path), and prints `shims first on PATH (machine)`. Open a new terminal after the fix. Doctor prints `info: this terminal started before the last PATH change; open a new terminal` when this shell has an old PATH copy.
+4. **Auth fails after harden (gh)** - `cw audit` → re-`cw harden gh`; do not rely on ambient parent-shell `GH_TOKEN` for the gated path.
+5. **Vault app missing from Start Menu or Desktop** - `cw shortcut status` → `cw shortcut install --desktop`. If it reports **Vault UI binary not found**, repack so `secrets-manager\` sits next to `cw`, or set `CW_SECRETS_MANAGER_PATH`. If `cw` says **Unknown command: shortcut**, the installed tool is old; rebuild and reinstall ([Install](install.md), Option B).
+6. **Undo** - [UC8](use-cases/undo-and-uninstall.md).

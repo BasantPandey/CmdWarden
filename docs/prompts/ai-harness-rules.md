@@ -2,7 +2,7 @@
 
 For Windows developers who use AI harnesses (Cursor, Claude Code, Codex, and similar) with `gh`, `git`, `az`, and `docker` under CmdWarden.
 
-Copy the block below into the rules file of your harness: `CLAUDE.md`, `.cursorrules`, `AGENTS.md`, or the system prompt. Enroll the harness first ([user guide, UC2 Part 2](../user-guide.md#part-2---enroll-the-ai-harness-stricter-needs-click-to-release-secrets)).
+Copy the block below into the rules file of your harness: `CLAUDE.md`, `.cursorrules`, `AGENTS.md`, or the system prompt. Enroll the harness first ([user guide, UC2 Part 2](../use-cases/approve-secret-read-mid-session.md#part-2-enroll-the-ai-harness-stricter-needs-click-to-release-secrets)).
 
 ````markdown
 # CmdWarden rules

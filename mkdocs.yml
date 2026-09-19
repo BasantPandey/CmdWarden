@@ -1,0 +1,102 @@
+site_name: CmdWarden
+site_description: Gate CLI secret use on Windows by tool and launcher. Your terminal stays trusted. AI harnesses get a policy and an approval card.
+site_url: https://basantpandey.github.io/CmdWarden/
+repo_url: https://github.com/BasantPandey/CmdWarden
+repo_name: BasantPandey/CmdWarden
+edit_uri: edit/main/docs/
+copyright: CmdWarden is open source. Windows only.
+
+theme:
+  name: material
+  language: en
+  logo: images/logo.svg
+  favicon: images/logo.svg
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+    - toc.follow
+
+nav:
+  - Home: index.md
+  - Get started:
+      - Install: install.md
+      - Policy quick start: policy-quickstart.md
+      - AI harness rules: prompts/ai-harness-rules.md
+  - Use cases:
+      - use-cases/index.md
+      - UC1 Gate your GitHub token: use-cases/gate-github-token-from-ai-agent.md
+      - UC2 Approve a secret read mid-session: use-cases/approve-secret-read-mid-session.md
+      - UC3 Agent reads, writes need approval: use-cases/agent-reads-github-writes-need-approval.md
+      - UC4 Trust your terminal, not the agent: use-cases/trust-terminal-not-agent.md
+      - UC5 One-shot secret for a script: use-cases/one-shot-secret-for-script.md
+      - UC6 Gate git, az, and docker: use-cases/gate-git-az-docker.md
+      - UC7 Audit and scan: use-cases/audit-and-scan.md
+      - UC8 Undo or uninstall: use-cases/undo-and-uninstall.md
+      - UC9 Secrets in the Vault app: use-cases/vault-add-remove-secrets.md
+  - Guide:
+      - user-guide.md
+      - How it works: concepts.md
+      - CmdWarden Vault app: vault.md
+      - Troubleshooting: troubleshooting.md
+      - CLI reference: cli-reference.md
+      - Glossary: glossary.md
+  - Internals:
+      - Architecture: spec/cmdwarden.md
+      - Approval Gate UI: spec/approval-gate-ui.md
+      - Vault secrets UI: spec/vault-secrets-ui.md
+      - Management shell tabs: spec/management-shell-tabs.md
+      - CLI TUI: spec/cli-tui.md
+
+exclude_docs: |
+  plan/
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.snippets:
+      base_path: [".", "docs"]
+      check_paths: true
+
+plugins:
+  - search
+
+extra_css:
+  - stylesheets/extra.css
+
+validation:
+  links:
+    absolute_links: relative_to_docs
+    anchors: warn
+    unrecognized_links: warn
