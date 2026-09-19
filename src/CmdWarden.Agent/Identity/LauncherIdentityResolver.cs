@@ -170,6 +170,48 @@ public sealed class LauncherIdentityResolver
         return client;
     }
 
+    /// <summary>
+    /// An enrolled AI harness above the selected launcher wins. A harness that spawns
+    /// bash.exe or pwsh.exe must not get the shell's terminal level.
+    /// </summary>
+    public static LauncherResolution PreferHarnessAncestor(
+        LauncherResolution resolution,
+        Func<string, bool> isHarnessKey)
+    {
+        var chain = resolution.Chain;
+        var start = 0;
+        for (var i = 0; i < chain.Count; i++)
+        {
+            if (ReferenceEquals(chain[i], resolution.Selected))
+            {
+                start = i + 1;
+                break;
+            }
+        }
+
+        if (isHarnessKey(resolution.Selected.PolicyKey))
+            return resolution;
+
+        for (var i = start; i < chain.Count; i++)
+        {
+            var n = chain[i];
+            if (n.PidReuseSuspected || n.Kind == LauncherKinds.Unknown || !isHarnessKey(n.PolicyKey))
+                continue;
+
+            return new LauncherResolution
+            {
+                ClientPid = resolution.ClientPid,
+                ClientPidFromPipe = resolution.ClientPidFromPipe,
+                Selected = n,
+                Chain = chain,
+                AutoApproveEligible = n.Kind is LauncherKinds.Authenticode or LauncherKinds.PathHash,
+                Notes = Append(resolution.Notes, $"ai-harness ancestor pid {n.Pid} selected over nearer launcher"),
+            };
+        }
+
+        return resolution;
+    }
+
     private static string Append(string existing, string add) =>
         string.IsNullOrEmpty(existing) ? add : existing + "; " + add;
 }

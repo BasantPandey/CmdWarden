@@ -18,7 +18,7 @@ public static class AgentAuthorizeClient
         using var channel = AgentChannelFactory.Create(pipeName, timeout);
         var client = new SessionAgent.SessionAgentClient(channel);
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        cts.CancelAfter(timeout ?? TimeSpan.FromSeconds(30));
+        cts.CancelAfter(timeout ?? ApprovalGateTimeouts.Client);
 
         var request = new AuthorizeRequest
         {

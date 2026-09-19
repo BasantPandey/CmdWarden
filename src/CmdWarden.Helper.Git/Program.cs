@@ -45,7 +45,7 @@ public static class GitCredentialHelperApp
                 attrs.Username,
                 attrs.Password,
                 pipeName,
-                timeout ?? TimeSpan.FromSeconds(30),
+                timeout ?? ApprovalGateTimeouts.Client,
                 attrs.PasswordExpiryUtc,
                 attrs.OauthRefreshToken,
                 attrs.Ephemeral).ConfigureAwait(false);

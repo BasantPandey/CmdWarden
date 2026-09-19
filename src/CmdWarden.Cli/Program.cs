@@ -611,7 +611,8 @@ public static class CliApp
                         purpose: "inject",
                         tool: options.Tool,
                         commandClass: options.CommandClass,
-                        commandLine: commandLine)
+                        commandLine: commandLine,
+                        timeout: ApprovalGateTimeouts.Client)
                     .ConfigureAwait(false);
                 var raw = released.Value.ToByteArray();
                 try
@@ -1086,7 +1087,6 @@ public static class CliApp
 
         Ui.Title($"{ProductInfo.Name} audit (last {lines.Count})");
         Ui.Kv("path", log.DirectoryPath);
-        var table = Ui.Table("time", "decision", "tool", "class", "level", "launcher", "reason", "secret");
         foreach (var line in lines)
         {
             var r = AuditFormatter.Parse(line);
@@ -1095,16 +1095,16 @@ public static class CliApp
                 Console.WriteLine(AuditFormatter.FormatLine(line));
                 continue;
             }
-            var decision = r.Decision.ToLowerInvariant() switch
+            var decision = r.Decision switch
             {
-                "allow" or "allowed" => Ui.Ok(r.Decision),
-                "deny" or "denied" or "block" or "blocked" => Ui.Fail(r.Decision),
-                _ => Ui.Warn(r.Decision),
+                GateDecisions.AutoAllow or GateDecisions.AllowOnce or GateDecisions.SessionGrant or GateDecisions.SessionAllow => Ui.Ok(r.Decision.PadRight(13)),
+                GateDecisions.Deny => Ui.Fail(r.Decision.PadRight(13)),
+                _ => Ui.Warn(r.Decision.PadRight(13)),
             };
-            table.AddRow(Ui.E(r.Ts), decision, Ui.E(r.Tool), Ui.E(r.CommandClass), Ui.E(r.Level),
-                Ui.E(r.LauncherKey), Ui.E(r.Reason), Ui.E(r.Secret));
+            var reason = r.Reason.Length > 0 ? "  " + Ui.Dim(r.Reason) : "";
+            Ui.Line($"  {Ui.Dim(LocalTime(r.Ts))}  {decision} {Ui.E(r.Tool),-7} {Ui.E(r.CommandClass),-13} {Ui.E(r.Level),-7} [bold]{Ui.E(r.Secret)}[/]");
+            Ui.Line($"      {Ui.Dim("launcher " + r.LauncherKey)}{reason}");
         }
-        AnsiConsole.Write(table);
 
         return 0;
     }

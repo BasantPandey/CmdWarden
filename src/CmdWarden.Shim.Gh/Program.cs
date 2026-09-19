@@ -30,7 +30,7 @@ public static class GhShimApp
             if (Environment.GetEnvironmentVariable("GH_HOST") is { Length: > 0 } ghHost)
                 request.CallerEnv["GH_HOST"] = ghHost;
 
-            using var cts = new CancellationTokenSource(timeout ?? TimeSpan.FromSeconds(30));
+            using var cts = new CancellationTokenSource(timeout ?? ApprovalGateTimeouts.Client);
             var grant = await client.AuthorizeAsync(request, cancellationToken: cts.Token).ConfigureAwait(false);
 
             if (!grant.Allowed)
