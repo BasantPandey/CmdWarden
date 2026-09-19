@@ -572,8 +572,10 @@ public static class CliApp
 
             var response = await AgentVaultClient.SaveAsync(name, valueBytes).ConfigureAwait(false);
             Array.Clear(valueBytes);
-            Console.WriteLine($"Saved secret '{name}' as Credential Manager target '{response.TargetName}'.");
-            Console.WriteLine("Release is gated by policy (enroll launcher with: cw policy enroll --kind terminal).");
+            Ui.Title($"{ProductInfo.Name} save");
+            Ui.Line($"  {Ui.Dim("secret:")} [bold]{Ui.E(name)}[/]");
+            Ui.Kv("target", response.TargetName);
+            Ui.Line($"  {Ui.Ok("Saved.")} {Ui.Dim("Release is gated by policy: cw policy enroll --kind terminal")}");
             return 0;
         }
         catch (Exception ex) when (AgentHealthClient.IsAgentUnreachable(ex))
@@ -1021,7 +1023,9 @@ public static class CliApp
         try
         {
             var deleted = await AgentVaultClient.DeleteAsync(args[0]).ConfigureAwait(false);
-            Console.WriteLine(deleted ? $"Deleted secret '{args[0]}'." : $"Secret '{args[0]}' was not present.");
+            Ui.Title($"{ProductInfo.Name} delete");
+            Ui.Line($"  {Ui.Dim("secret:")} [bold]{Ui.E(args[0])}[/]");
+            Ui.Line($"  {(deleted ? Ui.Ok("Deleted.") : Ui.Warn("Not present."))}");
             return 0;
         }
         catch (Exception ex) when (AgentHealthClient.IsAgentUnreachable(ex))
