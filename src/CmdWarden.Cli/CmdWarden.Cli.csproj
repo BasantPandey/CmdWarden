@@ -13,11 +13,12 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>cw</ToolCommandName>
     <PackageId>CmdWarden</PackageId>
-    <PackageTags>cmdwarden;security;windows;cli</PackageTags>
+    <PackageTags>cmdwarden;security;windows;cli;secrets;ai-agents;claude-code;cursor;gh;git;docker;az</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageDescription>CmdWarden CLI + Session Agent + Approval Gate helper (per-user). State under LocalAppData\CmdWarden; install is binaries-only (.NET desktop; no Windows App Runtime).</PackageDescription>
     <Authors>CmdWarden</Authors>
     <RepositoryUrl>https://github.com/BasantPandey/CmdWarden</RepositoryUrl>
-    <PackageProjectUrl>https://github.com/BasantPandey/CmdWarden</PackageProjectUrl>
+    <PackageProjectUrl>https://basantpandey.github.io/CmdWarden/</PackageProjectUrl>
     <!-- Tool package layout: tools/net10.0/any/ -->
     <PackageOutputPath>$(MSBuildThisFileDirectory)..\..\artifacts\nupkg\</PackageOutputPath>
   </PropertyGroup>
