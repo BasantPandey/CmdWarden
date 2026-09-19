@@ -489,25 +489,27 @@ public static class CliApp
         try
         {
             var id = await AgentHealthClient.ResolveIdentityAsync().ConfigureAwait(false);
-            Console.WriteLine($"{ProductInfo.Name} caller identity");
-            Console.WriteLine($"  client pid: {id.ClientPid} (from pipe: {id.ClientPidFromPipe})");
-            Console.WriteLine($"  selected kind: {id.SelectedKind}");
-            Console.WriteLine($"  selected policy key: {id.SelectedPolicyKey}");
-            Console.WriteLine($"  selected path: {id.SelectedPath}");
-            Console.WriteLine($"  auto-approve eligible: {id.AutoApproveEligible}");
+            Ui.Title($"{ProductInfo.Name} caller identity");
+            Ui.Kv("client pid", $"{id.ClientPid} (from pipe: {id.ClientPidFromPipe})");
+            Ui.Kv("selected kind", id.SelectedKind);
+            Ui.Kv("selected policy key", id.SelectedPolicyKey);
+            Ui.Kv("selected path", id.SelectedPath);
+            Ui.Line($"  {Ui.Dim("auto-approve eligible:")} {(id.AutoApproveEligible ? Ui.Ok("True") : Ui.Warn("False"))}");
             if (!string.IsNullOrEmpty(id.Notes))
-                Console.WriteLine($"  notes: {id.Notes}");
-            Console.WriteLine("  chain:");
+                Ui.Kv("notes", id.Notes);
+
+            var chain = new Tree(Ui.Dim("process chain (caller first)"));
             foreach (var node in id.Chain)
             {
-                var reuse = node.PidReuseSuspected ? " [pid-reuse?]" : "";
-                Console.WriteLine(
-                    $"    pid={node.Pid} kind={node.Kind} key={node.PolicyKey}{reuse}");
-                if (!string.IsNullOrEmpty(node.Path))
-                    Console.WriteLine($"      path={node.Path}");
+                var selected = node.PolicyKey == id.SelectedPolicyKey;
+                var pid = selected ? $"[bold green]{node.Pid}[/]" : $"[bold]{node.Pid}[/]";
+                var reuse = node.PidReuseSuspected ? $" {Ui.Warn("[pid-reuse?]")}" : "";
+                var item = chain.AddNode($"{pid} {Ui.E(node.Kind)}{reuse}  {Ui.E(node.Path)}");
+                item.AddNode($"{Ui.Dim("key:")} {Ui.E(node.PolicyKey)}");
                 if (!string.IsNullOrEmpty(node.Publisher))
-                    Console.WriteLine($"      publisher={node.Publisher}");
+                    item.AddNode($"{Ui.Dim("publisher:")} {Ui.E(node.Publisher)}");
             }
+            AnsiConsole.Write(chain);
 
             return 0;
         }
@@ -842,8 +844,8 @@ public static class CliApp
                         "Warning: current launcher is not auto-approve eligible; enrollment still saved.");
                 }
 
-                Console.WriteLine($"Using selected policy key: {policyKey}");
-                Console.WriteLine($"  path: {id.SelectedPath}");
+                Ui.Line($"Using selected policy key: [bold]{Ui.E(policyKey)}[/]");
+                Ui.Kv("path", id.SelectedPath);
             }
             catch (Exception ex) when (AgentHealthClient.IsAgentUnreachable(ex))
             {
@@ -861,11 +863,11 @@ public static class CliApp
         var store = LoadPolicyStore();
         store.Enroll(policyKey, kind, displayPath);
         store.Save();
-        Console.WriteLine($"Enrolled {policyKey} as {LauncherEnrollmentKindNames.Format(kind)}.");
-        Console.WriteLine($"  default level: {(kind == LauncherEnrollmentKind.AiHarness
+        Ui.Line($"{Ui.Ok("Enrolled")} [bold]{Ui.E(policyKey)}[/] as {Ui.E(LauncherEnrollmentKindNames.Format(kind))}.");
+        Ui.Kv("default level", kind == LauncherEnrollmentKind.AiHarness
             ? PolicyLevelNames.Format(store.DefaultAiHarnessLevel)
-            : PolicyLevelNames.Format(store.DefaultTerminalLevel))}");
-        Console.WriteLine($"  policy file: {store.Path}");
+            : PolicyLevelNames.Format(store.DefaultTerminalLevel));
+        Ui.Kv("policy file", store.Path);
         return 0;
     }
 
