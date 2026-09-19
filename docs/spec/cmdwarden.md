@@ -6,7 +6,7 @@
 **Stack:** C# / .NET, Windows-native  
 **Map:** [CmdWarden product handoff (beyond spike)](https://github.com/BasantPandey/CmdWarden/issues/12)
 
-This document consolidates standing decisions, research, and resolved wayfinder tickets so implementation can proceed without reopening what the product is. Domain language lives in [CONTEXT.md](../../CONTEXT.md). Research notes and prototypes are no longer in the repo. Find them in git history before commit `14e5e6b` under `docs/research/` and `docs/prototypes/`.
+This document consolidates standing decisions, research, and resolved wayfinder tickets so implementation can proceed without reopening what the product is. Domain language lives in [the Glossary](../glossary.md). Research notes and prototypes are no longer in the repo. Find them in git history before commit `14e5e6b` under `docs/research/` and `docs/prototypes/`.
 
 ---
 
@@ -381,11 +381,11 @@ See map [CmdWarden product handoff (beyond spike)](https://github.com/BasantPand
 
 | Doc | Role |
 |-----|------|
-| [CONTEXT.md](../../CONTEXT.md) | Ubiquitous language |
+| [the Glossary](../glossary.md) | Ubiquitous language |
 | [docs/spec/approval-gate-ui.md](./approval-gate-ui.md) | Approval Gate WinUI card implement handoff |
 | [docs/spec/vault-secrets-ui.md](./vault-secrets-ui.md) | Vault secrets manager (Secrets tab) implement handoff |
 | [docs/spec/management-shell-tabs.md](./management-shell-tabs.md) | Management shell tabs implement plan (Doctor, Hardened Tools, Secret Usage, Detectors, Secret Gates) |
-| [README.md](../../README.md) | Build and run |
+| [Home](../index.md) | Build and run |
 | [docs/user-guide.md](../user-guide.md) | End-user guide |
 | Git history before `14e5e6b` | Research notes, prototypes, and the implement plans |
 | GitHub issues | Spike implement + closed decision tickets |

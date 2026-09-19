@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="64" height="64">
+  <!-- Lintel product mark: Fluent cyan tile, two posts and a lintel. Same geometry as scripts/render-lintel-icon.py. -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#60CDFF"/>
+      <stop offset="1" stop-color="#0078D4"/>
+    </linearGradient>
+  </defs>
+  <rect width="16" height="16" rx="3.5" fill="url(#g)"/>
+  <rect x="3" y="4" width="10" height="3" rx="0.6" fill="#F3F3F3"/>
+  <rect x="3" y="4" width="3" height="9" rx="0.6" fill="#F3F3F3"/>
+  <rect x="10" y="4" width="3" height="9" rx="0.6" fill="#F3F3F3"/>
+</svg>

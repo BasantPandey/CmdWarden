@@ -4,7 +4,7 @@
 **Product:** CmdWarden  
 **Scope:** Fill the five stub tabs of the CmdWarden Vault management shell as read-only dashboards: Doctor, Hardened Tools, Secret Usage, Detectors, Secret Gates  
 **Stack:** WPF (`net10.0-windows`), unpackaged Start-menu app, existing hybrid shell from PR #102  
-**Domain language:** [CONTEXT.md](../../CONTEXT.md)  
+**Domain language:** [Glossary](../glossary.md)  
 **Architecture handoff:** [cmdwarden.md](./cmdwarden.md)  
 **PRDs:** [#112](https://github.com/BasantPandey/CmdWarden/issues/112) (Doctor, Hardened Tools, Secret Usage, Detectors), [#113](https://github.com/BasantPandey/CmdWarden/issues/113) (Secret Gates)
 
@@ -154,7 +154,7 @@ Map [Management shell tabs: fill stubs (Doctor -> Gates)](https://github.com/Bas
 | [cmdwarden.md](./cmdwarden.md) | Architecture handoff |
 | [vault-secrets-ui.md](./vault-secrets-ui.md) | Secrets tab brief (shipped) |
 | Git history before `14e5e6b` | Shell prototype and Doctor data source notes |
-| [CONTEXT.md](../../CONTEXT.md) | Ubiquitous language |
+| [Glossary](../glossary.md) | Ubiquitous language |
 
 ---
 

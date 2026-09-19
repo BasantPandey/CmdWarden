@@ -4,7 +4,7 @@
 **Product:** CmdWarden  
 **Scope:** Vault secrets management UI: list names, add/save, delete -- never show secret values  
 **Stack target:** WinUI 3 / Windows App SDK, unpackaged Start-menu app  
-**Domain language:** [CONTEXT.md](../../CONTEXT.md)  
+**Domain language:** [Glossary](../glossary.md)  
 **Architecture handoff:** [cmdwarden.md](./cmdwarden.md) (points here for vault UI)
 
 This brief consolidates closed map decisions so implementers can ship the vault secrets manager without reopening tickets. It does **not** contain production WinUI code.

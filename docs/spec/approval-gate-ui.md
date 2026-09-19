@@ -4,7 +4,7 @@
 **Product:** CmdWarden  
 **Scope:** User-facing Approval Gate chrome only - not a full management app  
 **Stack target:** WinUI 3 / Windows App SDK, unpackaged helper process  
-**Domain language:** [CONTEXT.md](../../CONTEXT.md)  
+**Domain language:** [Glossary](../glossary.md)  
 **Architecture handoff:** [cmdwarden.md](./cmdwarden.md) (points here for UI)
 
 This brief consolidates closed map decisions so implementers can ship the Automic-style **Deny / Approve Once** card without reopening tickets. It does **not** contain production WinUI code.
@@ -229,7 +229,7 @@ From [Research: Windows App SDK redistributable vs current install](https://gith
 
 ## 11. `ApprovalRequest` / payload gaps
 
-Today ([ApprovalOutcome.cs](../../src/CmdWarden.Contracts/ApprovalOutcome.cs)):
+Today ([ApprovalOutcome.cs](https://github.com/BasantPandey/CmdWarden/blob/main/src/CmdWarden.Contracts/ApprovalOutcome.cs)):
 
 ```text
 Tool, CommandClass, PolicyLevel, LauncherPolicyKey, LauncherKind,

@@ -1,5 +1,13 @@
 # CmdWarden
 
+[![build](https://github.com/BasantPandey/CmdWarden/actions/workflows/build.yml/badge.svg)](https://github.com/BasantPandey/CmdWarden/actions/workflows/build.yml)
+[![docs](https://github.com/BasantPandey/CmdWarden/actions/workflows/docs.yml/badge.svg)](https://basantpandey.github.io/CmdWarden/)
+[![release](https://img.shields.io/github/v/release/BasantPandey/CmdWarden?display_name=tag)](https://github.com/BasantPandey/CmdWarden/releases/latest)
+[![platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d4)](docs/install.md)
+[![.NET](https://img.shields.io/badge/.NET-10-512bd4)](https://dotnet.microsoft.com/download)
+
+**Docs site: [basantpandey.github.io/CmdWarden](https://basantpandey.github.io/CmdWarden/)**
+
 CmdWarden gates CLI secret use on Windows by **tool** and **launcher**. Your terminal keeps working. An AI harness (Cursor, Claude Code, Codex) gets a policy and an approval card.
 
 CLI: **`cw`** (alias `cmdwarden`). Desktop app: **CmdWarden Vault**. Stack: C# / .NET 10, Windows only.
@@ -39,13 +47,19 @@ Full setup with profiles and per-tool tables: **[docs/policy-quickstart.md](docs
 
 ## Documentation
 
+The full site is at **[basantpandey.github.io/CmdWarden](https://basantpandey.github.io/CmdWarden/)**. The same pages live in [docs/](docs/).
+
 | Page | Read it when |
 |------|--------------|
 | [Install](docs/install.md) | You install, update, or remove CmdWarden |
 | [Policy quick start](docs/policy-quickstart.md) | You want good policy for `gh`, `git`, `az`, `docker`, and scripts in one page |
-| [User guide](docs/user-guide.md) | You want the full story: use cases, Approval Gate, CmdWarden Vault, troubleshooting |
+| [Use cases](docs/use-cases/index.md) | You want a step-by-step guide for one goal, UC1 to UC9 |
+| [How it works](docs/concepts.md) | You want the model: launchers, policy, shims, the Vault, the Approval Gate |
+| [CmdWarden Vault app](docs/vault.md) | You want every page of the desktop app explained |
+| [Troubleshooting](docs/troubleshooting.md) | Something is blocked, missing, or down |
+| [CLI reference](docs/cli-reference.md) | You want every `cw` command on one page, with screens |
 | [AI harness rules](docs/prompts/ai-harness-rules.md) | You paste rules into Cursor, Claude Code, or Codex |
-| [Domain glossary](CONTEXT.md) | You need the exact meaning of a term |
+| [Glossary](CONTEXT.md) | You need the exact meaning of a term |
 | [Architecture](docs/spec/cmdwarden.md) | You work on the code |
 
 ## Build from source
@@ -61,7 +75,7 @@ Pack and install the tool from this checkout:
 
 ```powershell
 dotnet pack src/CmdWarden.Cli/CmdWarden.Cli.csproj -c Release -o .\artifacts\nupkg
-dotnet tool install -g CmdWarden --add-source .\artifacts\nupkg --version 0.1.0
+dotnet tool install -g CmdWarden --add-source .\artifacts\nupkg
 cw shortcut install --desktop
 ```
 
@@ -79,8 +93,10 @@ cw shortcut install --desktop
 
 Durable state lives under `%LOCALAPPDATA%\CmdWarden\`.
 
+Docs site: `uv run --with mkdocs-material mkdocs serve`. CLI screenshots: `uv run scripts/render-cli-shots.py`.
+
 ## Status
 
-Version **0.1.0**. All four catalog tools work end to end in compat mode. Strong mode is opt-in for `gh`, `git`, and `docker`. Every secret release writes an audit row first, or it fails closed.
+Version **0.2.0**. All four catalog tools work end to end in compat mode. Strong mode is opt-in for `gh`, `git`, and `docker`. Every secret release writes an audit row first, or it fails closed.
 
-Issues and plans: [GitHub issues](https://github.com/BasantPandey/CmdWarden/issues).
+Issues and plans: [GitHub issues](https://github.com/BasantPandey/CmdWarden/issues). Found a bug or want a tool added? Open an issue. Star the repo if CmdWarden saves you a token.
