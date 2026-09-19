@@ -7,46 +7,51 @@ namespace CmdWarden.Cli;
 /// </summary>
 public static class AuditFormatter
 {
-    public static string FormatLine(string ndjsonLine)
+    public sealed record Row(string Ts, string Decision, string Tool, string CommandClass, string Level,
+        string LauncherKey, string Reason, string Secret);
+
+    /// <summary>Parse one NDJSON audit line. Returns null when the line is not JSON.</summary>
+    public static Row? Parse(string ndjsonLine)
     {
         try
         {
             using var doc = JsonDocument.Parse(ndjsonLine);
             var r = doc.RootElement;
-            var ts = Get(r, "ts");
-            var decision = Get(r, "decision");
-            var tool = Get(r, "tool");
-            var cmdClass = Get(r, "commandClass");
-            var level = Get(r, "policyLevel");
-            var key = Get(r, "launcherPolicyKey");
-            var reason = Get(r, "reasonCode");
-            var secret = Get(r, "secretName");
-
-            var parts = new List<string>();
-            if (ts.Length > 0)
-                parts.Add(ts);
-            if (decision.Length > 0)
-                parts.Add(decision);
-            if (tool.Length > 0)
-                parts.Add($"tool={tool}");
-            if (cmdClass.Length > 0)
-                parts.Add($"class={cmdClass}");
-            if (level.Length > 0)
-                parts.Add($"level={level}");
-            if (key.Length > 0)
-                parts.Add($"launcher={key}");
-            if (reason.Length > 0)
-                parts.Add($"reason={reason}");
-            if (secret.Length > 0)
-                parts.Add($"secret={secret}");
-
-            return "  " + string.Join("  ", parts);
+            return new Row(
+                Get(r, "ts"), Get(r, "decision"), Get(r, "tool"), Get(r, "commandClass"),
+                Get(r, "policyLevel"), Get(r, "launcherPolicyKey"), Get(r, "reasonCode"), Get(r, "secretName"));
         }
         catch
         {
-            // Unknown shape: print raw line but never invent secret material.
-            return "  " + ndjsonLine.Trim();
+            return null;
         }
+    }
+
+    public static string FormatLine(string ndjsonLine)
+    {
+        // Unknown shape: print raw line but never invent secret material.
+        if (Parse(ndjsonLine) is not { } r)
+            return "  " + ndjsonLine.Trim();
+
+        var parts = new List<string>();
+        if (r.Ts.Length > 0)
+            parts.Add(r.Ts);
+        if (r.Decision.Length > 0)
+            parts.Add(r.Decision);
+        if (r.Tool.Length > 0)
+            parts.Add($"tool={r.Tool}");
+        if (r.CommandClass.Length > 0)
+            parts.Add($"class={r.CommandClass}");
+        if (r.Level.Length > 0)
+            parts.Add($"level={r.Level}");
+        if (r.LauncherKey.Length > 0)
+            parts.Add($"launcher={r.LauncherKey}");
+        if (r.Reason.Length > 0)
+            parts.Add($"reason={r.Reason}");
+        if (r.Secret.Length > 0)
+            parts.Add($"secret={r.Secret}");
+
+        return "  " + string.Join("  ", parts);
     }
 
     private static string Get(JsonElement root, string name) =>

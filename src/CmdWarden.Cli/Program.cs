@@ -5,6 +5,7 @@ using CmdWarden.Cli.Scan;
 using CmdWarden.Contracts.Scan;
 using CmdWarden.Contracts;
 using CmdWarden.Contracts.Grpc;
+using Spectre.Console;
 
 return await CliApp.RunAsync(args);
 
@@ -15,6 +16,7 @@ public static class CliApp
 {
     public static async Task<int> RunAsync(string[] args)
     {
+        Console.OutputEncoding = Encoding.UTF8;
         if (args.Length == 0 || IsHelp(args[0]))
         {
             PrintHelp();
@@ -153,41 +155,37 @@ public static class CliApp
             return Unknown("doctor " + args[0]);
 
         var pipe = AgentEndpoints.PipeName;
-        Console.WriteLine($"{ProductInfo.Name} doctor");
-        Console.WriteLine($"  product: {ProductInfo.Name} {ProductInfo.Version}");
-        Console.WriteLine($"  pipe: {pipe}");
-        Console.WriteLine($"  product root: {ProductPaths.Root()}");
+        Ui.Title($"{ProductInfo.Name} doctor");
+        var checks = Ui.Table("check", "state", "detail");
+        checks.AddRow(Ui.E("product"), Ui.Ok(), Ui.E($"{ProductInfo.Name} {ProductInfo.Version}"));
+        checks.AddRow(Ui.E("pipe"), Ui.Ok(), Ui.E(pipe));
+        checks.AddRow(Ui.E("product root"), Ui.Ok(), Ui.E(ProductPaths.Root()));
 
         var agentBinary = AgentLocator.FindAgentBinary();
-        Console.WriteLine($"  agent binary: {agentBinary ?? "(not found)"}");
+        checks.AddRow(Ui.E("agent binary"), agentBinary is null ? Ui.Fail() : Ui.Ok(), Ui.E(agentBinary ?? "(not found)"));
 
         var secretsManager = SecretsManagerLocator.FindExePath();
-        Console.WriteLine($"  vault UI binary: {secretsManager ?? "(not found)"}");
+        checks.AddRow(Ui.E("vault UI binary"), secretsManager is null ? Ui.Warn() : Ui.Ok(),
+            Ui.E(secretsManager ?? "(not found) rebuild/pack so secrets-manager/ is next to cw, or set CW_SECRETS_MANAGER_PATH"));
         if (OperatingSystem.IsWindows())
         {
-            var lnk = SecretsManagerStartMenu.ShortcutPath;
-            var lnkState = SecretsManagerStartMenu.ShortcutExists() ? "present" : "missing";
-            Console.WriteLine($"  vault Start Menu shortcut: {lnkState}");
-            Console.WriteLine($"    path: {lnk}");
-            if (secretsManager is null)
-                Console.WriteLine("    hint: rebuild/pack so secrets-manager/ is next to cw, or set CW_SECRETS_MANAGER_PATH");
-            else if (!SecretsManagerStartMenu.ShortcutExists())
-                Console.WriteLine("    hint: cw shortcut install");
+            var lnkPresent = SecretsManagerStartMenu.ShortcutExists();
+            checks.AddRow(Ui.E("vault Start Menu shortcut"), lnkPresent ? Ui.Ok() : Ui.Warn(),
+                Ui.E(lnkPresent ? SecretsManagerStartMenu.ShortcutPath : "missing: cw shortcut install"));
         }
 
-        var status = await AgentLifecycle.StatusAsync(pipe).ConfigureAwait(false);
+        var status = await Ui.StatusAsync("Checking Session Agent...",
+            () => AgentLifecycle.StatusAsync(pipe)).ConfigureAwait(false);
         if (!status.Up)
         {
-            Console.WriteLine("  session agent: DOWN");
-            Console.WriteLine("  attempting lazy start...");
-            status = await AgentLifecycle.EnsureRunningAsync(pipe).ConfigureAwait(false);
+            status = await Ui.StatusAsync("Session Agent is DOWN, starting...",
+                () => AgentLifecycle.EnsureRunningAsync(pipe)).ConfigureAwait(false);
         }
 
         if (!status.Up)
         {
-            Console.WriteLine("  session agent: DOWN");
-            if (!string.IsNullOrWhiteSpace(status.Detail))
-                Console.WriteLine($"  error: {status.Detail}");
+            checks.AddRow(Ui.E("session agent"), Ui.Fail("DOWN"), Ui.E(status.Detail ?? ""));
+            AnsiConsole.Write(checks);
             Console.Error.WriteLine(
                 "Session Agent is not reachable. Start it with: cw agent start");
             Console.Error.WriteLine(
@@ -198,18 +196,28 @@ public static class CliApp
         try
         {
             var health = await AgentHealthClient.GetHealthAsync(pipe).ConfigureAwait(false);
-            PrintAlive(health);
-            Console.WriteLine("  agent status: UP (matches cw agent status)");
+            checks.AddRow(Ui.E("session agent"), Ui.Ok("UP"),
+                Ui.E($"v{health.Version} pid {health.ProcessId} as {health.UserName} on {health.MachineName}"));
+            AnsiConsole.Write(checks);
+
+            Ui.Title("caller");
+            Ui.Kv("caller pid", health.ClientPid.ToString());
+            Ui.Kv("launcher kind", health.LauncherKind);
+            Ui.Kv("launcher policy key", health.LauncherPolicyKey);
+            Ui.Kv("launcher path", health.LauncherPath);
+            Ui.Kv("auto-approve eligible", health.AutoApproveEligible.ToString());
+
+            Ui.Title("hardened tools");
             PrintHardenedTools();
             if (HardenedToolStatus.IsProcessPathStale(
                     HardenedToolStatus.ReadRegistryPath(), Environment.GetEnvironmentVariable("PATH")))
-                Console.WriteLine($"  info: {HardenedToolStatus.StaleProcessPathInfo}");
+                Ui.Line($"{Ui.Warn("info")} {Ui.E(HardenedToolStatus.StaleProcessPathInfo)}");
             return 0;
         }
         catch (Exception ex) when (AgentHealthClient.IsAgentUnreachable(ex))
         {
-            Console.WriteLine("  session agent: DOWN");
-            Console.WriteLine($"  error: {Describe(ex)}");
+            checks.AddRow(Ui.E("session agent"), Ui.Fail("DOWN"), Ui.E(Describe(ex)));
+            AnsiConsole.Write(checks);
             Console.Error.WriteLine("Session Agent is not reachable. Start it with: cw agent start");
             return 2;
         }
@@ -394,26 +402,16 @@ public static class CliApp
     private static async Task<int> AgentStatusAsync(string pipe)
     {
         var st = await AgentLifecycle.StatusAsync(pipe).ConfigureAwait(false);
-        Console.WriteLine($"{ProductInfo.Name} agent status");
-        Console.WriteLine($"  pipe: {st.PipeName}");
-        Console.WriteLine($"  state: {(st.Up ? "UP" : "DOWN")}");
-        if (st.ProcessId is int pid)
-            Console.WriteLine($"  pid: {pid}");
-        if (!string.IsNullOrWhiteSpace(st.Detail))
-            Console.WriteLine($"  detail: {st.Detail}");
+        Ui.Title($"{ProductInfo.Name} agent status");
+        PrintAgentState(st);
         return st.Up ? 0 : 2;
     }
 
     private static async Task<int> AgentStartAsync(string pipe)
     {
-        Console.WriteLine($"{ProductInfo.Name} agent start");
-        Console.WriteLine($"  pipe: {pipe}");
-        var st = await AgentLifecycle.StartAsync(pipe).ConfigureAwait(false);
-        Console.WriteLine($"  state: {(st.Up ? "UP" : "DOWN")}");
-        if (st.ProcessId is int pid)
-            Console.WriteLine($"  pid: {pid}");
-        if (!string.IsNullOrWhiteSpace(st.Detail))
-            Console.WriteLine($"  detail: {st.Detail}");
+        Ui.Title($"{ProductInfo.Name} agent start");
+        var st = await Ui.StatusAsync("Starting Session Agent...", () => AgentLifecycle.StartAsync(pipe)).ConfigureAwait(false);
+        PrintAgentState(st);
         if (!st.Up)
         {
             Console.Error.WriteLine(st.Detail ?? "Session Agent failed to start.");
@@ -425,13 +423,20 @@ public static class CliApp
 
     private static async Task<int> AgentStopAsync(string pipe)
     {
-        Console.WriteLine($"{ProductInfo.Name} agent stop");
-        Console.WriteLine($"  pipe: {pipe}");
+        Ui.Title($"{ProductInfo.Name} agent stop");
         var st = await AgentLifecycle.StopAsync(pipe).ConfigureAwait(false);
-        Console.WriteLine($"  state: {(st.Up ? "UP" : "DOWN")}");
-        if (!string.IsNullOrWhiteSpace(st.Detail))
-            Console.WriteLine($"  detail: {st.Detail}");
+        PrintAgentState(st);
         return st.Up ? 1 : 0;
+    }
+
+    private static void PrintAgentState(AgentLifecycle.StatusResult st)
+    {
+        Ui.Kv("pipe", st.PipeName);
+        Ui.Line($"  {Ui.Dim("state:")} {(st.Up ? Ui.Ok("UP") : Ui.Fail("DOWN"))}");
+        if (st.ProcessId is int pid)
+            Ui.Kv("pid", pid.ToString());
+        if (!string.IsNullOrWhiteSpace(st.Detail))
+            Ui.Kv("detail", st.Detail);
     }
 
     /// <summary>
@@ -452,18 +457,19 @@ public static class CliApp
     /// <summary>One row per catalog tool, same probe as the Hardened Tools tab (#204).</summary>
     private static void PrintHardenedTools()
     {
-        Console.WriteLine("  hardened tools:");
+        var table = Ui.Table("tool", "state", "detail");
         foreach (var tool in ToolCatalog.Tools)
         {
             var status = HardenedToolStatus.Probe(tool.Id);
-            var detail = status.State switch
+            var (state, detail) = status.State switch
             {
-                HardenState.Hardened => status.Note is null ? "Hardened" : $"Hardened ({status.Note})",
-                HardenState.Degraded => $"Degraded - {status.Reason}",
-                _ => "not hardened",
+                HardenState.Hardened => (Ui.Ok("Hardened"), status.Note ?? ""),
+                HardenState.Degraded => (Ui.Warn("Degraded"), status.Reason ?? ""),
+                _ => (Ui.Dim("not hardened"), ""),
             };
-            Console.WriteLine($"    {tool.Id,-7} {detail}");
+            table.AddRow(Ui.E(tool.Id), state, Ui.E(detail));
         }
+        AnsiConsole.Write(table);
     }
 
     /// <summary>After harden: same shim-first reason as doctor when the new pin is not first (#201).</summary>
@@ -540,8 +546,8 @@ public static class CliApp
             }
             else if (!Console.IsInputRedirected)
             {
-                Console.Write($"Enter value for secret '{name}': ");
-                var line = ReadSecretLine();
+                var line = AnsiConsole.Prompt(
+                    new TextPrompt<string>($"Enter value for secret '{Ui.E(name)}':").Secret().AllowEmpty());
                 if (string.IsNullOrEmpty(line))
                 {
                     Console.Error.WriteLine("Empty secret not allowed.");
@@ -735,32 +741,26 @@ public static class CliApp
     private static int PolicyList()
     {
         var store = LoadPolicyStore();
-        Console.WriteLine($"{ProductInfo.Name} policy");
-        Console.WriteLine($"  path: {store.Path}");
-        Console.WriteLine($"  defaults: AI Harness → {PolicyLevelNames.Format(store.DefaultAiHarnessLevel)}; " +
+        Ui.Title($"{ProductInfo.Name} policy");
+        Ui.Kv("path", store.Path);
+        Ui.Kv("defaults", $"AI Harness → {PolicyLevelNames.Format(store.DefaultAiHarnessLevel)}; " +
                           $"Terminal → {PolicyLevelNames.Format(store.DefaultTerminalLevel)}");
         if (store.Launchers.Count == 0)
         {
-            Console.WriteLine("  launchers: (none enrolled)");
-            Console.WriteLine("  enroll current: cw policy enroll --kind terminal");
+            Ui.Kv("launchers", "(none enrolled)");
+            Ui.Kv("enroll current", "cw policy enroll --kind terminal");
             return 0;
         }
 
-        Console.WriteLine("  launchers:");
+        var table = Ui.Table("launcher", "kind", "levels");
         foreach (var (key, entry) in store.Launchers.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
         {
-            Console.WriteLine($"    {key}");
-            Console.WriteLine($"      kind: {entry.Kind}");
-            if (entry.Levels is { Count: > 0 })
-            {
-                foreach (var (tool, level) in entry.Levels.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
-                    Console.WriteLine($"      {tool}: {level}");
-            }
-            else
-            {
-                Console.WriteLine("      levels: (kind default)");
-            }
+            var levels = entry.Levels is { Count: > 0 }
+                ? string.Join("\n", entry.Levels.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase).Select(kv => $"{kv.Key}: {kv.Value}"))
+                : "(kind default)";
+            table.AddRow(Ui.E(key), Ui.E(entry.Kind), Ui.E(levels));
         }
+        AnsiConsole.Write(table);
 
         return 0;
     }
@@ -959,13 +959,13 @@ public static class CliApp
             return 0;
         }
 
-        Console.WriteLine($"{ProductInfo.Name} session allows");
+        Ui.Title($"{ProductInfo.Name} session allows");
         foreach (var r in rows)
         {
-            Console.WriteLine($"  {r.Id}  {r.LauncherPolicyKey} ({r.LauncherKind})  pid={r.Pid}");
-            Console.WriteLine($"      {r.Tool} / {r.SecretName}  class={r.CommandClass}");
-            Console.WriteLine($"      granted {LocalTime(r.GrantedAtUtc)}  last used {LocalTime(r.LastUsedUtc)}  " +
-                              $"idle expires {LocalTime(r.IdleExpiresUtc)}");
+            Ui.Line($"  [bold]{Ui.E(r.Id)}[/]  {Ui.E(r.LauncherPolicyKey)} {Ui.Dim($"({r.LauncherKind})  pid={r.Pid}")}");
+            Ui.Line($"      {Ui.Ok($"{r.Tool} / {r.SecretName}")}  {Ui.Dim("class=")}{Ui.E(r.CommandClass)}");
+            Ui.Line(Ui.Dim($"      granted {LocalTime(r.GrantedAtUtc)}  last used {LocalTime(r.LastUsedUtc)}  " +
+                           $"idle expires {LocalTime(r.IdleExpiresUtc)}"));
         }
         Console.WriteLine();
         Console.WriteLine("Revoke: cw policy sessions --revoke <id>   (or --revoke-all)");
@@ -1032,49 +1032,6 @@ public static class CliApp
         }
     }
 
-    private static string? ReadSecretLine()
-    {
-        var sb = new StringBuilder();
-        while (true)
-        {
-            var key = Console.ReadKey(intercept: true);
-            if (key.Key == ConsoleKey.Enter)
-            {
-                Console.WriteLine();
-                break;
-            }
-
-            if (key.Key == ConsoleKey.Backspace)
-            {
-                if (sb.Length > 0)
-                    sb.Length--;
-                continue;
-            }
-
-            if (!char.IsControl(key.KeyChar))
-                sb.Append(key.KeyChar);
-        }
-
-        return sb.ToString();
-    }
-
-    private static void PrintAlive(HealthResponse health)
-    {
-        Console.WriteLine("  session agent: ALIVE");
-        Console.WriteLine($"  agent version: {health.Version}");
-        Console.WriteLine($"  agent pid: {health.ProcessId}");
-        Console.WriteLine($"  agent user: {health.UserName}");
-        Console.WriteLine($"  machine: {health.MachineName}");
-        Console.WriteLine($"  session id: {health.SessionId}");
-        Console.WriteLine($"  agent pipe: {health.PipeName}");
-        Console.WriteLine($"  caller pid: {health.ClientPid}");
-        Console.WriteLine($"  launcher kind: {health.LauncherKind}");
-        Console.WriteLine($"  launcher policy key: {health.LauncherPolicyKey}");
-        Console.WriteLine($"  launcher path: {health.LauncherPath}");
-        Console.WriteLine($"  auto-approve eligible: {health.AutoApproveEligible}");
-        Console.WriteLine("  status: OK");
-    }
-
     private static string Describe(Exception ex) =>
         ex switch
         {
@@ -1119,10 +1076,27 @@ public static class CliApp
             return 0;
         }
 
-        Console.WriteLine($"{ProductInfo.Name} audit (last {lines.Count})");
-        Console.WriteLine($"  path: {log.DirectoryPath}");
+        Ui.Title($"{ProductInfo.Name} audit (last {lines.Count})");
+        Ui.Kv("path", log.DirectoryPath);
+        var table = Ui.Table("time", "decision", "tool", "class", "level", "launcher", "reason", "secret");
         foreach (var line in lines)
-            Console.WriteLine(AuditFormatter.FormatLine(line));
+        {
+            var r = AuditFormatter.Parse(line);
+            if (r is null)
+            {
+                Console.WriteLine(AuditFormatter.FormatLine(line));
+                continue;
+            }
+            var decision = r.Decision.ToLowerInvariant() switch
+            {
+                "allow" or "allowed" => Ui.Ok(r.Decision),
+                "deny" or "denied" or "block" or "blocked" => Ui.Fail(r.Decision),
+                _ => Ui.Warn(r.Decision),
+            };
+            table.AddRow(Ui.E(r.Ts), decision, Ui.E(r.Tool), Ui.E(r.CommandClass), Ui.E(r.Level),
+                Ui.E(r.LauncherKey), Ui.E(r.Reason), Ui.E(r.Secret));
+        }
+        AnsiConsole.Write(table);
 
         return 0;
     }
@@ -1142,8 +1116,36 @@ public static class CliApp
         }
 
         var engine = new ScanEngine();
-        var findings = engine.Run(new ScanContext());
-        Console.Write(ScanFormatter.Format(findings));
+        var findings = Ui.Status("Scanning first-catalog tools...", () => engine.Run(new ScanContext()));
+        if (!AnsiConsole.Profile.Capabilities.Interactive)
+        {
+            Console.Write(ScanFormatter.Format(findings));
+            return 0;
+        }
+
+        Ui.Title($"{ProductInfo.Name} scan");
+        Ui.Kv("findings", findings.Count.ToString());
+        if (findings.Count == 0)
+            Ui.Line($"  {Ui.Ok("(no findings)")}");
+        foreach (var f in findings)
+        {
+            var sev = f.Severity.ToString().ToLowerInvariant() switch
+            {
+                "high" or "critical" => Ui.Fail(f.Severity.ToString()),
+                "medium" => Ui.Warn(f.Severity.ToString()),
+                _ => Ui.Dim(f.Severity.ToString()),
+            };
+            var body = new StringBuilder();
+            body.AppendLine($"{Ui.Dim("tool:")}         {Ui.E(f.Tool)}");
+            body.AppendLine($"{Ui.Dim("title:")}        {Ui.E(f.Title)}");
+            body.AppendLine($"{Ui.Dim("summary:")}      {Ui.E(f.Summary)}");
+            body.Append($"{Ui.Dim("evidence:")}     {Ui.E(f.Evidence)}");
+            if (!string.IsNullOrWhiteSpace(f.Remediation))
+                body.Append($"\n{Ui.Dim("remediation:")}  {Ui.E(f.Remediation)}");
+            if (!string.IsNullOrWhiteSpace(f.HardenHint))
+                body.Append($"\n{Ui.Dim("harden_hint:")}  {Ui.E(f.HardenHint)}");
+            AnsiConsole.Write(new Panel(body.ToString()).Header($"{sev} {Ui.E(f.Id)}").Border(BoxBorder.Rounded).Expand());
+        }
         // Exit 0 always for successful scan; findings are informational (not a CI fail gate in v1).
         return 0;
     }
@@ -1229,13 +1231,13 @@ public static class CliApp
             }
 
             Console.WriteLine($"{ProductInfo.Name} harden gh ({(strong ? "strong" : "compat")} mode)");
-            var result = await GhHarden.RunAsync(new GhHardenOptions
+            var result = await Ui.StatusAsync("Pinning gh and installing the shim...", () => GhHarden.RunAsync(new GhHardenOptions
             {
                 RealGhPath = realPath,
                 TokenOverride = tokenOverride,
                 SkipTokenImport = skipToken || strong,
                 SkipUserPath = skipPath,
-            }).ConfigureAwait(false);
+            })).ConfigureAwait(false);
 
             Console.WriteLine($"  real gh:     {result.RealGhPath}");
             Console.WriteLine($"  pin sha256:  {result.PinSha256}");
@@ -1279,11 +1281,11 @@ public static class CliApp
     {
         try
         {
-            var result = GitHarden.Run(new GitHardenOptions
+            var result = Ui.Status("Pinning git and installing the shim...", () => GitHarden.Run(new GitHardenOptions
             {
                 RealGitPath = realPath,
                 SkipUserPath = skipPath,
-            });
+            }));
             // A compat re-pin keeps an earlier strong mode.
             strong = strong || new ToolPinStore().TryGet(GitHarden.ToolId)?.IsStrong == true;
             Console.WriteLine($"{ProductInfo.Name} harden git ({(strong ? "strong" : "compat")} mode)");
@@ -1328,11 +1330,11 @@ public static class CliApp
         try
         {
             Console.WriteLine($"{ProductInfo.Name} harden az (compat mode)");
-            var result = AzHarden.Run(new AzHardenOptions
+            var result = Ui.Status("Pinning az and installing the shim...", () => AzHarden.Run(new AzHardenOptions
             {
                 RealAzPath = realPath,
                 SkipUserPath = skipPath,
-            });
+            }));
 
             Console.WriteLine($"  real az:     {result.RealAzPath}");
             Console.WriteLine($"  pin sha256:  {result.PinSha256}");
@@ -1359,11 +1361,11 @@ public static class CliApp
     {
         try
         {
-            var result = DockerHarden.Run(new DockerHardenOptions
+            var result = Ui.Status("Pinning docker and installing the shim...", () => DockerHarden.Run(new DockerHardenOptions
             {
                 RealDockerPath = realPath,
                 SkipUserPath = skipPath,
-            });
+            }));
             // A compat re-pin keeps an earlier strong mode.
             strong = strong || new ToolPinStore().TryGet(DockerHarden.ToolId)?.IsStrong == true;
             Console.WriteLine($"{ProductInfo.Name} harden docker ({(strong ? "strong" : "compat")} mode)");
@@ -1405,35 +1407,36 @@ public static class CliApp
 
     private static void PrintHelp()
     {
-        Console.WriteLine($"{ProductInfo.Name} - CLI secret gate by tool and launcher identity");
+        Ui.Line($"[bold]{Ui.E(ProductInfo.Name)}[/] - CLI secret gate by tool and launcher identity");
         Console.WriteLine();
-        Console.WriteLine($"Usage: {ProductInfo.CliPrimary} <command>");
-        Console.WriteLine($"   or: {ProductInfo.CliAlias} <command>");
+        Ui.Line($"Usage: [bold]{Ui.E(ProductInfo.CliPrimary)}[/] <command>");
+        Ui.Line($"   or: [bold]{Ui.E(ProductInfo.CliAlias)}[/] <command>");
         Console.WriteLine();
-        Console.WriteLine("Commands:");
-        Console.WriteLine("  help                 Show this help");
-        Console.WriteLine("  version              Show version");
-        Console.WriteLine("  doctor [--fix-path]  Check Session Agent + vault UI / Start Menu shortcut; --fix-path elevates once");
-        Console.WriteLine("  agent start|stop|status  Session Agent lifecycle");
-        Console.WriteLine("  whoami               Show hybrid launcher identity for this caller");
-        Console.WriteLine("  save <NAME>          Store secret in Credential Manager via agent");
-        Console.WriteLine("  inject +NAME -- cmd  Run cmd with secret only in child env");
-        Console.WriteLine("       [--tool T] [--class read|write|secret-reveal|unknown]");
-        Console.WriteLine("  delete <NAME>        Remove secret from vault");
-        Console.WriteLine("  policy ...           List/enroll/set tool x launcher policy levels");
-        Console.WriteLine("  harden gh|git|az|docker  Pin real tool, install PATH shim (gh also imports token)");
-        Console.WriteLine("  harden docker|git|gh --strong  Also move the tool's credentials into the vault (vault-only)");
-        Console.WriteLine("  harden --list        One status row per catalog tool");
-        Console.WriteLine("  unharden docker|git|gh  Restore the stock store and config, remove pin and shim");
-        Console.WriteLine("  audit [-n N]         Show recent gate decisions (local audit trail)");
-        Console.WriteLine("  scan                 First-catalog residual risk detectors (read-only)");
-        Console.WriteLine("  shortcut install [--desktop]|remove|status  Start Menu (and Desktop) entry for CmdWarden Vault");
+        var table = Ui.Table("command", "what it does").Border(TableBorder.None).HideHeaders();
+        void Row(string cmd, string text) => table.AddRow($"[bold]{Ui.E(cmd)}[/]", Ui.E(text));
+        Row("help", "Show this help");
+        Row("version", "Show version");
+        Row("doctor [--fix-path]", "Check Session Agent + vault UI / Start Menu shortcut; --fix-path elevates once");
+        Row("agent start|stop|status", "Session Agent lifecycle");
+        Row("whoami", "Show hybrid launcher identity for this caller");
+        Row("save <NAME>", "Store secret in Credential Manager via agent");
+        Row("inject +NAME -- cmd", "Run cmd with secret only in child env [--tool T] [--class read|write|secret-reveal|unknown]");
+        Row("delete <NAME>", "Remove secret from vault");
+        Row("policy ...", "List/enroll/set tool x launcher policy levels");
+        Row("harden gh|git|az|docker", "Pin real tool, install PATH shim (gh also imports token)");
+        Row("harden docker|git|gh --strong", "Also move the tool's credentials into the vault (vault-only)");
+        Row("harden --list", "One status row per catalog tool");
+        Row("unharden docker|git|gh", "Restore the stock store and config, remove pin and shim");
+        Row("audit [-n N]", "Show recent gate decisions (local audit trail)");
+        Row("scan", "First-catalog residual risk detectors (read-only)");
+        Row("shortcut install [--desktop]|remove|status", "Start Menu (and Desktop) entry for CmdWarden Vault");
+        AnsiConsole.Write(table);
         Console.WriteLine();
-        Console.WriteLine("Session Agent: cw agent start  (or CW_AGENT_PATH / bundled agent/ layout)");
-        Console.WriteLine("  dev fallback: dotnet run --project src/CmdWarden.Agent");
-        Console.WriteLine("Vault UI: bundled under secrets-manager/ (CW_SECRETS_MANAGER_PATH override)");
+        Ui.Line(Ui.Dim("Session Agent: cw agent start  (or CW_AGENT_PATH / bundled agent/ layout)"));
+        Ui.Line(Ui.Dim("  dev fallback: dotnet run --project src/CmdWarden.Agent"));
+        Ui.Line(Ui.Dim("Vault UI: bundled under secrets-manager/ (CW_SECRETS_MANAGER_PATH override)"));
         Console.WriteLine();
-        Console.WriteLine("Release requires enrolled launcher + auto-allowed level x class (cw policy enroll).");
+        Ui.Line(Ui.Dim("Release requires enrolled launcher + auto-allowed level x class (cw policy enroll)."));
     }
 
     private static int Unknown(string cmd)
