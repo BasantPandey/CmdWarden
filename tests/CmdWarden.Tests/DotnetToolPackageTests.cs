@@ -18,7 +18,7 @@ public class DotnetToolPackageTests
         Assert.Contains("<PackAsTool>true</PackAsTool>", xml, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("<ToolCommandName>cw</ToolCommandName>", xml, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("<PackageId>CmdWarden</PackageId>", xml, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("<Version>0.1.0</Version>", xml, StringComparison.Ordinal);
+        Assert.Contains($"<Version>{ProductInfo.DefaultVersion}</Version>", xml, StringComparison.Ordinal);
         Assert.Contains("CopyAgentPayload", xml, StringComparison.Ordinal);
         Assert.Contains("CopyApprovalGatePayload", xml, StringComparison.Ordinal);
         Assert.Contains("CopySecretsManagerPayload", xml, StringComparison.Ordinal);
@@ -28,14 +28,14 @@ public class DotnetToolPackageTests
     [Fact]
     public void Agent_and_Cli_share_product_version()
     {
-        Assert.Equal(ProductInfo.DefaultVersion, ProductInfo.Version);
-        Assert.Equal("0.1.0", ProductInfo.Version);
+        // CI builds with -p:Version=<tag>, so ProductInfo.Version differs from DefaultVersion there.
+        var expected = $"<Version>{ProductInfo.DefaultVersion}</Version>";
         var agentCsproj = File.ReadAllText(
             Path.Combine(TestPaths.RepoRoot, "src", "CmdWarden.Agent", "CmdWarden.Agent.csproj"));
-        Assert.Contains("<Version>0.1.0</Version>", agentCsproj, StringComparison.Ordinal);
+        Assert.Contains(expected, agentCsproj, StringComparison.Ordinal);
         var cliCsproj = File.ReadAllText(
             Path.Combine(TestPaths.RepoRoot, "src", "CmdWarden.Cli", "CmdWarden.Cli.csproj"));
-        Assert.Contains("<Version>0.1.0</Version>", cliCsproj, StringComparison.Ordinal);
+        Assert.Contains(expected, cliCsproj, StringComparison.Ordinal);
     }
 
     [Fact]
