@@ -144,6 +144,43 @@ public class ApprovalMemoryTests
             ApprovalPresentation.BuildSessionScopeLine("Cursor", null));
     }
 
+    private static ApprovalRequest Request(int? launcherPid, string commandLine) => new(
+        Tool: "git",
+        CommandClass: "secret-reveal",
+        PolicyLevel: "Read",
+        LauncherPolicyKey: "auth:sha1:deadbeef",
+        LauncherKind: "authenticode",
+        LauncherPath: @"C:\claude\claude.exe",
+        SecretName: "",
+        Purpose: "authorize",
+        EnrollmentKind: "ai_harness",
+        PolicyNote: null,
+        CommandLine: commandLine,
+        LauncherPid: launcherPid);
+
+    [Fact]
+    public void TransientKey_is_stable_for_one_launcher_across_shim_calls()
+    {
+        // Two shim calls share the launcher pid. The key must match so the reuse fires.
+        var pid = Environment.ProcessId;
+        var a = ApprovalMemory.TransientKey(Request(pid, "git credential fill"));
+        var b = ApprovalMemory.TransientKey(Request(pid, "git credential fill"));
+
+        Assert.NotNull(a);
+        Assert.Equal(a, b);
+    }
+
+    [Fact]
+    public void TransientKey_differs_by_command_and_is_null_without_launcher_pid()
+    {
+        var pid = Environment.ProcessId;
+        Assert.NotEqual(
+            ApprovalMemory.TransientKey(Request(pid, "git credential fill")),
+            ApprovalMemory.TransientKey(Request(pid, "git push")));
+        Assert.Null(ApprovalMemory.TransientKey(Request(null, "git credential fill")));
+        Assert.Null(ApprovalMemory.TransientKey(Request(-1, "git credential fill")));
+    }
+
     [Fact]
     public void ClearForLauncherKey_drops_only_that_launchers_entries()
     {
