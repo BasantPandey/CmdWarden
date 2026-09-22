@@ -121,8 +121,11 @@ public sealed class ApprovalMemory
         string.Join('\n', launcherPid, startTicks, tool, secretName);
 
     /// <summary>
-    /// Record a human "Allow for session". Null when the launcher process cannot be bound
-    /// (dead, or the chain reported a different start time than the live process).
+    /// Record a human decision that lasts the launcher session. "Allow for session" covers the
+    /// granted class and every class below it; "Approve Once" covers that one class (#205).
+    /// A later decision adds to the grant it finds, so a narrow answer never takes coverage away.
+    /// Null when the launcher process cannot be bound (dead, or the chain reported a different
+    /// start time than the live process) or when nothing is left to cover (secret-reveal).
     /// </summary>
     public SessionGrant? Grant(
         int launcherPid,
@@ -131,25 +134,32 @@ public sealed class ApprovalMemory
         string launcherKind,
         string tool,
         string secretName,
-        CommandClass grantedClass)
+        CommandClass grantedClass,
+        bool exactClass = false)
     {
         if (ProcessStartUtc(launcherPid) is not { } liveStart)
             return null;
         if (launcherStartUtc is { } claimed && !IsLive(launcherPid, claimed))
             return null;
+        var mask = exactClass ? ClassBit(grantedClass) : RangeMask(grantedClass);
+        if (mask == 0)
+            return null;
         var now = DateTime.UtcNow;
-        var grant = new SessionGrant(
-            Id: Guid.NewGuid().ToString("N")[..8],
-            LauncherPid: launcherPid,
-            LauncherStartUtc: liveStart,
-            LauncherPolicyKey: launcherPolicyKey,
-            LauncherKind: launcherKind,
-            Tool: tool,
-            SecretName: secretName,
-            GrantedClass: grantedClass,
-            GrantedAtUtc: now,
-            LastUsedUtc: now);
-        _sessions[SessionKey(launcherPid, liveStart.Ticks, tool, secretName)] = grant;
+        var key = SessionKey(launcherPid, liveStart.Ticks, tool, secretName);
+        var grant = _sessions.TryGetValue(key, out var live) && IsLive(live.LauncherPid, live.LauncherStartUtc)
+            ? live with { ClassMask = live.ClassMask | mask, LastUsedUtc = now }
+            : new SessionGrant(
+                Id: Guid.NewGuid().ToString("N")[..8],
+                LauncherPid: launcherPid,
+                LauncherStartUtc: liveStart,
+                LauncherPolicyKey: launcherPolicyKey,
+                LauncherKind: launcherKind,
+                Tool: tool,
+                SecretName: secretName,
+                ClassMask: mask,
+                GrantedAtUtc: now,
+                LastUsedUtc: now);
+        _sessions[key] = grant;
         return grant;
     }
 
@@ -170,7 +180,7 @@ public sealed class ApprovalMemory
             _sessions.TryRemove(key, out _);
             return null;
         }
-        if (!Covers(grant.GrantedClass, requested))
+        if ((grant.ClassMask & ClassBit(requested)) == 0)
             return null;
         var touched = grant with { LastUsedUtc = now };
         _sessions[key] = touched;
@@ -266,16 +276,24 @@ public sealed class ApprovalMemory
 
     /// <summary>Granted class covers itself and every lower class; secret-reveal is never covered.</summary>
     public static bool Covers(CommandClass granted, CommandClass requested) =>
-        requested != CommandClass.SecretReveal
-        && granted != CommandClass.SecretReveal
-        && Rank(requested) <= Rank(granted);
+        (RangeMask(granted) & ClassBit(requested)) != 0;
 
-    private static int Rank(CommandClass c) => c switch
+    /// <summary>One bit per coverable class. Secret-reveal has no bit, so no grant ever covers it.</summary>
+    internal static int ClassBit(CommandClass c) => c switch
     {
-        CommandClass.Read => 0,
-        CommandClass.Write => 1,
-        CommandClass.Unknown => 2,
-        _ => int.MaxValue,
+        CommandClass.Read => 1,
+        CommandClass.Write => 2,
+        CommandClass.Unknown => 4,
+        _ => 0,
+    };
+
+    /// <summary>This class and every lower one.</summary>
+    private static int RangeMask(CommandClass top) => ClassBit(top) switch
+    {
+        1 => 1,
+        2 => 3,
+        4 => 7,
+        _ => 0,
     };
 
     public TimeSpan SessionIdle => _sessionIdle;
@@ -337,7 +355,7 @@ public sealed class ApprovalMemory
     }
 }
 
-/// <summary>One "Allow for session" grant. Names only, never secret values.</summary>
+/// <summary>One session grant. Names only, never secret values.</summary>
 public sealed record SessionGrant(
     string Id,
     int LauncherPid,
@@ -346,6 +364,13 @@ public sealed record SessionGrant(
     string LauncherKind,
     string Tool,
     string SecretName,
-    CommandClass GrantedClass,
+    int ClassMask,
     DateTime GrantedAtUtc,
-    DateTime LastUsedUtc);
+    DateTime LastUsedUtc)
+{
+    /// <summary>Highest class this grant covers, for display and audit.</summary>
+    public CommandClass GrantedClass =>
+        (ClassMask & ApprovalMemory.ClassBit(CommandClass.Unknown)) != 0 ? CommandClass.Unknown
+        : (ClassMask & ApprovalMemory.ClassBit(CommandClass.Write)) != 0 ? CommandClass.Write
+        : CommandClass.Read;
+}

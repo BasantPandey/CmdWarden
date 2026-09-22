@@ -152,7 +152,7 @@ Secret values, full process chain, tool pin path, full argv dump beyond the main
 
 | UI control | `ApprovalOutcome` | Effect |
 |------------|-------------------|--------|
-| **Approve Once** | `AllowOnce` | Single-request grant only; no lasting policy change |
+| **Approve Once** | `AllowOnce` | Launcher process keeps this one class for tool + secret until exit or 60 idle minutes; never secret-reveal; no lasting policy change (#205) |
 | **Allow for session** | `AllowForSession` | Launcher process keeps this class (and lower) for tool + secret until exit or 60 idle minutes; never secret-reveal; hidden for unenrolled launchers (#132) |
 | **Deny** | `Deny` | Block grant |
 | Cannot show UI / timeout / helper crash / bootstrap fail | `Unavailable` | **Fail closed** (block) |

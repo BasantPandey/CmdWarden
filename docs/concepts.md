@@ -33,7 +33,7 @@ The [CmdWarden Vault](vault.md) section describes every page. Each use case belo
 | **Approval Gate** | Desktop **Deny / Approve Once** card when auto-allow does not apply (appears while the agent tool call waits) |
 | **Vault** | Secrets in Windows Credential Manager, released only to allowed children |
 | **CmdWarden Vault** | Desktop app (Start Menu) to view gates, detectors, hardened tools, secret names, usage, and doctor |
-| **Session allow** | An Approval Gate grant that lasts until the launcher exits or 60 idle minutes |
+| **Session allow** | An Approval Gate grant that lasts until the launcher exits or 60 idle minutes. **Approve Once** grants the one class you saw; **Allow for session** grants that class and every lower one |
 
 Enrollment is by **identity key** from `cw whoami`, not by brand name. Cursor, Claude Code, and Codex are examples of the **ai-harness** kind - same enroll commands for each.
 

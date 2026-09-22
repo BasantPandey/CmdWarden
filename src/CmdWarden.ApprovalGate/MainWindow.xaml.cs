@@ -45,7 +45,7 @@ public partial class MainWindow : Window
         DetailPolicyKey.Text = "Policy key: " + payload.PolicyKey;
         DetailTimestamp.Text = "Timestamp: " + payload.RequestedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
 
-        // #132: session allow only for enrolled launchers; Approve Once stays the default (Enter) button.
+        // #132/#205: a session state needs an enrolled launcher; Approve Once stays the default (Enter) button.
         if (payload.SessionAllowOffered)
         {
             SessionScope.Text = payload.SessionScopeLine ?? "";

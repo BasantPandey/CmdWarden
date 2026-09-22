@@ -95,7 +95,7 @@ public static class ApprovalPresentation
             Tool: request.Tool,
             PolicyNote: request.PolicyNote,
             SessionAllowOffered: IsSessionAllowOffered(request.EnrollmentKind, request.CommandClass),
-            SessionScopeLine: BuildSessionScopeLine(display, request.LauncherPid));
+            SessionScopeLine: BuildSessionScopeLine(display, request.LauncherPid, request.CommandClass));
     }
 
     /// <summary>
@@ -105,11 +105,18 @@ public static class ApprovalPresentation
         enrollmentKind is LauncherEnrollmentKindNames.Terminal or LauncherEnrollmentKindNames.AiHarness
         && !string.Equals(commandClass, CommandClassNames.SecretReveal, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Names the process a session allow is bound to, e.g. "Session = until Claude Code (pid 1234) exits".</summary>
-    public static string BuildSessionScopeLine(string launcherDisplayName, int? launcherPid) =>
-        launcherPid is > 0
-            ? $"Session = until {launcherDisplayName} (pid {launcherPid}) exits"
-            : $"Session = until {launcherDisplayName} exits";
+    /// <summary>
+    /// Says how long each answer lasts, e.g. "Both answers last until Claude Code (pid 1234) exits.
+    /// Approve Once covers write commands only." Shown only when a session grant is offered (#205).
+    /// </summary>
+    public static string BuildSessionScopeLine(string launcherDisplayName, int? launcherPid, string? commandClass = null)
+    {
+        var until = launcherPid is > 0
+            ? $"{launcherDisplayName} (pid {launcherPid})"
+            : launcherDisplayName;
+        var klass = string.IsNullOrWhiteSpace(commandClass) ? "these" : commandClass.Trim();
+        return $"Both answers last until {until} exits. Approve Once covers {klass} commands only.";
+    }
 
     /// <summary>
     /// Best-effort PE version resources for launcher display name (Windows).

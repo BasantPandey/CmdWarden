@@ -841,23 +841,27 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             return new GateResult(ApprovalOutcome.AllowOnce, GateDecisions.SessionAllow, PolicyReasonCodes.SessionAllow);
 
         var outcome = _approvalGate.Prompt(request);
-        if (outcome != ApprovalOutcome.AllowForSession)
+        if (outcome is not (ApprovalOutcome.AllowOnce or ApprovalOutcome.AllowForSession))
         {
             _memory.RememberTransient(transientKey, outcome, selected.PolicyKey, request.Tool);
             return new GateResult(outcome, DecisionFor(outcome), null);
         }
 
-        // Session allow is honored only when the card would have offered it - same rule the
-        // helper used to decide whether to show the button - otherwise the click degrades to
-        // Approve Once. One shared check keeps the agent and the card from ever disagreeing.
+        // A session grant is honored only when the card would have offered one - same rule the
+        // helper used to decide whether to show the button - otherwise the click covers this call
+        // only. One shared check keeps the agent and the card from ever disagreeing.
+        // Approve Once lasts the session too, but for this command class alone (#205).
         var grant = ApprovalPresentation.IsSessionAllowOffered(request.EnrollmentKind, request.CommandClass)
             ? _memory.Grant(selected.Pid, selected.CreateTimeUtc, selected.PolicyKey, selected.Kind,
-                request.Tool, request.SecretName, commandClass)
+                request.Tool, request.SecretName, commandClass,
+                exactClass: outcome == ApprovalOutcome.AllowOnce)
             : null;
         _memory.RememberTransient(transientKey, ApprovalOutcome.AllowOnce, selected.PolicyKey, request.Tool);
         return new GateResult(
             ApprovalOutcome.AllowOnce,
-            grant is null ? GateDecisions.AllowOnce : GateDecisions.SessionGrant,
+            grant is null || outcome == ApprovalOutcome.AllowOnce
+                ? GateDecisions.AllowOnce
+                : GateDecisions.SessionGrant,
             null);
     }
 
