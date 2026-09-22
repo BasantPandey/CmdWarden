@@ -1,5 +1,6 @@
 using System.Windows;
 using CmdWarden.Contracts;
+using CmdWarden.Ui;
 
 namespace CmdWarden.ApprovalGate;
 
@@ -22,6 +23,19 @@ public partial class MainWindow : Window
             || payload.LauncherDisplayName == ApprovalPresentation.UnknownAppDisplayName
             ? "?"
             : char.ToUpperInvariant(payload.LauncherDisplayName.Trim()[0]).ToString();
+        if (BrandImages.ForLauncher(payload.LauncherDisplayName, payload.LauncherPath) is { } launcherIcon)
+        {
+            LauncherIcon.Source = launcherIcon;
+            LauncherIcon.Visibility = Visibility.Visible;
+            IconGlyph.Visibility = Visibility.Collapsed;
+        }
+
+        if (BrandImages.ForTool(payload.Tool) is { } toolIcon)
+        {
+            ToolIcon.Source = toolIcon;
+            ToolBadge.Visibility = Visibility.Visible;
+            ToolBadge.ToolTip = payload.Tool;
+        }
 
         CommandLine.Text = string.IsNullOrWhiteSpace(payload.CommandLine) ? payload.Tool : payload.CommandLine;
         ToolPath.Text = string.IsNullOrWhiteSpace(payload.ToolPath) ? "" : "\u2192 " + payload.ToolPath;

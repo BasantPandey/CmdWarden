@@ -31,18 +31,29 @@
       </StackPanel>
 
       <StackPanel HorizontalAlignment="Center" Margin="0,0,0,16">
-        <Border Width="72" Height="72" CornerRadius="18" Padding="2" HorizontalAlignment="Center" Margin="0,0,0,12">
-          <Border.Background>
-            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-              <GradientStop Color="#8C60CDFF" Offset="0" />
-              <GradientStop Color="#260078D4" Offset="1" />
-            </LinearGradientBrush>
-          </Border.Background>
-          <Border CornerRadius="16" Background="#2A2A2A">
-            <TextBlock x:Name="IconGlyph" Text="?" FontSize="26" FontWeight="Bold" Foreground="White"
-                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+        <Grid Width="72" Height="72" HorizontalAlignment="Center" Margin="0,0,0,12">
+          <Border CornerRadius="18" Padding="2">
+            <Border.Background>
+              <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#8C60CDFF" Offset="0" />
+                <GradientStop Color="#260078D4" Offset="1" />
+              </LinearGradientBrush>
+            </Border.Background>
+            <Border CornerRadius="16" Background="#2A2A2A">
+              <Grid>
+                <Image x:Name="LauncherIcon" Width="40" Height="40" Visibility="Collapsed"
+                       RenderOptions.BitmapScalingMode="HighQuality" />
+                <TextBlock x:Name="IconGlyph" Text="?" FontSize="26" FontWeight="Bold" Foreground="White"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
           </Border>
-        </Border>
+          <Border x:Name="ToolBadge" Width="34" Height="34" CornerRadius="10" Background="#1A1A1A"
+                  BorderBrush="#2C2C2C" BorderThickness="2" Padding="6"
+                  HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-10,-8" Visibility="Collapsed">
+            <Image x:Name="ToolIcon" RenderOptions.BitmapScalingMode="HighQuality" />
+          </Border>
+        </Grid>
         <TextBlock x:Name="LauncherName" Text="Unknown app" FontSize="22" FontWeight="SemiBold"
                    Foreground="White" HorizontalAlignment="Center" />
         <TextBlock x:Name="Subtitle" Text="WANTS TO RUN" FontSize="11" FontWeight="SemiBold"
@@ -110,7 +121,7 @@
         <Button x:Name="ApproveButton" Grid.Column="4" Content="Approve Once" Style="{StaticResource ApproveButtonStyle}"
                 Height="36" IsDefault="True" Click="ApproveButton_Click" />
       </Grid>
-      <TextBlock x:Name="SessionScope" FontSize="11" Foreground="#8CFFFFFF" TextWrapping="Wrap"
+      <TextBlock x:Name="SessionScope" FontSize="11" Foreground="#8CFFFFFF" TextWrapping="Wrap" TextAlignment="Center"
                  HorizontalAlignment="Center" Margin="0,10,0,0" />
     </StackPanel>
   </Border>

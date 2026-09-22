@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using Grpc.Core;
 using CmdWarden.Contracts;
 using CmdWarden.Contracts.Scan;
+using CmdWarden.Ui;
 
 namespace CmdWarden.SecretsManager;
 
@@ -386,7 +387,7 @@ public partial class MainWindow : Window
     private sealed record ToolCard(
         string Name, string Id, string Path, string Pill,
         System.Windows.Media.Brush PillBg, System.Windows.Media.Brush PillFg,
-        string Note, Visibility NoteVisibility);
+        string Note, Visibility NoteVisibility, System.Windows.Media.ImageSource? Icon);
 
     private bool _toolsBusy;
 
@@ -431,14 +432,15 @@ public partial class MainWindow : Window
     {
         var (bg, fg) = PillBrushes(kind);
         return new ToolCard(t.DisplayName, t.Id, path, pill, bg, fg, note,
-            note.Length == 0 ? Visibility.Collapsed : Visibility.Visible);
+            note.Length == 0 ? Visibility.Collapsed : Visibility.Visible, BrandImages.ForTool(t.Id));
     }
 
     // ---- Secret Usage (read-only; issue #117) ----
 
     private sealed record UsageRow(
         string Time, string Launcher, string LauncherKind, string ToolClass, string Secret,
-        string Pill, System.Windows.Media.Brush PillBg, System.Windows.Media.Brush PillFg, string Reason);
+        string Pill, System.Windows.Media.Brush PillBg, System.Windows.Media.Brush PillFg, string Reason,
+        System.Windows.Media.ImageSource? ToolIcon, System.Windows.Media.ImageSource? LauncherIcon);
 
     private const int UsageMaxRows = 200;
     private bool _usageBusy;
@@ -500,7 +502,8 @@ public partial class MainWindow : Window
             : "";
         var toolClass = r.CommandClass.Length == 0 ? r.Tool : r.Tool + " \u00B7 " + r.CommandClass;
         return new UsageRow(r.LocalTimeLabel(now), launcher, launcherKind, toolClass,
-            string.IsNullOrEmpty(r.SecretName) ? "-" : r.SecretName, pill, bg, fg, r.ReasonCode ?? "");
+            string.IsNullOrEmpty(r.SecretName) ? "-" : r.SecretName, pill, bg, fg, r.ReasonCode ?? "",
+            BrandImages.ForTool(r.Tool), BrandImages.ForLauncher(null, r.LauncherPath));
     }
 
     // ---- Detectors (read-only, in-process scan; issue #118) ----
@@ -510,7 +513,7 @@ public partial class MainWindow : Window
         System.Windows.Media.Brush PillBg, System.Windows.Media.Brush PillFg,
         string Summary, string Evidence,
         string Remediation, Visibility RemediationVisibility,
-        string Hint, Visibility HintVisibility);
+        string Hint, Visibility HintVisibility, System.Windows.Media.ImageSource? Icon = null);
 
     private const string ScanScopeNote =
         " Scanned from the app's environment. Run cw scan in a terminal to check that session's variables.";
@@ -574,18 +577,19 @@ public partial class MainWindow : Window
         var hint = string.IsNullOrWhiteSpace(f.HardenHint) ? "" : $"Run {f.HardenHint}.";
         return new FindingCard(f.Title, f.Tool, label, bg, fg, summary, f.Evidence,
             remediation, remediation.Length == 0 ? Visibility.Collapsed : Visibility.Visible,
-            hint, hint.Length == 0 ? Visibility.Collapsed : Visibility.Visible);
+            hint, hint.Length == 0 ? Visibility.Collapsed : Visibility.Visible, BrandImages.ForTool(f.Tool));
     }
 
     // ---- Secret Gates (read-only policy browser; issue #119) ----
 
     private sealed record LevelRow(
         string Label, string Pill, System.Windows.Media.Brush PillBg, System.Windows.Media.Brush PillFg,
-        string Tip, string Note, Visibility NoteVisibility);
+        string Tip, string Note, Visibility NoteVisibility, System.Windows.Media.ImageSource? Icon = null);
 
     private sealed record LauncherCard(
         string Key, string Kind, System.Windows.Media.Brush KindBg, System.Windows.Media.Brush KindFg,
-        string Path, string FullPath, Visibility PathVisibility, IReadOnlyList<LevelRow> Tools, string Hint);
+        string Path, string FullPath, Visibility PathVisibility, IReadOnlyList<LevelRow> Tools, string Hint,
+        System.Windows.Media.ImageSource? Icon);
 
     private bool _gatesBusy;
 
@@ -668,7 +672,7 @@ public partial class MainWindow : Window
         return new LevelRow(label, "Checking...", bg, fg, "", "", Visibility.Collapsed);
     }
 
-    private LevelRow MakeLevelRow(string label, PolicyLevel level, string note)
+    private LevelRow MakeLevelRow(string label, PolicyLevel level, string note, string? tool = null)
     {
         var kind = level switch
         {
@@ -679,7 +683,7 @@ public partial class MainWindow : Window
         };
         var (bg, fg) = PillBrushes(kind);
         return new LevelRow(label, PolicyLevelNames.Format(level), bg, fg, LevelMatrix(level), note,
-            note.Length == 0 ? Visibility.Collapsed : Visibility.Visible);
+            note.Length == 0 ? Visibility.Collapsed : Visibility.Visible, BrandImages.ForTool(tool));
     }
 
     private LauncherCard MakeLauncherCard(PolicyLauncherEntry l)
@@ -693,12 +697,13 @@ public partial class MainWindow : Window
         var (kbg, kfg) = PillBrushes(kindPill);
         var names = ToolCatalog.Tools.ToDictionary(t => t.Id, t => t.DisplayName);
         var rows = l.Tools
-            .Select(t => MakeLevelRow(names.GetValueOrDefault(t.Tool, t.Tool), t.Level, t.IsOverride ? "" : "(kind default)"))
+            .Select(t => MakeLevelRow(names.GetValueOrDefault(t.Tool, t.Tool), t.Level, t.IsOverride ? "" : "(kind default)", t.Tool))
             .ToList();
         var full = l.DisplayPath ?? "";
         return new LauncherCard(l.PolicyKey, kindLabel, kbg, kfg, LeftTruncate(full), full,
             full.Length == 0 ? Visibility.Collapsed : Visibility.Visible, rows,
-            $"Override a tool: cw policy set {l.PolicyKey} <tool> <Deny|Read|Trusted|Full>");
+            $"Override a tool: cw policy set {l.PolicyKey} <tool> <Deny|Read|Trusted|Full>",
+            BrandImages.ForLauncher(null, l.DisplayPath));
     }
 
     // ponytail: fixed character budget with the full path in the tooltip; width-aware trimming if it ever looks off.
