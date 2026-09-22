@@ -161,5 +161,15 @@
       <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
+
+    <Style TargetType="Image" x:Key="BrandIconStyle">
+      <Setter Property="RenderOptions.BitmapScalingMode" Value="HighQuality" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Style.Triggers>
+        <Trigger Property="Source" Value="{x:Null}">
+          <Setter Property="Visibility" Value="Collapsed" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
   </Application.Resources>
 </Application>

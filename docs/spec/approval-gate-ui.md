@@ -55,7 +55,7 @@ This brief consolidates closed map decisions so implementers can ship the Automi
 
 1. Native Windows title bar: Lintel product mark + **`CmdWarden`** (see [Window chrome](#window-chrome))
 2. In-window compact brand row: 20px Lintel mark, 8px gap, 12px secondary **`CmdWarden`**
-3. Large **launcher icon** (shell/exe; generic fallback)
+3. Large **launcher icon** (known AI harness logo, else shell/exe icon, else first letter) with a small **tool badge** (gh, git, az, docker logo) on its lower right corner
 4. Launcher **display name** + subtitle **`wants to run`**
 5. **Command block** (dark): tool invocation; resolved tool path; meta row **`cwd`** / **`keys`** (names only)
 6. Soft reason **heading** (e.g. `GitHub token requested`) + locked **reason line**
@@ -109,7 +109,8 @@ From [Grilling: launcher identity on the gate surface](https://github.com/Basant
 |--------|------|
 | Large name priority | PE version **ProductName** → **FileDescription** → **file name** (with extension if that is the fallback) → **`Unknown app`** |
 | Path as title | **Never** |
-| Icon | Shell/exe icon from launcher path when possible; else **generic** placeholder |
+| Icon | Logo for a known AI harness (Claude Code, Cursor, Codex). Else the shell/exe icon from the launcher path. Else the first letter of the name. |
+| Tool badge | Logo of the gated tool (gh, git, az, docker) on the lower right corner of the launcher icon. No badge for other tools. |
 | Enrollment on main | **None** (not a trust seal) |
 | Publisher / signature on main | **None** (Details only) |
 
@@ -241,7 +242,7 @@ LauncherPath, SecretName, Purpose, EnrollmentKind, PolicyNote
 | Need | Notes |
 |------|--------|
 | Launcher display name inputs | ProductName / FileDescription / file name - resolve from path in helper or pass precomputed |
-| Launcher icon | Extract from path in helper; generic fallback |
+| Launcher icon | Harness logo from `BrandMarks`, else extract from path in helper; letter fallback |
 | Tool command line / invocation | Not only tool id - full argv summary for command block |
 | Resolved tool path | Real binary after pin |
 | Working directory | `cwd` row |
