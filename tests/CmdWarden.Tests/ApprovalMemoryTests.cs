@@ -134,14 +134,14 @@ public class ApprovalMemoryTests
         Assert.Equal(expected, ApprovalPresentation.IsSessionAllowOffered(enrollment, commandClass));
 
     [Fact]
-    public void Session_scope_line_names_launcher_and_pid()
+    public void Session_scope_line_names_launcher_pid_and_class()
     {
         Assert.Equal(
-            "Session = until Claude Code (pid 1234) exits",
-            ApprovalPresentation.BuildSessionScopeLine("Claude Code", 1234));
+            "Both answers last until Claude Code (pid 1234) exits. Approve Once covers write commands only.",
+            ApprovalPresentation.BuildSessionScopeLine("Claude Code", 1234, "write"));
         Assert.Equal(
-            "Session = until Cursor exits",
-            ApprovalPresentation.BuildSessionScopeLine("Cursor", null));
+            "Both answers last until Cursor exits. Approve Once covers these commands only.",
+            ApprovalPresentation.BuildSessionScopeLine("Cursor", null, null));
     }
 
     private static ApprovalRequest Request(int? launcherPid, string commandLine) => new(

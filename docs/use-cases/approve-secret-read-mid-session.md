@@ -85,7 +85,7 @@ What happens next:
 
    | You click | Result in the AI session |
    |-----------|---------------------------|
-   | **Approve Once** | This one read is allowed; the child can use `DEMO_TOKEN`; agent can continue. Next gated read can prompt again. |
+   | **Approve Once** | This read is allowed; the child can use `DEMO_TOKEN`; agent can continue. Later reads of the **same class** for this tool and secret are allowed until the launcher exits or after 60 idle minutes. A higher class prompts again. |
    | **Allow for session** | This read and every later read of the same class (or lower) for this tool and secret are allowed. The grant ends when the launcher process exits or after 60 idle minutes. The button is hidden for unenrolled launchers. It never covers secret-reveal. |
    | **Deny** | Release is blocked; agent sees failure / permission denied. |
    | Close the window | Same as unavailable → **fail closed** (block). |

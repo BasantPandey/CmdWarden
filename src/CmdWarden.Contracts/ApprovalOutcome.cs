@@ -5,7 +5,10 @@ namespace CmdWarden.Contracts;
 /// </summary>
 public enum ApprovalOutcome
 {
-    /// <summary>User allowed this single release; no lasting policy change.</summary>
+    /// <summary>
+    /// User allowed the release. The decision lasts the launcher session for this one command
+    /// class, tool and secret (#205). It never covers secret-reveal and it is no policy change.
+    /// </summary>
     AllowOnce = 0,
 
     /// <summary>User denied the release.</summary>
@@ -99,7 +102,7 @@ public static class ApprovalPromptText
             lines.Add($"Note:            {note}");
 
         lines.Add("");
-        lines.Add("Yes = Approve Once (this request only)");
+        lines.Add("Yes = Approve Once (this command class, until the launcher exits)");
         lines.Add("No  = Deny");
         return string.Join(Environment.NewLine, lines);
     }

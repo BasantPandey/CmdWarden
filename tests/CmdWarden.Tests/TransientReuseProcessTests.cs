@@ -70,7 +70,7 @@ public class TransientReuseProcessTests
     }
 
     [Fact]
-    public async Task Authorize_prompts_again_when_command_line_changes()
+    public async Task Authorize_reuses_the_session_when_the_command_line_changes()
     {
         if (!OperatingSystem.IsWindows())
             return;
@@ -80,34 +80,34 @@ public class TransientReuseProcessTests
             return;
         await fx.SaveTokenAsync("miss-token");
 
+        // Approve Once lasts the session for the same class, so a new command line does not card (#205).
         _ = await AgentAuthorizeClient.AuthorizeAsync("gh", WriteArgv, pipeName: fx.PipeName);
         var second = await AgentAuthorizeClient.AuthorizeAsync(
             "gh", new[] { "pr", "create", "--title", "other" }, pipeName: fx.PipeName);
 
-        Assert.Equal("allow-once", second.Decision);
-        Assert.Equal("", second.ReasonCode);
-        Assert.DoesNotContain(fx.AuditLines(), l => l.Contains(PolicyReasonCodes.TransientReuse, StringComparison.Ordinal));
+        Assert.Equal(GateDecisions.SessionAllow, second.Decision);
+        Assert.Equal(PolicyReasonCodes.SessionAllow, second.ReasonCode);
     }
 
     [Fact]
-    public async Task Authorize_prompts_again_after_window_expires()
+    public async Task Deny_prompts_again_after_the_window_expires()
     {
         if (!OperatingSystem.IsWindows())
             return;
 
-        await using var fx = await ApprovalMemoryFixture.CreateAsync(approvalMode: "allow",
+        await using var fx = await ApprovalMemoryFixture.CreateAsync(approvalMode: "deny",
             env: new Dictionary<string, string> { [ApprovalMemory.TransientWindowEnvVar] = "1" });
         if (fx is null)
             return;
         await fx.SaveTokenAsync("expiry-token");
 
-        _ = await AgentAuthorizeClient.AuthorizeAsync("gh", WriteArgv, pipeName: fx.PipeName);
+        _ = await Assert.ThrowsAsync<Grpc.Core.RpcException>(() =>
+            AgentAuthorizeClient.AuthorizeAsync("gh", WriteArgv, pipeName: fx.PipeName));
         await Task.Delay(TimeSpan.FromSeconds(3));
-        var second = await AgentAuthorizeClient.AuthorizeAsync("gh", WriteArgv, pipeName: fx.PipeName);
+        var second = await Assert.ThrowsAsync<Grpc.Core.RpcException>(() =>
+            AgentAuthorizeClient.AuthorizeAsync("gh", WriteArgv, pipeName: fx.PipeName));
 
-        Assert.Equal("allow-once", second.Decision);
-        Assert.Equal("", second.ReasonCode);
-        Assert.DoesNotContain(fx.AuditLines(), l => l.Contains(PolicyReasonCodes.TransientReuse, StringComparison.Ordinal));
+        Assert.DoesNotContain(PolicyReasonCodes.TransientReuse, second.Status.Detail, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -137,7 +137,7 @@ public class TransientReuseProcessTests
     }
 
     [Fact]
-    public async Task ReleaseSecret_reuse_keys_on_command_line()
+    public async Task ReleaseSecret_cards_once_then_the_session_covers_the_next_command_line()
     {
         if (!OperatingSystem.IsWindows())
             return;
@@ -154,6 +154,7 @@ public class TransientReuseProcessTests
 
         var lines = fx.AuditLines();
         Assert.Single(lines, l => l.Contains(PolicyReasonCodes.TransientReuse, StringComparison.Ordinal));
+        Assert.Single(lines, l => l.Contains(PolicyReasonCodes.SessionAllow, StringComparison.Ordinal));
         // The audit row gains no new field (#200).
         Assert.DoesNotContain(lines, l => l.Contains("echo a", StringComparison.Ordinal));
     }
