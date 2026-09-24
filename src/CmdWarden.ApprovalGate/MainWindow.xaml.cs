@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Windows;
+using System.Windows.Input;
 using CmdWarden.Contracts;
 using CmdWarden.Ui;
 
@@ -6,6 +8,9 @@ namespace CmdWarden.ApprovalGate;
 
 public partial class MainWindow : Window
 {
+    // Keys typed in the terminal just before the popup opens must not approve it.
+    private static readonly TimeSpan KeyArmDelay = TimeSpan.FromMilliseconds(600);
+    private readonly Stopwatch _shownFor = new();
     private bool _completed;
 
     public MainWindow(ApprovalHelperPayload payload)
@@ -72,6 +77,8 @@ public partial class MainWindow : Window
             SessionGap.Width = new GridLength(0);
         }
 
+        ContentRendered += (_, _) => _shownFor.Start();
+
         Closing += (_, _) =>
         {
             if (!_completed)
@@ -80,6 +87,22 @@ public partial class MainWindow : Window
                 Environment.ExitCode = ApprovalHelperExitCodes.Unavailable;
             }
         };
+    }
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+            return;
+        if (!_shownFor.IsRunning || _shownFor.Elapsed < KeyArmDelay)
+        {
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.A && Keyboard.Modifiers == ModifierKeys.None && SessionButton.IsVisible)
+        {
+            e.Handled = true;
+            Complete(ApprovalHelperExitCodes.AllowForSession);
+        }
     }
 
     private void ApproveButton_Click(object sender, RoutedEventArgs e) =>
