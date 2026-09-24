@@ -259,6 +259,13 @@ Full reset of local state (policy, pins, shims, audit):
 Remove-Item -Recurse -Force "$env:LOCALAPPDATA\CmdWarden" -ErrorAction SilentlyContinue
 ```
 
+`cw harden` adds the shims folder to your user PATH. Remove it, then open a new terminal:
+
+```powershell
+$p = [Environment]::GetEnvironmentVariable('PATH','User') -split ';' | Where-Object { $_ -and $_ -notmatch 'CmdWarden' }
+[Environment]::SetEnvironmentVariable('PATH', ($p -join ';'), 'User')
+```
+
 The `az` shim has no unharden. The full reset above removes the shims folder. Vault secrets stay in Windows Credential Manager under `CmdWarden/secret/<NAME>`. Delete them with `cw delete <NAME>` before you uninstall, or remove them in Credential Manager.
 
 ---
