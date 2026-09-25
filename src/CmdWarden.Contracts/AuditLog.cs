@@ -179,6 +179,7 @@ public sealed class AuditGateRecord
     private static readonly JsonSerializerOptions ParseOptions = new() { PropertyNameCaseInsensitive = true };
 
     /// <summary>Parsed <see cref="Ts"/>, or null when it is not an ISO-8601 timestamp.</summary>
+    [JsonIgnore]
     public DateTimeOffset? Timestamp =>
         DateTimeOffset.TryParse(Ts, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var t) ? t : null;
 
