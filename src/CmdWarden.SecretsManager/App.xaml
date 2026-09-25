@@ -19,6 +19,21 @@
     <SolidColorBrush x:Key="DangerDimBrush" Color="#24FF6B6B" />
     <SolidColorBrush x:Key="MutedPillBrush" Color="#14FFFFFF" />
 
+    <Style TargetType="Border" x:Key="KeyChipStyle">
+      <Setter Property="Margin" Value="8,0,0,0" />
+      <Setter Property="Padding" Value="4,0" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+      <Setter Property="Background" Value="#1A000000" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style TargetType="TextBlock" x:Key="KeyChipTextStyle">
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="FontFamily" Value="Cascadia Mono, Consolas" />
+    </Style>
+
     <Style TargetType="Button" x:Key="PrimaryButtonStyle">
       <Setter Property="Background" Value="{StaticResource AccentBrush}" />
       <Setter Property="Foreground" Value="{StaticResource AccentTextBrush}" />
@@ -168,6 +183,60 @@
       <Style.Triggers>
         <Trigger Property="Source" Value="{x:Null}">
           <Setter Property="Visibility" Value="Collapsed" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+
+    <!-- Thin dark scroll bar. The stock one is light gray on the dark pages. -->
+    <Style TargetType="Thumb" x:Key="ScrollThumbStyle">
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Thumb">
+            <Border x:Name="bd" CornerRadius="4" Background="#40FFFFFF" />
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="bd" Property="Background" Value="#66FFFFFF" />
+              </Trigger>
+              <Trigger Property="IsDragging" Value="True">
+                <Setter TargetName="bd" Property="Background" Value="#80FFFFFF" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style TargetType="ScrollBar">
+      <Setter Property="Width" Value="8" />
+      <Setter Property="MinWidth" Value="8" />
+      <Setter Property="Margin" Value="0,4,4,4" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ScrollBar">
+            <Track x:Name="PART_Track" IsDirectionReversed="True">
+              <Track.Thumb>
+                <Thumb Style="{StaticResource ScrollThumbStyle}" />
+              </Track.Thumb>
+            </Track>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+      <Style.Triggers>
+        <Trigger Property="Orientation" Value="Horizontal">
+          <Setter Property="Width" Value="Auto" />
+          <Setter Property="MinWidth" Value="0" />
+          <Setter Property="Height" Value="8" />
+          <Setter Property="Margin" Value="4,0,4,4" />
+          <Setter Property="Template">
+            <Setter.Value>
+              <ControlTemplate TargetType="ScrollBar">
+                <Track x:Name="PART_Track">
+                  <Track.Thumb>
+                    <Thumb Style="{StaticResource ScrollThumbStyle}" />
+                  </Track.Thumb>
+                </Track>
+              </ControlTemplate>
+            </Setter.Value>
+          </Setter>
         </Trigger>
       </Style.Triggers>
     </Style>

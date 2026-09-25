@@ -44,4 +44,28 @@ public static class VaultSecretListSelection
         foreach (var item in items)
             item.IsSelected = ReferenceEquals(item, selected);
     }
+
+    /// <summary>Move the selection by <paramref name="step"/> rows and stop at the ends. No selection starts at an end.</summary>
+    public static VaultSecretListItem? Move(IList<VaultSecretListItem> items, int step)
+    {
+        if (items.Count == 0)
+            return null;
+        var current = -1;
+        for (var i = 0; i < items.Count; i++)
+        {
+            if (items[i].IsSelected)
+                current = i;
+        }
+        var next = current < 0
+            ? (step > 0 ? 0 : items.Count - 1)
+            : Math.Clamp(current + step, 0, items.Count - 1);
+        SelectOnly(items, items[next]);
+        return items[next];
+    }
+
+    public static void Clear(IEnumerable<VaultSecretListItem> items)
+    {
+        foreach (var item in items)
+            item.IsSelected = false;
+    }
 }

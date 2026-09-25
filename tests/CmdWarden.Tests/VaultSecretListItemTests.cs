@@ -52,4 +52,24 @@ public class VaultSecretListItemTests
         Assert.Contains(nameof(VaultSecretListItem.IsSelected), changed);
         Assert.Contains(nameof(VaultSecretListItem.CanDelete), changed);
     }
+
+    [Fact]
+    public void Arrow_keys_move_one_selection_and_stop_at_the_ends()
+    {
+        var a = new VaultSecretListItem("A");
+        var b = new VaultSecretListItem("B");
+        var items = new List<VaultSecretListItem> { a, b };
+
+        Assert.Same(a, VaultSecretListSelection.Move(items, 1));
+        Assert.Same(b, VaultSecretListSelection.Move(items, 1));
+        Assert.Same(b, VaultSecretListSelection.Move(items, 1));
+        Assert.False(a.IsSelected);
+        Assert.Same(a, VaultSecretListSelection.Move(items, -1));
+        Assert.Same(a, VaultSecretListSelection.Move(items, -1));
+
+        VaultSecretListSelection.Clear(items);
+        Assert.False(a.CanDelete || b.CanDelete);
+        Assert.Same(b, VaultSecretListSelection.Move(items, -1));
+        Assert.Null(VaultSecretListSelection.Move(new List<VaultSecretListItem>(), 1));
+    }
 }

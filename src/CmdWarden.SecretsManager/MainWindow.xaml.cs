@@ -22,7 +22,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, FrameworkElement> _pages;
     private readonly Dictionary<string, Button> _navButtons;
     private readonly Dictionary<string, TextBlock> _navLabels;
-    private readonly Dictionary<string, (string Title, string Primary)> _pageChrome;
+    private readonly Dictionary<string, (string Title, string Primary, string Key)> _pageChrome;
 
     private bool _sidebarCollapsed;
     private string _currentPage = "secrets";
@@ -59,14 +59,14 @@ public partial class MainWindow : Window
             ["usage"] = NavUsageLabel,
             ["doctor"] = NavDoctorLabel,
         };
-        _pageChrome = new Dictionary<string, (string, string)>(StringComparer.Ordinal)
+        _pageChrome = new Dictionary<string, (string, string, string)>(StringComparer.Ordinal)
         {
-            ["gates"] = ("Secret Gates", "Refresh"),
-            ["detectors"] = ("Detectors", "Run scan"),
-            ["tools"] = ("Hardened Tools", "Refresh"),
-            ["secrets"] = ("Secrets", "+ Add secret"),
-            ["usage"] = ("Secret Usage", "Refresh"),
-            ["doctor"] = ("Doctor", "Refresh"),
+            ["gates"] = ("Secret Gates", "Refresh", "F5"),
+            ["detectors"] = ("Detectors", "Run scan", "F5"),
+            ["tools"] = ("Hardened Tools", "Refresh", "F5"),
+            ["secrets"] = ("Secrets", "+ Add secret", "Ctrl+N"),
+            ["usage"] = ("Secret Usage", "Refresh", "F5"),
+            ["doctor"] = ("Doctor", "Refresh", "F5"),
         };
 
         _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
@@ -87,14 +87,64 @@ public partial class MainWindow : Window
 
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e) => _pollTimer.Stop();
 
-    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    private async void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key is Key.OemOpenBrackets or Key.OemCloseBrackets)
+        var ctrl = Keyboard.Modifiers == ModifierKeys.Control;
+        var none = Keyboard.Modifiers == ModifierKeys.None;
+        var onSecrets = _currentPage == "secrets";
+        if (none && e.Key is Key.OemOpenBrackets or Key.OemCloseBrackets)
         {
-            ToggleSidebar();
             e.Handled = true;
+            ToggleSidebar();
+        }
+        else if (none && e.Key == Key.F5)
+        {
+            e.Handled = true;
+            if (onSecrets)
+                await RefreshAsync().ConfigureAwait(true);
+            else if (PagePrimaryButton.IsEnabled)
+                PagePrimaryButton_Click(PagePrimaryButton, new RoutedEventArgs());
+        }
+        else if (ctrl && e.Key == Key.N && onSecrets && AddSecretButton.IsEnabled)
+        {
+            e.Handled = true;
+            await AddSecretFlowAsync().ConfigureAwait(true);
+        }
+        else if (none && onSecrets && e.Key is Key.Down or Key.Up)
+        {
+            e.Handled = true;
+            if (VaultSecretListSelection.Move(_secrets, e.Key == Key.Down ? 1 : -1) is { } item)
+                BringIntoView(item);
+        }
+        else if (none && onSecrets && e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            VaultSecretListSelection.Clear(_secrets);
+        }
+        else if (none && onSecrets && e.Key == Key.Delete
+                 && _secrets.FirstOrDefault(s => s.CanDelete) is { } selected)
+        {
+            e.Handled = true;
+            await DeleteSecretAsync(selected).ConfigureAwait(true);
         }
     }
+
+    private void BringIntoView(VaultSecretListItem item) =>
+        (SecretsList.ItemContainerGenerator.ContainerFromItem(item) as FrameworkElement)?.BringIntoView();
+
+    private StackPanel KeyedContent(string label, string key) => new()
+    {
+        Orientation = Orientation.Horizontal,
+        Children =
+        {
+            new TextBlock { Text = label },
+            new Border
+            {
+                Style = (Style)FindResource("KeyChipStyle"),
+                Child = new TextBlock { Text = key, Style = (Style)FindResource("KeyChipTextStyle") },
+            },
+        },
+    };
 
     private void CollapseButton_Click(object sender, RoutedEventArgs e) => ToggleSidebar();
 
@@ -132,7 +182,8 @@ public partial class MainWindow : Window
 
         var chrome = _pageChrome[page];
         PageTitleText.Text = chrome.Title;
-        PagePrimaryButton.Content = chrome.Primary;
+        PagePrimaryButton.Content = KeyedContent(chrome.Primary, chrome.Key);
+        PagePrimaryButton.ToolTip = $"{chrome.Primary.TrimStart('+', ' ')} ({chrome.Key})";
         PagePrimaryButton.IsEnabled = page is "secrets" or "usage" or "doctor" or "tools" or "detectors" or "gates";
         PageSubtitleText.Visibility = page == "detectors" && PageSubtitleText.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 
@@ -201,7 +252,13 @@ public partial class MainWindow : Window
     private async void DeleteButton_Click(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        if (sender is not Button { DataContext: VaultSecretListItem item } || !item.CanDelete)
+        if (sender is Button { DataContext: VaultSecretListItem item })
+            await DeleteSecretAsync(item).ConfigureAwait(true);
+    }
+
+    private async Task DeleteSecretAsync(VaultSecretListItem item)
+    {
+        if (!item.CanDelete)
             return;
 
         var confirm = new ConfirmWindow(
@@ -399,7 +456,7 @@ public partial class MainWindow : Window
         if (_currentPage == "tools")
             PagePrimaryButton.IsEnabled = false;
         ToolsList.ItemsSource = ToolCatalog.Tools
-            .Select(t => MakeToolCard(t, "-", "Checking...", PillKind.Muted, ""))
+            .Select(t => MakeToolCard(t, "", "Checking...", PillKind.Muted, ""))
             .ToList();
         try
         {
@@ -407,9 +464,9 @@ public partial class MainWindow : Window
                 ToolCatalog.Tools.Select(t => HardenedToolStatus.Probe(t.Id)).ToList()).ConfigureAwait(true);
             ToolsList.ItemsSource = ToolCatalog.Tools.Zip(statuses, (t, s) => s.State switch
             {
-                HardenState.Hardened => MakeToolCard(t, s.PinnedPath ?? "-", "Hardened", PillKind.Ok, s.Note ?? ""),
-                HardenState.Degraded => MakeToolCard(t, s.PinnedPath ?? "-", "Degraded", PillKind.Warn, s.Reason ?? ""),
-                _ => MakeToolCard(t, "-", "Not hardened", PillKind.Muted, $"Run cw harden {t.Id}."),
+                HardenState.Hardened => MakeToolCard(t, s.PinnedPath ?? "", "Hardened", PillKind.Ok, s.Note ?? ""),
+                HardenState.Degraded => MakeToolCard(t, s.PinnedPath ?? "", "Degraded", PillKind.Warn, s.Reason ?? ""),
+                _ => MakeToolCard(t, "", "Not hardened", PillKind.Muted, $"Run cw harden {t.Id}."),
             }).ToList();
         }
         catch (Exception ex)

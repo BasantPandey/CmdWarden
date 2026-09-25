@@ -151,11 +151,18 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
-              <Button x:Name="AddSecretButton" Grid.Column="0" Content="+ Add secret"
+              <Button x:Name="AddSecretButton" Grid.Column="0"
                       Style="{StaticResource PrimaryButtonStyle}" IsEnabled="False"
-                      Click="AddSecretButton_Click" Margin="0,0,6,0" />
+                      Click="AddSecretButton_Click" Margin="0,0,6,0" ToolTip="Add secret (Ctrl+N)">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock Text="+ Add secret" />
+                  <Border Style="{StaticResource KeyChipStyle}">
+                    <TextBlock Text="Ctrl+N" Style="{StaticResource KeyChipTextStyle}" />
+                  </Border>
+                </StackPanel>
+              </Button>
               <Button x:Name="RefreshButton" Grid.Column="1" Content="&#xE72C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                      Style="{StaticResource IconButtonStyle}" ToolTip="Refresh"
+                      Style="{StaticResource IconButtonStyle}" ToolTip="Refresh (F5)"
                       Click="RefreshButton_Click" />
               <TextBlock x:Name="SecretCountText" Grid.Column="3" Text="0 secrets" FontSize="11"
                          Foreground="{StaticResource TextTertiaryBrush}" VerticalAlignment="Center"
@@ -209,10 +216,17 @@
                                  Margin="0,0,10,0" VerticalAlignment="Center" />
                       <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
                                  VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                      <Button Grid.Column="2" Content="Delete" Style="{StaticResource DangerButtonStyle}"
+                      <Button Grid.Column="2" Style="{StaticResource DangerButtonStyle}"
                               IsEnabled="{Binding CanDelete}" Click="DeleteButton_Click"
                               Margin="12,0,0,0" VerticalAlignment="Center"
-                              ToolTip="Delete requires selecting this card first" />
+                              ToolTip="Select this card first, then click Delete or press Del">
+                        <StackPanel Orientation="Horizontal">
+                          <TextBlock Text="Delete" />
+                          <Border Style="{StaticResource KeyChipStyle}">
+                            <TextBlock Text="Del" Style="{StaticResource KeyChipTextStyle}" />
+                          </Border>
+                        </StackPanel>
+                      </Button>
                     </Grid>
                   </Border>
                 </DataTemplate>
@@ -414,7 +428,17 @@
                                  Foreground="{StaticResource TextTertiaryBrush}" />
                     </StackPanel>
                     <TextBlock Text="{Binding Path}" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
-                               Foreground="{StaticResource TextSecondaryBrush}" />
+                               Foreground="{StaticResource TextSecondaryBrush}">
+                      <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding Path}" Value="">
+                              <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </TextBlock.Style>
+                    </TextBlock>
                     <Border CornerRadius="999" Padding="9,3" Margin="0,10,0,0" HorizontalAlignment="Left"
                             Background="{Binding PillBg}">
                       <TextBlock Text="{Binding Pill}" FontSize="11" FontWeight="Bold" Foreground="{Binding PillFg}" />

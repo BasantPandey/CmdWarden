@@ -10,7 +10,8 @@ public partial class ConfirmWindow : Window
         Title = title;
         TitleText.Text = title;
         BodyText.Text = body;
-        ConfirmButton.Content = confirmLabel;
+        ConfirmLabel.Text = confirmLabel;
+        ConfirmButton.ToolTip = confirmLabel + " (Enter)";
         if (isDanger)
             ConfirmButton.Style = (Style)FindResource("DangerPrimaryButtonStyle");
     }

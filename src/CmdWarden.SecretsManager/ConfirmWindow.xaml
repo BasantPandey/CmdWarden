@@ -16,10 +16,24 @@
       <TextBlock x:Name="BodyText" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}"
                  TextWrapping="Wrap" Margin="0,0,0,20" />
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-        <Button Content="Cancel" Style="{StaticResource IconButtonStyle}" Margin="0,0,8,0"
-                IsCancel="True" Click="Cancel_Click" Padding="16,8" />
+        <Button Style="{StaticResource IconButtonStyle}" Margin="0,0,8,0"
+                IsCancel="True" Click="Cancel_Click" Padding="16,8" ToolTip="Cancel (Esc)">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="Cancel" />
+            <Border Style="{StaticResource KeyChipStyle}">
+              <TextBlock Text="Esc" Style="{StaticResource KeyChipTextStyle}" />
+            </Border>
+          </StackPanel>
+        </Button>
         <Button x:Name="ConfirmButton" Style="{StaticResource PrimaryButtonStyle}"
-                IsDefault="True" Click="Confirm_Click" Padding="18,8" />
+                IsDefault="True" Click="Confirm_Click" Padding="18,8">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock x:Name="ConfirmLabel" />
+            <Border Style="{StaticResource KeyChipStyle}">
+              <TextBlock Text="Enter" Style="{StaticResource KeyChipTextStyle}" />
+            </Border>
+          </StackPanel>
+        </Button>
       </StackPanel>
     </StackPanel>
   </Border>
