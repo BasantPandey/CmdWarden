@@ -21,7 +21,7 @@ public class VaultNamesTests
     [Fact]
     public void Test_run_uses_its_own_vault_root_never_the_real_one()
     {
-        Assert.Equal("CmdWardenTest/", VaultNames.ProductPrefix);
+        Assert.Equal(TestVaultRoot.Root, VaultNames.ProductPrefix);
         Assert.StartsWith("CmdWardenTest/", GhVaultNames.Prefix);
         Assert.StartsWith("CmdWardenTest/", VaultNames.TargetName("GH_TOKEN"));
     }

@@ -10,6 +10,23 @@ namespace CmdWarden.Tests;
 /// </summary>
 internal static class TestVaultRoot
 {
+    /// <summary>One root per test run, so a parallel run on the same PC keeps its entries.</summary>
+    internal static readonly string Root = "CmdWardenTest/" + Guid.NewGuid().ToString("N")[..8] + "/";
+
     [ModuleInitializer]
-    internal static void Init() => Environment.SetEnvironmentVariable(VaultNames.RootEnvVar, "CmdWardenTest/");
+    internal static void Init()
+    {
+        Environment.SetEnvironmentVariable(VaultNames.RootEnvVar, Root);
+        // Some tests stop their agent before the cleanup asks it to delete. Nothing of this run may stay.
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => DeleteAll();
+    }
+
+    private static void DeleteAll()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+        var vault = new CredentialVault();
+        foreach (var entry in vault.ListTargets(VaultNames.ProductPrefix))
+            vault.DeleteTarget(entry.Target);
+    }
 }
