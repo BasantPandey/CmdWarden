@@ -41,6 +41,7 @@ public static class CliApp
             "shortcut" => ShortcutAsync(args.AsSpan(1).ToArray()),
             "leak-guard" => await CmdWarden.Cli.Hooks.LeakGuardCommands.LeakGuardAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "canary" => CmdWarden.Cli.Hooks.LeakGuardCommands.Canary(args.AsSpan(1).ToArray()),
+            "launch" => LaunchHarness(args.AsSpan(1).ToArray()),
             _ => Unknown(args[0]),
         };
     }
@@ -318,6 +319,66 @@ public static class CliApp
         };
     }
 
+    // cw launch <claude|codex|cursor> [-- args...]
+    private static int LaunchHarness(string[] args)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Console.Error.WriteLine("cw launch is Windows-only.");
+            return 1;
+        }
+        var ids = string.Join("|", CmdWarden.Cli.Launch.HarnessLauncher.Catalog.Select(h => h.Id));
+        if (args.Length == 0 || IsHelp(args[0]) || CmdWarden.Cli.Launch.HarnessLauncher.Find(args[0]) is not { } harness)
+        {
+            Console.WriteLine($"Usage: cw launch <{ids}> [-- <harness args>]");
+            Console.WriteLine("  Start the AI harness without the token variables CmdWarden knows (GH_TOKEN and others).");
+            Console.WriteLine("  Enroll the harness binary as ai-harness when it is not enrolled yet.");
+            return args.Length > 0 && IsHelp(args[0]) ? 0 : 1;
+        }
+        var rest = args.Skip(1).ToList();
+        if (rest.Count > 0 && rest[0] == "--")
+            rest.RemoveAt(0);
+
+        var install = CmdWarden.Cli.Launch.HarnessLauncher.Locate(harness);
+        if (install is null)
+        {
+            Console.Error.WriteLine($"{harness.DisplayName} not found. Install it, or put '{harness.Command}' on PATH.");
+            return 2;
+        }
+
+        var (clean, removed) = CmdWarden.Cli.Launch.HarnessLauncher.CleanEnvironment(CmdWarden.Cli.Launch.HarnessLauncher.CurrentEnvironment());
+        Console.WriteLine(removed.Count == 0
+            ? $"{ProductInfo.Name}: no token variables to remove."
+            : $"{ProductInfo.Name}: removed from the environment of {harness.DisplayName}: {string.Join(", ", removed)}");
+
+        var (key, enrolled) = CmdWarden.Cli.Launch.HarnessLauncher.EnsureEnrolled(install, LoadPolicyStore());
+        if (key is null)
+            Console.WriteLine($"{ProductInfo.Name}: {harness.Image} not found, so it is not enrolled. Enroll it later with cw policy enroll --kind ai-harness --key <key>.");
+        else if (enrolled)
+            Console.WriteLine($"{ProductInfo.Name}: enrolled {harness.Image} as ai-harness ({key}).");
+
+        if (harness.Gui && CmdWarden.Cli.Launch.HarnessLauncher.IsRunning(harness))
+            Console.WriteLine($"{ProductInfo.Name}: {harness.DisplayName} is already running. A new window joins that process and keeps its old environment. Close {harness.DisplayName} first.");
+
+        try
+        {
+            return CmdWarden.Cli.Launch.HarnessLauncher.Start(install, clean, rest);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"launch {harness.Id} failed: {ex.Message}");
+            return 1;
+        }
+    }
+
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    private static IEnumerable<(CmdWarden.Cli.Launch.HarnessInstall Install, string Lnk)> HarnessShortcuts() =>
+        CmdWarden.Cli.Launch.HarnessLauncher.Catalog
+            .Select(h => CmdWarden.Cli.Launch.HarnessLauncher.Locate(h))
+            .OfType<CmdWarden.Cli.Launch.HarnessInstall>()
+            .Select(i => (i, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs),
+                $"{i.Harness.DisplayName} (CmdWarden).lnk")));
+
     private static int ShortcutStatus()
     {
         var exe = SecretsManagerLocator.FindExePath();
@@ -326,6 +387,8 @@ public static class CliApp
         Console.WriteLine($"  present: {(SecretsManagerStartMenu.ShortcutExists() ? "yes" : "no")}");
         Console.WriteLine($"desktop shortcut: {SecretsManagerStartMenu.DesktopShortcutPath}");
         Console.WriteLine($"  present: {(SecretsManagerStartMenu.DesktopShortcutExists() ? "yes" : "no (cw shortcut install --desktop)")}");
+        foreach (var (install, lnk) in HarnessShortcuts())
+            Console.WriteLine($"{install.Harness.Id} launch shortcut: {lnk}\n  present: {(File.Exists(lnk) ? "yes" : "no (cw shortcut install)")}");
         return 0;
     }
 
@@ -351,6 +414,18 @@ public static class CliApp
                 Console.WriteLine($"Installed Desktop shortcut:");
                 Console.WriteLine($"  {desktopLnk}");
             }
+            // #25: one "cw launch" entry per harness on this PC.
+            var cw = CmdWarden.Cli.Hooks.HookInstaller.SelfCommand("").Trim();
+            var (target, prefix) = SplitCommand(cw);
+            foreach (var (install, harnessLnk) in HarnessShortcuts())
+            {
+                SecretsManagerStartMenu.WriteLink(harnessLnk, target, $"{prefix}launch {install.Harness.Id}".Trim(),
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                    $"Start {install.Harness.DisplayName} without token variables ({ProductInfo.Name})",
+                    (install.ImagePath ?? install.StartPath) + ",0");
+                Console.WriteLine($"Installed {install.Harness.DisplayName} launch shortcut:");
+                Console.WriteLine($"  {harnessLnk}");
+            }
             return 0;
         }
         catch (Exception ex)
@@ -358,6 +433,31 @@ public static class CliApp
             Console.Error.WriteLine($"shortcut install failed: {ex.Message}");
             return 1;
         }
+    }
+
+    /// <summary>The self command as a target and the arguments before the cw ones (the cw.dll for a dotnet host).</summary>
+    private static (string Target, string Prefix) SplitCommand(string command)
+    {
+        var parts = new List<string>();
+        var current = new System.Text.StringBuilder();
+        var quoted = false;
+        foreach (var c in command)
+        {
+            if (c == '"')
+                quoted = !quoted;
+            else if (c == ' ' && !quoted)
+            {
+                if (current.Length > 0)
+                    parts.Add(current.ToString());
+                current.Clear();
+            }
+            else
+                current.Append(c);
+        }
+        if (current.Length > 0)
+            parts.Add(current.ToString());
+        var prefix = string.Concat(parts.Skip(1).Select(p => (p.Contains(' ') ? $"\"{p}\"" : p) + " "));
+        return (parts[0].Replace('/', '\\'), prefix);
     }
 
     private static int ShortcutRemove()
@@ -370,6 +470,15 @@ public static class CliApp
                 Console.WriteLine($"Shortcut not present: {SecretsManagerStartMenu.ShortcutPath}");
             if (SecretsManagerStartMenu.RemoveDesktop())
                 Console.WriteLine($"Removed {SecretsManagerStartMenu.DesktopShortcutPath}");
+            foreach (var h in CmdWarden.Cli.Launch.HarnessLauncher.Catalog)
+            {
+                var lnk = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), $"{h.DisplayName} (CmdWarden).lnk");
+                if (File.Exists(lnk))
+                {
+                    File.Delete(lnk);
+                    Console.WriteLine($"Removed {lnk}");
+                }
+            }
             return 0;
         }
         catch (Exception ex)
@@ -1473,6 +1582,7 @@ public static class CliApp
         Row("unharden docker|git|gh", "Restore the stock store and config, remove pin and shim");
         Row("audit [-n N]", "Show recent gate decisions (local audit trail)");
         Row("scan", "First-catalog residual risk detectors (read-only)");
+        Row("launch claude|codex|cursor [-- args]", "Start an AI harness without token variables; enroll it if needed");
         Row("leak-guard install|uninstall claude|cursor", "Hide vaulted secret values in tool output from the model");
         Row("canary install [--env F]|remove|status", "Fake tokens that show an attack when used");
         Row("shortcut install [--desktop]|remove|status", "Start Menu (and Desktop) entry for CmdWarden Vault");

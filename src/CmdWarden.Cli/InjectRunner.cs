@@ -50,7 +50,8 @@ public static class InjectRunner
                 {
                     var candidate = Path.Combine(dir, name);
                     if (File.Exists(candidate))
-                        return Path.GetFullPath(candidate);
+                        // The name as stored on disk, not the PATHEXT case (claude.exe, not claude.EXE).
+                        return Directory.EnumerateFiles(Path.GetFullPath(dir), name).FirstOrDefault() ?? Path.GetFullPath(candidate);
                 }
                 catch (ArgumentException)
                 {

@@ -252,12 +252,22 @@ Issue: [install and distribution](https://github.com/BasantPandey/CmdWarden/issu
 | audit | Tail gate log |
 | scan | First-catalog detectors |
 | harden \<tool\> | Opt-in shim + pin for catalog tools |
+| launch \<harness\> | Start Claude Code, Codex, or Cursor without ambient token variables ([#25](https://github.com/BasantPandey/CmdWarden/issues/25)) |
 
 **Primary journey:** install → doctor → enroll → harden gh → day-to-day shim use; plus scan / audit / manual vault.
 
 Issue: [v1 cw CLI command surface](https://github.com/BasantPandey/CmdWarden/issues/21).
 
 ---
+
+### cw launch ([#25](https://github.com/BasantPandey/CmdWarden/issues/25))
+
+- Catalog: `claude` (Claude Code, `claude.exe`), `codex` (Codex, `codex.exe`), `cursor` (Cursor, `Cursor.exe`).
+- The harness binary is the process that starts shells, so it is the launcher CmdWarden sees. A native install on PATH is that binary. For an npm `.cmd` shim, `cw launch` starts the shim and looks for the binary in the npm package the shim names. Cursor starts from `%LOCALAPPDATA%\Programs\cursor\Cursor.exe`.
+- The child environment is a copy without `AmbientEnv.All`, the list the scan detectors use: `GH_TOKEN`, `GITHUB_TOKEN`, `GH_ENTERPRISE_TOKEN`, `GITHUB_ENTERPRISE_TOKEN`, `GH_PATH`, `AZURE_CLIENT_SECRET`, `AZURE_CLIENT_CERTIFICATE_PATH`, `AZURE_FEDERATED_TOKEN_FILE`, `DOCKER_AUTH_CONFIG`. `cw launch` prints the names it removed, never values.
+- When the binary's policy key has no enrollment, `cw launch` enrolls it as `ai_harness`. An existing enrollment stays as it is.
+- A running Cursor gets a new window in the old process, with the old environment; `cw launch cursor` says so.
+- `cw shortcut install` adds `<Harness> (CmdWarden).lnk` to the Start Menu for each harness on this PC; `cw shortcut remove` deletes them.
 
 ## 12. Scan engine
 
@@ -351,7 +361,7 @@ Research: docker-windows-harden.md. Issue: [#25](https://github.com/BasantPandey
 | Threat | Mitigation |
 |--------|------------|
 | AI harness dumps tokens (`gh auth token`, `git credential fill`, `az account get-access-token`, helper get) | Command class secret-reveal + policy (AI default Read) + Approval Gate / block |
-| Ambient long-lived env tokens | Child-only inject where applicable; scan profiles; strip untrusted ambient on mediated children |
+| Ambient long-lived env tokens | Child-only inject where applicable; scan profiles; `cw launch <harness>` starts the harness without them ([#25](https://github.com/BasantPandey/CmdWarden/issues/25)) |
 | Same-user CredRead / DPAPI | Agent policy is the gate; strong mode empties the stock store for `gh` / `git` / `docker`; residual accepted in compat and for `az` |
 | Absolute path bypass of PATH shim | Scan + guidance; WDAC out of PATH-only v1 |
 | Secret values in tool output read by the model | Leak guard hooks replace each vaulted value with `[CmdWarden: NAME]` ([#27](https://github.com/BasantPandey/CmdWarden/issues/27)) |

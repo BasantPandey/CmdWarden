@@ -22,10 +22,11 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw save <NAME>` / `cw delete <NAME>` | Named vault secret |
 | `cw inject +NAME -- <cmd>` | Run cmd with secret in child env only |
 | `cw scan` | Read-only residual risk scan |
+| `cw launch claude\|codex\|cursor [-- args]` | Start an AI harness without the token variables `cw scan` knows; enroll its binary as ai-harness if needed |
 | `cw leak-guard install\|uninstall claude\|cursor` | Hook that replaces vaulted secret values in tool output with `[CmdWarden: NAME]` |
 | `cw canary install [--env <file>]...\|remove\|status` | Fake tokens that block the launcher and show an alarm when used |
 | `cw audit [-n N]` | Recent gate decisions |
-| `cw shortcut install [--desktop]\|remove\|status` | Start Menu (and Desktop) entry for CmdWarden Vault |
+| `cw shortcut install [--desktop]\|remove\|status` | Start Menu (and Desktop) entry for CmdWarden Vault, plus a `cw launch` entry per harness on this PC |
 
 ## Screens
 

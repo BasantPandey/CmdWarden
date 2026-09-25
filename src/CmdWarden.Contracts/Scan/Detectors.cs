@@ -1,17 +1,13 @@
 namespace CmdWarden.Contracts.Scan;
 
-/// <summary>GH_TOKEN / GITHUB_TOKEN ambient in process environment.</summary>
+/// <summary>A GitHub token variable (GH_TOKEN, GITHUB_TOKEN, enterprise forms) ambient in process environment.</summary>
 public sealed class GhAmbientTokenDetector : IScanDetector
 {
     public string Id => "gh.ambient_token";
 
     public IReadOnlyList<ScanFinding> Detect(ScanContext context)
     {
-        var set = new List<string>();
-        if (context.EnvIsSet("GH_TOKEN"))
-            set.Add("GH_TOKEN");
-        if (context.EnvIsSet("GITHUB_TOKEN"))
-            set.Add("GITHUB_TOKEN");
+        var set = AmbientEnv.GhTokens.Where(context.EnvIsSet).ToList();
         if (set.Count == 0)
             return Array.Empty<ScanFinding>();
 
@@ -26,7 +22,7 @@ public sealed class GhAmbientTokenDetector : IScanDetector
                 "A GitHub token env var is set in this process. Harnesses and children inherit it, bypassing CmdWarden vault release.",
                 Evidence: string.Join(", ", set) + " is set (value not shown)",
                 Remediation:
-                "Unset GH_TOKEN / GITHUB_TOKEN from the current shell and remove exports from profile scripts.",
+                "Unset the variable in the shell and in profile scripts, or start the AI harness with cw launch <harness>.",
                 HardenHint: "cw harden gh"),
         };
     }
@@ -39,11 +35,11 @@ public sealed class GhAmbientPathDetector : IScanDetector
 
     public IReadOnlyList<ScanFinding> Detect(ScanContext context)
     {
-        if (!context.EnvIsSet("GH_PATH"))
+        if (!context.EnvIsSet(AmbientEnv.GhPath))
             return Array.Empty<ScanFinding>();
 
         // Evidence: presence and whether path exists - never treat path as secret.
-        var raw = context.GetEnv("GH_PATH") ?? "";
+        var raw = context.GetEnv(AmbientEnv.GhPath) ?? "";
         var exists = false;
         try { exists = File.Exists(raw); } catch { /* ignore */ }
 
@@ -235,13 +231,7 @@ public sealed class AzAmbientSpSecretDetector : IScanDetector
 
     public IReadOnlyList<ScanFinding> Detect(ScanContext context)
     {
-        var names = new[]
-        {
-            "AZURE_CLIENT_SECRET",
-            "AZURE_CLIENT_CERTIFICATE_PATH",
-            "AZURE_FEDERATED_TOKEN_FILE",
-        };
-        var set = names.Where(context.EnvIsSet).ToList();
+        var set = AmbientEnv.AzServicePrincipal.Where(context.EnvIsSet).ToList();
         if (set.Count == 0)
             return Array.Empty<ScanFinding>();
 
@@ -296,7 +286,7 @@ public sealed class DockerAmbientAuthConfigDetector : IScanDetector
 
     public IReadOnlyList<ScanFinding> Detect(ScanContext context)
     {
-        if (!context.EnvIsSet("DOCKER_AUTH_CONFIG"))
+        if (!context.EnvIsSet(AmbientEnv.DockerAuthConfig))
             return Array.Empty<ScanFinding>();
 
         return new[]

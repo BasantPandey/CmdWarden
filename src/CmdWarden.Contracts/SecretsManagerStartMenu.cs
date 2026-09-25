@@ -40,7 +40,13 @@ public static class SecretsManagerStartMenu
     {
         if (string.IsNullOrWhiteSpace(targetExe) || !File.Exists(targetExe))
             throw new FileNotFoundException("Secrets manager exe not found.", targetExe);
+        return WriteLink(lnk, Path.GetFullPath(targetExe), "", Path.GetDirectoryName(Path.GetFullPath(targetExe))!,
+            "CmdWarden Vault - list, add, and delete secret names", null);
+    }
 
+    /// <summary>Create or overwrite one .lnk file. Returns its path.</summary>
+    public static string WriteLink(string lnk, string target, string arguments, string workingDirectory, string description, string? iconLocation)
+    {
         Directory.CreateDirectory(Path.GetDirectoryName(lnk)!);
 
         var shellType = Type.GetTypeFromProgID("WScript.Shell")
@@ -50,9 +56,12 @@ public static class SecretsManagerStartMenu
         try
         {
             dynamic shortcut = shell.CreateShortcut(lnk);
-            shortcut.TargetPath = Path.GetFullPath(targetExe);
-            shortcut.WorkingDirectory = Path.GetDirectoryName(Path.GetFullPath(targetExe))!;
-            shortcut.Description = "CmdWarden Vault - list, add, and delete secret names";
+            shortcut.TargetPath = target;
+            shortcut.Arguments = arguments;
+            shortcut.WorkingDirectory = workingDirectory;
+            shortcut.Description = description;
+            if (iconLocation is not null)
+                shortcut.IconLocation = iconLocation;
             shortcut.Save();
         }
         finally

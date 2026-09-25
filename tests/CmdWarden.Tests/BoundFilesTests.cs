@@ -71,7 +71,7 @@ public class BoundFilesTests
         {
             var tool = Path.Combine(dir, "mytool.cmd");
             File.WriteAllText(tool, "@echo off");
-            Assert.Equal(tool, InjectRunner.ResolveProgram("mytool", dir, ".EXE;.CMD"), ignoreCase: true);
+            Assert.Equal(tool, InjectRunner.ResolveProgram("mytool", dir, ".EXE;.CMD"));
             Assert.Equal(tool, InjectRunner.ResolveProgram("mytool.cmd", dir, ".EXE"));
             Assert.Equal("missing", InjectRunner.ResolveProgram("missing", dir, ".EXE"));
             Assert.Equal(tool, InjectRunner.ResolveProgram(tool));

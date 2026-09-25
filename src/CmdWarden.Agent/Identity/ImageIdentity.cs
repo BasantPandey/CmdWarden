@@ -1,7 +1,5 @@
 using System.Collections.Concurrent;
 using System.Runtime.Versioning;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using CmdWarden.Contracts;
 
 namespace CmdWarden.Agent.Identity;
@@ -45,43 +43,7 @@ public static class ImageIdentity
 
     private static Identity Compute(string path, FileInfo info)
     {
-        try
-        {
-#pragma warning disable SYSLIB0057 // CreateFromSignedFile still the practical PE Authenticode loader
-            using var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(path));
-#pragma warning restore SYSLIB0057
-            if (!string.IsNullOrEmpty(cert.Thumbprint))
-            {
-                return new Identity(
-                    info.Length,
-                    info.LastWriteTimeUtc,
-                    LauncherKinds.Authenticode,
-                    LauncherKinds.PolicyKeyAuthenticode(cert.Thumbprint),
-                    cert.GetNameInfo(X509NameType.SimpleName, false) ?? cert.Subject,
-                    cert.Thumbprint,
-                    HashFile(path));
-            }
-        }
-        catch (Exception)
-        {
-            // unsigned or unreadable signature: hash fallback
-        }
-
-        try
-        {
-            var hash = HashFile(path);
-            return new Identity(info.Length, info.LastWriteTimeUtc, LauncherKinds.PathHash, LauncherKinds.PolicyKeyPathHash(hash), null, null, hash);
-        }
-        catch
-        {
-            return new Identity(info.Length, info.LastWriteTimeUtc, LauncherKinds.Unknown, LauncherKinds.PolicyKeyUnknown, null, null, null);
-        }
-    }
-
-    private static string HashFile(string path)
-    {
-        using var stream = File.OpenRead(path);
-        var hash = SHA256.HashData(stream);
-        return Convert.ToHexString(hash).ToLowerInvariant();
+        var id = LauncherImage.Identify(path);
+        return new Identity(info.Length, info.LastWriteTimeUtc, id.Kind, id.PolicyKey, id.Publisher, id.Thumbprint, id.Sha256);
     }
 }
