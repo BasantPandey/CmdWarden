@@ -272,6 +272,20 @@ Tests must not require an interactive desktop; scripted modes remain mandatory.
 
 ---
 
+## 12a. Real input only ([#23](https://github.com/BasantPandey/CmdWarden/issues/23))
+
+An AI agent runs as the same Windows user as the person at the desk. It must not approve its own request.
+
+| Rule | Detail |
+|------|--------|
+| Approve Once, Allow for session | Accept only real keyboard or mouse input |
+| Real input | A low-level keyboard or mouse hook in the helper saw the event without `LLKHF_INJECTED` / `LLMHF_INJECTED`. A key counts only while the popup is the foreground window. A click counts only when the button goes up over the popup |
+| Posted messages | `PostMessage` never passes the hooks, so a posted Enter or A leaves no credit |
+| UI Automation | Approve Once and Allow for session expose no Invoke pattern. Their names stay readable for screen readers |
+| Ignored input | The popup stays open and shows `Use your keyboard or mouse.` |
+| Deny | Esc and the Deny button accept every input type |
+| Residual | Tools that inject input (on-screen keyboard, voice control, some remote desktop tools) cannot approve. Code that writes into the helper process memory is out of scope |
+
 ## 13. Open implement choices (still fog / product discretion)
 
 These are **in scope for implement**, not reopened design tickets unless blocked:

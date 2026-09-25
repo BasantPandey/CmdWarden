@@ -174,6 +174,7 @@ Summary for architecture readers:
 - **Allow for session ([#132](https://github.com/BasantPandey/CmdWarden/issues/132)):** third button, shown only for enrolled launchers and never for secret-reveal; Approve Once stays the default. Grants the launcher process (pid + start time) the approved class and lower for tool + secret until it exits or is idle 60 minutes (`CW_SESSION_IDLE_SECONDS`). Granting call is audited `session-grant`; covered calls `session-allow` with reason `SessionAllow`. Helper exit code 3; scripted mode `CW_APPROVAL_MODE=session`.
 - **Deny cooldown:** after a Deny, the same launcher process gets no new popup for that tool for 2 minutes (`CW_DENY_COOLDOWN_SECONDS`). Other arguments do not open a new popup. Each blocked call is audited `deny` with reason `DenyCooldown`. Only one popup shows at a time. A waiting call checks the cooldown before its popup opens.
 - **Approve Once lasts the session ([#205](https://github.com/BasantPandey/CmdWarden/issues/205)):** an Approve Once click grants the launcher process the **one class it showed** for tool + secret, on the same terms as Allow for session (enrolled launcher, never secret-reveal, launcher exit or 60 idle minutes). A higher class prompts again. A later decision **adds** to the live grant, so a narrow answer never takes coverage away. Covered calls audit `session-allow`; the granting call still audits `allow-once`.
+- **Real input only ([#23](https://github.com/BasantPandey/CmdWarden/issues/23)):** Approve Once and Allow for session accept only keyboard or mouse input that the helper's low-level hooks saw without the injected flag. `SendInput`, `PostMessage`, and UI Automation `Invoke` get no answer, and the popup shows `Use your keyboard or mouse.` Deny accepts every input type.
 - **Windows Hello / step-up:** **out of v1** (explicit non-goal).
 - **CI:** scripted modes via `CW_APPROVAL_MODE`.
 - **Transient reuse ([#131](https://github.com/BasantPandey/CmdWarden/issues/131)):** a human `AllowOnce` / `Deny` is reused, in memory only, for an exact retry (same launcher pid + start time, tool, class, secret name, command line) while the launcher process lives; `CW_TRANSIENT_REUSE_SECONDS` adds an optional time cap; audited with reason `TransientReuse`. Policy auto-allow and `Unavailable` are recomputed every call.
@@ -334,7 +335,7 @@ Research: docker-windows-harden.md. Issue: [#25](https://github.com/BasantPandey
 | Same-user CredRead / DPAPI | Agent policy is the gate; strong mode empties the stock store for `gh` / `git` / `docker`; residual accepted in compat and for `az` |
 | Absolute path bypass of PATH shim | Scan + guidance; WDAC out of PATH-only v1 |
 | Wrapper bypass | By design residual (PATH-only) |
-| Approval clickjacking | Native UI; Hello deferred; phone OOB out of scope |
+| Approval clickjacking, self-approval by injected input | Native UI; Approve accepts only non-injected hook input, no UI Automation Invoke ([#23](https://github.com/BasantPandey/CmdWarden/issues/23)); phone OOB out of scope |
 
 Broader Automic comparison: automic-vault-architecture.md.
 

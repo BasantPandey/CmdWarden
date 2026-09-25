@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
 using CmdWarden.Contracts;
 using CmdWarden.Ui;
 
@@ -11,6 +12,8 @@ public partial class MainWindow : Window
     // Keys typed in the terminal just before the popup opens must not approve it.
     private static readonly TimeSpan KeyArmDelay = TimeSpan.FromMilliseconds(600);
     private readonly Stopwatch _shownFor = new();
+    private readonly ApprovalInputGuard _inputGuard = new();
+    private RealInputHooks? _hooks;
     private bool _completed;
 
     public MainWindow(ApprovalHelperPayload payload)
@@ -77,6 +80,20 @@ public partial class MainWindow : Window
             SessionGap.Width = new GridLength(0);
         }
 
+        IgnoredInput.Text = ApprovalInputGuard.IgnoredInputLine;
+        SourceInitialized += (_, _) =>
+        {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            try
+            {
+                _hooks = new RealInputHooks(_inputGuard, () => hwnd);
+            }
+            catch
+            {
+                // No hooks means no real input can be proven: Approve stays closed, Deny still works.
+            }
+        };
+        Closed += (_, _) => _hooks?.Dispose();
         ContentRendered += (_, _) => _shownFor.Start();
 
         Closing += (_, _) =>
@@ -95,24 +112,36 @@ public partial class MainWindow : Window
             return;
         if (!_shownFor.IsRunning || _shownFor.Elapsed < KeyArmDelay)
         {
+            _inputGuard.TryConsume(DateTime.UtcNow);
             e.Handled = true;
             return;
         }
         if (e.Key == Key.A && Keyboard.Modifiers == ModifierKeys.None && SessionButton.IsVisible)
         {
             e.Handled = true;
-            Complete(ApprovalHelperExitCodes.AllowForSession);
+            CompleteIfReal(ApprovalHelperExitCodes.AllowForSession);
         }
     }
 
     private void ApproveButton_Click(object sender, RoutedEventArgs e) =>
-        Complete(ApprovalHelperExitCodes.AllowOnce);
+        CompleteIfReal(ApprovalHelperExitCodes.AllowOnce);
 
     private void DenyButton_Click(object sender, RoutedEventArgs e) =>
         Complete(ApprovalHelperExitCodes.Deny);
 
     private void SessionButton_Click(object sender, RoutedEventArgs e) =>
-        Complete(ApprovalHelperExitCodes.AllowForSession);
+        CompleteIfReal(ApprovalHelperExitCodes.AllowForSession);
+
+    /// <summary>An approval needs real keyboard or mouse input (#23). Other input only shows a hint.</summary>
+    private void CompleteIfReal(int code)
+    {
+        if (_inputGuard.TryConsume(DateTime.UtcNow))
+        {
+            Complete(code);
+            return;
+        }
+        IgnoredInput.Visibility = Visibility.Visible;
+    }
 
     private void Complete(int code)
     {
