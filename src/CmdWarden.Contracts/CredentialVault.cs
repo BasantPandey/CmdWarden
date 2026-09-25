@@ -118,7 +118,28 @@ public sealed class CredentialVault
         ListTargets(VaultNames.TargetPrefix).Select(e => VaultNames.SecretName(e.Target)).ToArray();
 
     /// <summary>Targets under <paramref name="prefix"/> with their user names. No blobs leave CredMan.</summary>
-    public IReadOnlyList<VaultTarget> ListTargets(string prefix)
+    public IReadOnlyList<VaultTarget> ListTargets(string prefix) =>
+        StableRead(() => ListTargetsOnce(prefix), t => t.Target);
+
+    /// <summary>
+    /// CredEnumerate can drop entries while another process writes credentials: under load about
+    /// 1 read in 300 came back short. Read until two reads in a row list the same targets.
+    /// ponytail: 5 reads bound the cost; a store that changes on every read returns the last read.
+    /// </summary>
+    private static IReadOnlyList<T> StableRead<T>(Func<IReadOnlyList<T>> read, Func<T, string> key)
+    {
+        var last = read();
+        for (var i = 0; i < 4; i++)
+        {
+            var next = read();
+            if (next.Select(key).Order(StringComparer.Ordinal).SequenceEqual(last.Select(key).Order(StringComparer.Ordinal), StringComparer.Ordinal))
+                return next;
+            last = next;
+        }
+        return last;
+    }
+
+    private IReadOnlyList<VaultTarget> ListTargetsOnce(string prefix)
     {
         var filter = prefix + "*";
         if (!CredEnumerate(filter, 0, out var count, out var credentialsPtr))
@@ -164,7 +185,10 @@ public sealed class CredentialVault
     /// <paramref name="label"/>, blobs included. Docker Desktop and wincred store one such entry
     /// per registry (#204). Targets have no shared prefix, so this walks the whole store.
     /// </summary>
-    public IReadOnlyList<LabeledEntry> ReadAllWithLabel(string label)
+    public IReadOnlyList<LabeledEntry> ReadAllWithLabel(string label) =>
+        StableRead(() => ReadAllWithLabelOnce(label), e => e.Target);
+
+    private static IReadOnlyList<LabeledEntry> ReadAllWithLabelOnce(string label)
     {
         if (!CredEnumerate(null, CredEnumerateAllCredentials, out var count, out var credentialsPtr))
         {
