@@ -16,7 +16,7 @@ CmdWarden has three user surfaces:
 | Surface | What it is | When you see it |
 |---------|------------|-----------------|
 | **`cw` CLI** | Setup and power-user commands | You type them in a terminal |
-| **Approval Gate** | Small desktop card with **Deny** / **Allow for session** / **Approve Once** | Pops up while a gated command waits |
+| **Approval Gate** | Small desktop card with **Deny** (Esc) / **Allow for session** (A) / **Approve Once** (Enter) | Pops up while a gated command waits |
 | **CmdWarden Vault** | Desktop app with six pages: Secret Gates, Detectors, Hardened Tools, Secrets, Secret Usage, Doctor | You open it from the Start Menu |
 
 The [CmdWarden Vault](vault.md) section describes every page. Each use case below names the Vault page that shows the same information.
@@ -30,7 +30,7 @@ The [CmdWarden Vault](vault.md) section describes every page. Each use case belo
 | **Enroll** | Register a launcher as terminal or ai-harness so defaults apply |
 | **Harden** | Opt-in: pin real binary + PATH shim (+ vault token for `gh`) |
 | **Policy level** | Deny / Read / Trusted / Full for a **tool × launcher** pair |
-| **Approval Gate** | Desktop **Deny / Approve Once** card when auto-allow does not apply (appears while the agent tool call waits) |
+| **Approval Gate** | Desktop **Deny / Allow for session / Approve Once** card when auto-allow does not apply (appears while the agent tool call waits) |
 | **Vault** | Secrets in Windows Credential Manager, released only to allowed children |
 | **CmdWarden Vault** | Desktop app (Start Menu) to view gates, detectors, hardened tools, secret names, usage, and doctor |
 | **Session allow** | An Approval Gate grant that lasts until the launcher exits or 60 idle minutes. **Approve Once** grants the one class you saw; **Allow for session** grants that class and every lower one |

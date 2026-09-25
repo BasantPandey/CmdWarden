@@ -59,13 +59,10 @@ Your AI harness runs shell commands. Those commands call `gh`, `git`, `az`, or `
 
 ## Install
 
-```powershell
-git clone https://github.com/BasantPandey/CmdWarden.git
-cd CmdWarden
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Install-CmdWarden.ps1 -Desktop
-```
+1. Download `CmdWarden.<version>-setup.zip` from the [latest Release](https://github.com/BasantPandey/CmdWarden/releases/latest) and extract it.
+2. Double-click **`install.cmd`**.
 
-The script installs the latest GitHub Release as a global dotnet tool and creates the CmdWarden Vault icons. Other install ways, update, and uninstall: [Install](install.md).
+To remove CmdWarden, open Windows Settings > Apps > **CmdWarden** > **Uninstall**. Other install ways and update: [Install](install.md).
 
 ## First five minutes
 
@@ -85,7 +82,7 @@ Open a new terminal. `gh` now runs through CmdWarden. Your terminal is Trusted. 
 | Surface | What it is | When you see it |
 |---------|------------|-----------------|
 | **`cw` CLI** | Setup and power-user commands | You type them in a terminal |
-| **Approval Gate** | Small desktop card with **Deny** / **Allow for session** / **Approve Once** | Pops up while a gated command waits |
+| **Approval Gate** | Small desktop card with **Deny** (Esc) / **Allow for session** (A) / **Approve Once** (Enter) | Pops up while a gated command waits |
 | **CmdWarden Vault** | Desktop app with six pages: Secret Gates, Detectors, Hardened Tools, Secrets, Secret Usage, Doctor | You open it from the Start Menu |
 
 ![CmdWarden Vault Secret Gates page](images/vault-secret-gates.png)

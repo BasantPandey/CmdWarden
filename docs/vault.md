@@ -17,6 +17,21 @@ Run `cw shortcut install` again after every reinstall of the tool. The shortcuts
 - **Title bar:** page name, a **Session Agent** badge (Up / Agent down), and one primary button (**+ Add secret** on Secrets, **Run scan** on Detectors, **Refresh** elsewhere).
 - **Body:** the page content. Every page is read-only except Secrets.
 
+## Keys
+
+Each button shows its key next to its label.
+
+| Key | Where | Does |
+|-----|-------|------|
+| **F5** | Every page | Refresh the page. On Detectors, run a scan. |
+| **Ctrl+N** | Secrets | Open **Add secret**. |
+| **Down** / **Up** | Secrets | Select the next or the previous card. |
+| **Del** | Secrets | Delete the selected card. A dialog asks you first. |
+| **Esc** | Secrets | Clear the selection. |
+| **[** / **]** | Every page | Collapse or expand the nav. |
+| **Enter** | Add secret, Delete secret | **Save** or **Delete**. |
+| **Esc** | Add secret, Delete secret | **Cancel**. Nothing changes. |
+
 ## Pages
 
 | Page | Shows | CLI twin |
@@ -41,6 +56,18 @@ Run `cw shortcut install` again after every reinstall of the tool. The shortcuts
 **Hardened Tools** - one card per catalog tool with its harden state.
 
 ![Hardened Tools page](images/vault-hardened-tools.png)
+
+**Secrets** - every secret name. Select a card with a click or the arrow keys, then click **Delete** or press **Del**.
+
+![Secrets page](images/vault-secrets.png)
+
+**Add secret** - type a name and a value. Press **Enter** to save or **Esc** to cancel.
+
+![Add secret dialog](images/vault-add-secret.png)
+
+**Delete secret** - press **Enter** to delete or **Esc** to keep the secret.
+
+![Delete secret dialog](images/vault-delete-secret.png)
 
 **Secret Usage** - the newest gate decisions with launcher, tool, secret name, and decision pill.
 

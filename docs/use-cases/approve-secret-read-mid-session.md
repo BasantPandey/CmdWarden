@@ -83,12 +83,14 @@ What happens next:
 
 5. You choose:
 
-   | You click | Result in the AI session |
-   |-----------|---------------------------|
-   | **Approve Once** | This read is allowed; the child can use `DEMO_TOKEN`; agent can continue. Later reads of the **same class** for this tool and secret are allowed until the launcher exits or after 60 idle minutes. A higher class prompts again. |
-   | **Allow for session** | This read and every later read of the same class (or lower) for this tool and secret are allowed. The grant ends when the launcher process exits or after 60 idle minutes. The button is hidden for unenrolled launchers. It never covers secret-reveal. |
-   | **Deny** | Release is blocked; agent sees failure / permission denied. |
+   | You click or press | Result in the AI session |
+   |--------------------|---------------------------|
+   | **Approve Once** (**Enter**) | This read is allowed; the child can use `DEMO_TOKEN`; agent can continue. Later reads of the **same class** for this tool and secret are allowed until the launcher exits or after 60 idle minutes. A higher class prompts again. |
+   | **Allow for session** (**A**) | This read and every later read of the same class (or lower) for this tool and secret are allowed. The grant ends when the launcher process exits or after 60 idle minutes. The button is hidden for unenrolled launchers. It never covers secret-reveal. |
+   | **Deny** (**Esc**) | Release is blocked; agent sees failure / permission denied. For 2 minutes, the same launcher gets no new popup for this tool. Each retry is denied at once. |
    | Close the window | Same as unavailable → **fail closed** (block). |
+
+   The popup ignores **Enter** and **A** for the first 600 ms. Thus a key that you type in the terminal cannot approve it by mistake. **Esc** works at all times.
 
    Every decision appears on the **Secret Usage** page of CmdWarden Vault and in `cw audit`. Active session grants appear on the **Secret Gates** page. Revoke one with `cw policy sessions --revoke <id>`.
 
