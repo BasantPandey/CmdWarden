@@ -280,16 +280,77 @@ public sealed class CredentialVault
     }
 
     [DllImport("advapi32.dll", EntryPoint = "CredWriteW", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern bool CredWrite(ref CREDENTIAL userCredential, uint flags);
+    private static extern bool NativeCredWrite(ref CREDENTIAL userCredential, uint flags);
 
     [DllImport("advapi32.dll", EntryPoint = "CredReadW", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern bool CredRead(string targetName, int type, int flags, out IntPtr credential);
+    private static extern bool NativeCredRead(string targetName, int type, int flags, out IntPtr credential);
 
     [DllImport("advapi32.dll", EntryPoint = "CredDeleteW", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern bool CredDelete(string targetName, int type, int flags);
+    private static extern bool NativeCredDelete(string targetName, int type, int flags);
 
     [DllImport("advapi32.dll", EntryPoint = "CredEnumerateW", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern bool CredEnumerate(string? filter, int flags, out uint count, out IntPtr credentials);
+    private static extern bool NativeCredEnumerate(string? filter, int flags, out uint count, out IntPtr credentials);
+
+    /// <summary>
+    /// Credential Manager loses a write or a delete when another call runs at the same time, in one
+    /// process or across processes; a read at the same time counts too. In a stress run, 4 processes
+    /// left about 1 delete in 6 undone. Each CmdWarden call to Credential Manager takes this mutex.
+    /// ponytail: it orders CmdWarden processes only; gh, git, or docker can still call at the same moment.
+    /// </summary>
+    private static readonly Mutex CredManLock = new(false, @"Local\CmdWarden-CredentialManager");
+
+    /// <summary>Runs one Credential Manager call under <see cref="CredManLock"/> and keeps its Win32 error.</summary>
+    private static bool Locked(Func<bool> call)
+    {
+        try
+        {
+            CredManLock.WaitOne();
+        }
+        catch (AbandonedMutexException)
+        {
+            // The last owner exited while it held the mutex. The mutex is ours now.
+        }
+        bool ok;
+        int err;
+        try
+        {
+            ok = call();
+            err = Marshal.GetLastPInvokeError();
+        }
+        finally
+        {
+            CredManLock.ReleaseMutex();
+        }
+        Marshal.SetLastPInvokeError(err);
+        return ok;
+    }
+
+    private static bool CredWrite(ref CREDENTIAL credential, uint flags)
+    {
+        var copy = credential;
+        return Locked(() => NativeCredWrite(ref copy, flags));
+    }
+
+    private static bool CredRead(string targetName, int type, int flags, out IntPtr credential)
+    {
+        var result = IntPtr.Zero;
+        var ok = Locked(() => NativeCredRead(targetName, type, flags, out result));
+        credential = result;
+        return ok;
+    }
+
+    private static bool CredDelete(string targetName, int type, int flags) =>
+        Locked(() => NativeCredDelete(targetName, type, flags));
+
+    private static bool CredEnumerate(string? filter, int flags, out uint count, out IntPtr credentials)
+    {
+        uint n = 0;
+        var result = IntPtr.Zero;
+        var ok = Locked(() => NativeCredEnumerate(filter, flags, out n, out result));
+        count = n;
+        credentials = result;
+        return ok;
+    }
 
     [DllImport("advapi32.dll", SetLastError = true)]
     private static extern void CredFree(IntPtr buffer);

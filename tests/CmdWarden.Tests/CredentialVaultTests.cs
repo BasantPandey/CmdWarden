@@ -29,6 +29,37 @@ public class CredentialVaultTests
     }
 
     [Fact]
+    public void Parallel_save_and_delete_leave_nothing_behind()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        // Without the Credential Manager mutex, this loop leaves about 1 delete in 15 undone.
+        // 80 rounds catch that in each run.
+        var vault = new CredentialVault();
+        var prefix = "cw_race_" + Guid.NewGuid().ToString("N")[..8] + "_";
+        try
+        {
+            Parallel.For(0, 4, t =>
+            {
+                for (var i = 0; i < 20; i++)
+                {
+                    var name = $"{prefix}{t}_{i}";
+                    vault.Save(name, "v"u8);
+                    Assert.NotNull(vault.ReadTarget(VaultNames.TargetName(name)));
+                    Assert.True(vault.Delete(name));
+                }
+            });
+            Assert.Empty(vault.ListTargets(VaultNames.TargetName(prefix)));
+        }
+        finally
+        {
+            foreach (var left in vault.ListTargets(VaultNames.TargetName(prefix)))
+                vault.DeleteTarget(left.Target);
+        }
+    }
+
+    [Fact]
     public void ListNames_returns_saved_names_and_reflects_delete()
     {
         if (!OperatingSystem.IsWindows())
