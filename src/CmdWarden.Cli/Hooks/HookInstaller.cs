@@ -131,7 +131,7 @@ public static class HookInstaller
     private static bool IsOurs(JsonNode? command, string marker) =>
         command is JsonValue v && v.TryGetValue<string>(out var text) && text.Contains(marker, StringComparison.Ordinal);
 
-    private static JsonObject Load(string path)
+    internal static JsonObject Load(string path)
     {
         if (!File.Exists(path))
             return new JsonObject();
@@ -145,7 +145,7 @@ public static class HookInstaller
         }) as JsonObject ?? throw new InvalidDataException($"{path} does not hold a JSON object.");
     }
 
-    private static void Save(string path, JsonObject root)
+    internal static void Save(string path, JsonObject root)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var temp = path + ".cw-tmp";

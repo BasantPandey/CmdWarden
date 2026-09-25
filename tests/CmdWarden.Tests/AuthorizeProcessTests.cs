@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using System.Text.Json.Nodes;
 using CmdWarden.Agent.Approval;
 using CmdWarden.Cli;
 using CmdWarden.Contracts;
@@ -302,6 +303,51 @@ public class AuthorizeProcessTests
 
         Assert.Equal(PolicyCheckDecisions.Allow, (await AgentPolicyClient.CheckAsync("gh", ["pr", "list"], fx.PipeName)).Decision);
         Assert.Equal(PolicyCheckDecisions.Allow, (await AgentPolicyClient.CheckAsync("az", ["group", "delete"], fx.PipeName)).Decision);
+    }
+
+    [Fact]
+    public async Task Mcp_tools_list_run_with_the_leak_guard_and_explain_the_last_deny()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        await using var fx = await AuthorizeFixture.CreateAsync(approvalMode: "off");
+        if (fx is null)
+            return;
+
+        fx.Enroll(LauncherEnrollmentKind.Terminal); // Trusted: read and write run, secret-reveal asks
+        fx.PinCmdAsGh();
+        var token = "mcp-token-" + Guid.NewGuid().ToString("N");
+        await fx.SaveTokenAsync(token);
+        var tools = CmdWarden.Cli.Mcp.McpTools.All(fx.PipeName, fx.ProductRoot, ["dotnet", TestPaths.FindCliDll()]);
+        async Task<JsonObject> Call(string name, string arguments) =>
+            (await CmdWarden.Cli.Mcp.McpServer.HandleAsync(new JsonObject
+            {
+                ["jsonrpc"] = "2.0",
+                ["id"] = 1,
+                ["method"] = "tools/call",
+                ["params"] = new JsonObject { ["name"] = name, ["arguments"] = JsonNode.Parse(arguments) },
+            }.ToJsonString(), tools, ""))!["result"]!.AsObject();
+        static string Text(JsonObject result) => (string)result["content"]![0]!["text"]!;
+
+        var allowed = Text(await Call("list_allowed", "{}"));
+        Assert.Contains("gh: level Trusted. No prompt: read, write. Approval popup: secret-reveal, unknown.", allowed);
+        Assert.Contains("git: not hardened.", allowed);
+        Assert.Contains(SessionAgentServiceNames.GhToken, allowed);
+        Assert.DoesNotContain(token, allowed);
+
+        var run = await Call("run_with_secret",
+            """{"program":"cmd","args":["/c","echo","%GH_TOKEN%"],"secrets":["GH_TOKEN"],"reason":"check the token"}""");
+        Assert.False((bool)run["isError"]!, Text(run));
+        Assert.Contains("[CmdWarden: GH_TOKEN]", Text(run));
+        Assert.DoesNotContain(token, Text(run));
+
+        Assert.StartsWith("No deny for your launcher", Text(await Call("why_denied", "{}")));
+        await Assert.ThrowsAsync<Grpc.Core.RpcException>(() =>
+            AgentAuthorizeClient.AuthorizeAsync("gh", ["auth", "token"], pipeName: fx.PipeName, agentReason: "read the token"));
+        var why = Text(await Call("why_denied", "{}"));
+        Assert.Contains("CmdWarden denied gh secret-reveal with GH_TOKEN (policy level Trusted). You said: \"read the token\".", why);
+        Assert.Contains("Do not retry", why);
     }
 
     [Fact]

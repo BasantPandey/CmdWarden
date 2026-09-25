@@ -182,10 +182,10 @@ else {
     Write-Warn "No working cw found. Unharden runs as a direct clean-up."
 }
 
-# A hook left in the harness config would call a cw that is gone, on every tool call.
-Write-Step "Remove the Claude Code and Cursor hooks"
+# A hook or MCP server left in the harness config would call a cw that is gone.
+Write-Step "Remove the Claude Code and Cursor hooks and MCP server"
 if ($cw) {
-    foreach ($command in "leak-guard", "hook") {
+    foreach ($command in "leak-guard", "hook", "mcp") {
         foreach ($harness in "claude", "cursor") {
             Invoke-Cw $cw @($command, "uninstall", $harness) | Out-Null
         }
@@ -193,6 +193,7 @@ if ($cw) {
 }
 else {
     Write-Warn "No working cw found. Remove the entries with 'leak-guard' or 'hook check' from ~\.claude\settings.json and ~\.cursor\hooks.json."
+    Write-Warn "Remove the cmdwarden MCP server: claude mcp remove --scope user cmdwarden, and its entry in ~\.cursor\mcp.json."
 }
 Clear-GitHelper
 Clear-DockerHelper

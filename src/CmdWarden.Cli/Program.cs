@@ -41,6 +41,7 @@ public static class CliApp
             "shortcut" => ShortcutAsync(args.AsSpan(1).ToArray()),
             "leak-guard" => await CmdWarden.Cli.Hooks.LeakGuardCommands.LeakGuardAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "hook" => await CmdWarden.Cli.Hooks.PolicyHookCommands.HookAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
+            "mcp" => await CmdWarden.Cli.Mcp.McpCommands.McpAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "canary" => CmdWarden.Cli.Hooks.LeakGuardCommands.Canary(args.AsSpan(1).ToArray()),
             "launch" => LaunchHarness(args.AsSpan(1).ToArray()),
             _ => Unknown(args[0]),
@@ -1679,6 +1680,7 @@ public static class CliApp
         Row("launch claude|codex|cursor [-- args]", "Start an AI harness without token variables; enroll it if needed");
         Row("leak-guard install|uninstall claude|cursor", "Hide vaulted secret values in tool output from the model");
         Row("hook install|uninstall claude|cursor", "Check policy before the harness runs a command; a deny stops it early");
+        Row("mcp [serve] | mcp install|uninstall claude|cursor", "MCP server: run_with_secret, list_allowed, why_denied");
         Row("canary install [--env F]|remove|status", "Fake tokens that show an attack when used");
         Row("shortcut install [--desktop]|remove|status", "Start Menu (and Desktop) entry for CmdWarden Vault");
         AnsiConsole.Write(table);
