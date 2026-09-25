@@ -1,0 +1,8 @@
+<Project>
+  <!-- CmdWarden runs on Windows only. Say so for the plain net10.0 projects, so CA1416 checks Windows calls correctly. -->
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' != 'Windows'">
+    <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
+      <_Parameter1>windows</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+</Project>

@@ -24,13 +24,14 @@ CLI: **`cw`** (alias `cmdwarden`). Desktop app: **CmdWarden Vault**. Stack: C# /
 
 ## Install
 
-```powershell
-git clone https://github.com/BasantPandey/CmdWarden.git
-cd CmdWarden
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Install-CmdWarden.ps1 -Desktop
-```
+1. Download `CmdWarden.<version>-setup.zip` from the [latest Release](https://github.com/BasantPandey/CmdWarden/releases/latest) and extract it.
+2. Double-click **`install.cmd`**.
 
-The script installs the latest GitHub Release as a global dotnet tool and creates the CmdWarden Vault icons. Private repo: run `gh auth login` first. Details, other install ways, update, and uninstall: **[docs/install.md](docs/install.md)**.
+The installer adds the `cw` command, the CmdWarden Vault icons, and an entry in Windows Settings > Apps. It offers to install the .NET 10 SDK when it is missing.
+
+**Uninstall:** Windows Settings > Apps > **CmdWarden** > **Uninstall**. Or double-click **`uninstall.cmd`**. It works when `cw` is broken.
+
+Details, other install ways, and update: **[docs/install.md](docs/install.md)**.
 
 ## First five minutes
 

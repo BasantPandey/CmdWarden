@@ -106,6 +106,21 @@ jobs:
           Write-Host "Wrote $zip"
           Get-Item $zip | Format-List Name, Length
 
+      - name: Build setup zip
+        shell: pwsh
+        run: |
+          $setup = Join-Path $env:GITHUB_WORKSPACE "artifacts/setup"
+          if (Test-Path $setup) { Remove-Item $setup -Recurse -Force }
+          New-Item -ItemType Directory -Path $setup | Out-Null
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE "artifacts/nupkg/CmdWarden.$($env:VERSION).nupkg") $setup
+          foreach ($f in "install.cmd", "uninstall.cmd", "Install-CmdWarden.ps1", "Uninstall-CmdWarden.ps1") {
+            Copy-Item (Join-Path $env:GITHUB_WORKSPACE "scripts/$f") $setup
+          }
+          $zip = Join-Path $env:GITHUB_WORKSPACE "artifacts/CmdWarden.$($env:VERSION)-setup.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path (Join-Path $setup '*') -DestinationPath $zip -Force
+          Get-Item $zip | Format-List Name, Length
+
       - name: Create GitHub Release and attach assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -113,12 +128,16 @@ jobs:
         run: |
           $nupkg = Join-Path $env:GITHUB_WORKSPACE "artifacts/nupkg/CmdWarden.$($env:VERSION).nupkg"
           $zip = Join-Path $env:GITHUB_WORKSPACE "artifacts/CmdWarden.$($env:VERSION)-win-x64.zip"
+          $setupZip = Join-Path $env:GITHUB_WORKSPACE "artifacts/CmdWarden.$($env:VERSION)-setup.zip"
           if (-not (Test-Path $nupkg)) {
             Get-ChildItem (Join-Path $env:GITHUB_WORKSPACE "artifacts/nupkg") -ErrorAction SilentlyContinue
             throw "Missing nupkg: $nupkg"
           }
           if (-not (Test-Path $zip)) {
             throw "Missing zip: $zip"
+          }
+          if (-not (Test-Path $setupZip)) {
+            throw "Missing setup zip: $setupZip"
           }
 
           $v = $env:VERSION
@@ -131,10 +150,17 @@ jobs:
 
           | Asset | Use |
           |-------|-----|
-          | ``CmdWarden.$v.nupkg`` | Preferred: install as a global **dotnet tool** |
+          | ``CmdWarden.$v-setup.zip`` | Easiest: extract, then double-click ``install.cmd``. No download, no GitHub login. |
+          | ``CmdWarden.$v.nupkg`` | Install as a global **dotnet tool** by hand |
           | ``CmdWarden.$v-win-x64.zip`` | Unzipped binaries: ``cw.exe``, ``cmdwarden.exe``, ``agent/``, ``shim-payload/`` (needs .NET 10 runtime) |
 
-          ### Install as dotnet tool (preferred)
+          ### Install with the setup zip (easiest)
+
+          1. Download ``CmdWarden.$v-setup.zip`` and extract it.
+          2. Double-click ``install.cmd``. When the .NET 10 SDK is missing, the installer offers to install it with winget.
+          3. To remove CmdWarden: Windows Settings > Apps > CmdWarden > Uninstall, or double-click ``uninstall.cmd``.
+
+          ### Install as dotnet tool (by hand)
 
           1. Download ``CmdWarden.$v.nupkg`` from this Release into a local folder (e.g. ``C:\packages``).
              If the repository is private, sign in to GitHub in the browser first.
@@ -167,7 +193,7 @@ jobs:
           $notesPath = Join-Path $env:RUNNER_TEMP "release-notes.md"
           Set-Content -Path $notesPath -Value $notes.Trim() -Encoding utf8
 
-          gh release create $env:TAG $nupkg $zip `
+          gh release create $env:TAG $setupZip $nupkg $zip `
             --title "CmdWarden $v" `
             --notes-file $notesPath `
             --verify-tag

@@ -21,9 +21,8 @@ CmdWarden installs as a global **dotnet tool** on Windows. Package: **CmdWarden*
 | Need | Notes |
 |------|-------|
 | **Windows 10 or 11** | CmdWarden is Windows only |
-| **.NET SDK 10** | [Download .NET 10](https://dotnet.microsoft.com/download). The SDK includes the runtime. |
-| **Git** | To clone the repo for the installer script |
-| **GitHub access** | The repo is private. Run `gh auth login`, or set `$env:GH_TOKEN`, before the installer downloads the Release. |
+| **.NET SDK 10** | The installer offers to install it with winget when it is missing. Or [download .NET 10](https://dotnet.microsoft.com/download). |
+| **GitHub access** | The repo is private. Sign in to GitHub in the browser to download the setup zip. |
 
 Install is **binaries only**. It does not change how `gh` or `git` run until you run `cw harden`.
 
@@ -31,25 +30,28 @@ Install is **binaries only**. It does not change how `gh` or `git` run until you
 
 ## 2. Install
 
-Open **Windows Terminal** or **PowerShell** as your normal user. Do not use an admin terminal.
+1. Download `CmdWarden.<version>-setup.zip` from the [latest Release](https://github.com/BasantPandey/CmdWarden/releases/latest).
+2. Extract the zip. It holds the package, `install.cmd`, `uninstall.cmd`, and the two scripts.
+3. Double-click **`install.cmd`**. Do not run it as admin.
+
+The installer does these steps and prints each one with `==>`:
+
+1. Checks Windows and the .NET 10 SDK. When the SDK is missing, it asks to install it with winget.
+2. Uses the `CmdWarden.<version>.nupkg` next to it. Without one, it downloads the latest GitHub Release.
+3. Stops an old Session Agent and removes an old or broken tool install.
+4. Runs `dotnet tool install -g CmdWarden`.
+5. Adds `%USERPROFILE%\.dotnet\tools` to your user PATH.
+6. Creates the Start Menu entry **CmdWarden Vault**. `-Desktop` adds the Desktop icon.
+7. Adds **CmdWarden** to Windows Settings > Apps. Its **Uninstall** button runs the uninstaller.
+8. Runs `cw version` and `cw doctor`.
+
+From a clone of the repo, run the same installer. It downloads the Release, so run `gh auth login` first:
 
 ```powershell
 git clone https://github.com/BasantPandey/CmdWarden.git
 cd CmdWarden
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Install-CmdWarden.ps1 -Desktop
 ```
-
-Or double-click **`scripts\install.cmd`**.
-
-The script does these steps and prints each one with `==>`:
-
-1. Checks Windows and `dotnet`.
-2. Resolves the latest GitHub Release and downloads `CmdWarden.<version>.nupkg`.
-3. Stops an old Session Agent and removes an old tool install.
-4. Runs `dotnet tool install -g CmdWarden`.
-5. Adds `%USERPROFILE%\.dotnet\tools` to your user PATH.
-6. Runs `cw version` and `cw doctor`.
-7. Creates the Start Menu entry **CmdWarden Vault**. `-Desktop` adds the Desktop icon.
 
 *Expect:* the last lines read `CmdWarden 0.1.0 installed as a global dotnet tool.` and list the next commands.
 
@@ -60,6 +62,7 @@ Options:
 .\scripts\Install-CmdWarden.ps1 -PackagePath C:\packages\CmdWarden.0.1.0.nupkg   # local nupkg, no download
 .\scripts\Install-CmdWarden.ps1 -Mode zip -InstallDir "$env:LOCALAPPDATA\CmdWarden\app"   # portable, no global tool
 .\scripts\Install-CmdWarden.ps1 -SkipDoctor                           # do not run cw doctor
+.\scripts\Install-CmdWarden.ps1 -Yes                                  # install the .NET SDK without a question
 ```
 
 ---
@@ -108,7 +111,7 @@ The package holds these parts:
 
 ### Approval Gate
 
-The card appears on your desktop when policy does not auto-allow a secret release. The command waits until you click **Deny**, **Allow for session**, or **Approve Once**.
+The card appears on your desktop when policy does not auto-allow a secret release. The command waits until you click **Deny**, **Allow for session**, or **Approve Once**. Or press **Esc**, **A**, or **Enter**.
 
 ![Approval Gate card](images/approval-gate.png)
 
@@ -128,7 +131,7 @@ Open **CmdWarden Vault** from the Start Menu or the Desktop icon. Six pages. Eve
 
 ![Hardened Tools page](images/vault-hardened-tools.png)
 
-**Secrets** - every secret name in the vault. Add and delete here.
+**Secrets** - every secret name in the vault. Add with **Ctrl+N**. Select with the arrow keys and delete with **Del**. [All keys](vault.md#keys).
 
 ![Secrets page](images/vault-secrets.png)
 
@@ -246,27 +249,36 @@ Run `cw shortcut install` after every reinstall. The shortcuts point at the exe 
 
 ## 8. Uninstall
 
-```powershell
-cw unharden gh          # repeat for git and docker; each removes its pin and shim
-cw shortcut remove
-cw agent stop
-dotnet tool uninstall -g CmdWarden
-```
+Use one of these:
 
-Full reset of local state (policy, pins, shims, audit):
+- Open Windows **Settings > Apps**, select **CmdWarden**, and click **Uninstall**.
+- Double-click **`uninstall.cmd`** from the setup zip or from `scripts\`.
+- Run the script:
 
 ```powershell
-Remove-Item -Recurse -Force "$env:LOCALAPPDATA\CmdWarden" -ErrorAction SilentlyContinue
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Uninstall-CmdWarden.ps1
 ```
 
-`cw harden` adds the shims folder to your user PATH. Remove it, then open a new terminal:
+The uninstaller works when `cw` is broken or gone. Each step runs on its own. A failed step prints a warning, and the next step continues.
+
+1. Runs `cw unharden` for `gh`, `git`, and `docker`, so their logins go back to the stock stores. With no working `cw`, it removes the CmdWarden credential helper from the git and docker config.
+2. Stops the Session Agent, the Approval Gate, and CmdWarden Vault.
+3. Removes the Start Menu entry and the Desktop icon.
+4. Uninstalls the dotnet tool and clears its tool store.
+5. Removes CmdWarden folders from the user PATH. For the machine PATH, it asks for one admin prompt.
+6. Deletes `%LOCALAPPDATA%\CmdWarden`: policy, pins, shims, and audit.
+7. Asks before it deletes saved secrets from Credential Manager (`CmdWarden/...`). The default is to keep them.
+8. Removes the entry in Settings > Apps.
+
+At the end, it lists each item that you must check by hand.
+
+Options:
 
 ```powershell
-$p = [Environment]::GetEnvironmentVariable('PATH','User') -split ';' | Where-Object { $_ -and $_ -notmatch 'CmdWarden' }
-[Environment]::SetEnvironmentVariable('PATH', ($p -join ';'), 'User')
+.\scripts\Uninstall-CmdWarden.ps1 -KeepData          # keep policy, pins, and audit, for a reinstall
+.\scripts\Uninstall-CmdWarden.ps1 -RemoveSecrets     # also delete saved secrets
+.\scripts\Uninstall-CmdWarden.ps1 -Quiet             # ask nothing; keep secrets; skip the admin PATH step
 ```
-
-The `az` shim has no unharden. The full reset above removes the shims folder. Vault secrets stay in Windows Credential Manager under `CmdWarden/secret/<NAME>`. Delete them with `cw delete <NAME>` before you uninstall, or remove them in Credential Manager.
 
 ---
 
@@ -275,7 +287,9 @@ The `az` shim has no unharden. The full reset above removes the shims folder. Va
 | Symptom | Fix |
 |---------|-----|
 | `cw` not found | Open a **new** terminal. Check `%USERPROFILE%\.dotnet\tools` is on the user PATH. |
-| Installer says `No latest release found` or the download gets 404 | Run `gh auth login`, or set `$env:GH_TOKEN` with repo read access. |
+| Installer says `No latest release found` or the download gets 404 | Use the setup zip: it has the package inside. Or run `gh auth login`, or set `$env:GH_TOKEN` with repo read access. |
+| Installer says `The .NET 10 SDK was not found` | Run `winget install --id Microsoft.DotNet.SDK.10 --exact`, open a new terminal, and run the installer again. |
+| `cw` is broken and you want it gone | Run the uninstaller (section 8). It does not need a working `cw`. |
 | `dotnet tool install` cannot find the package | Pass the **folder** that holds the nupkg to `--add-source`. |
 | `dotnet tool uninstall` says `Access to the path ... is denied` | A Session Agent runs from the tool folder. Run `cw agent stop`. If it still fails, stop it from an admin terminal or end the `dotnet` process that runs `CmdWarden.Agent.dll`. |
 | `cw doctor` says agent binary missing | Reinstall from a full pack. `agent\` must sit inside the tool package. |

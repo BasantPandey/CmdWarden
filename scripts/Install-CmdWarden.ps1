@@ -4,10 +4,15 @@
   Install CmdWarden on Windows from a GitHub Release (or a local nupkg).
 
 .DESCRIPTION
-  Downloads CmdWarden.<version>.nupkg from GitHub Releases and installs it as a
-  global dotnet tool (cw / cmdwarden). Optionally installs the portable zip.
+  Installs CmdWarden as a global dotnet tool (cw / cmdwarden). Optionally installs the portable zip.
 
-  Private repos: use an authenticated `gh` CLI, or set GH_TOKEN / GITHUB_TOKEN.
+  Package source, in this order:
+    1. -PackagePath.
+    2. A CmdWarden.<version>.nupkg next to this script (the setup zip has one). No download.
+    3. The GitHub Release. Private repos: use an authenticated `gh` CLI, or set GH_TOKEN / GITHUB_TOKEN.
+
+  When the .NET 10 SDK is missing, the script offers to install it with winget.
+  The script registers CmdWarden in Windows Settings > Apps. Uninstall runs Uninstall-CmdWarden.ps1.
 
 .PARAMETER Version
   Package version without "v" (e.g. 0.1.0). Default: latest GitHub Release.
@@ -36,6 +41,9 @@
 
 .PARAMETER Desktop
   Also create a Desktop icon for CmdWarden Vault (Start Menu entry is always created).
+
+.PARAMETER Yes
+  Answer yes to every question (install the .NET SDK with winget when it is missing).
 
 .EXAMPLE
   # Latest release as global tool
@@ -68,7 +76,8 @@ param(
     [string] $InstallDir = (Join-Path $env:LOCALAPPDATA "CmdWarden\app"),
     [switch] $SkipDoctor,
     [switch] $Force,
-    [switch] $Desktop
+    [switch] $Desktop,
+    [switch] $Yes
 )
 
 Set-StrictMode -Version Latest
@@ -93,16 +102,40 @@ function Assert-Windows {
     }
 }
 
-function Assert-DotNet {
-    $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
-    if (-not $dotnet) {
-        throw @"
-dotnet was not found on PATH.
+function Test-DotNet10 {
+    if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) { return $false }
+    if ($Mode -eq "zip") {
+        return [bool](& dotnet --list-runtimes 2>$null | Select-String '^Microsoft\.WindowsDesktop\.App 10\.')
+    }
+    return [bool](& dotnet --list-sdks 2>$null | Select-String '^10\.')
+}
 
-Install .NET 10 SDK (tool install) or .NET 10 runtime (zip mode) from:
-  https://dotnet.microsoft.com/download
+function Confirm-Yes([string] $Question) {
+    if ($Yes) { return $true }
+    try { $answer = Read-Host "$Question [Y/n]" } catch { return $false }
+    return [string]::IsNullOrWhiteSpace($answer) -or $answer.Trim().ToLowerInvariant().StartsWith("y")
+}
+
+function Assert-DotNet {
+    if (-not (Test-DotNet10)) {
+        $winget = Get-Command winget -ErrorAction SilentlyContinue
+        if ($winget -and (Confirm-Yes "The .NET 10 SDK is missing. Install it now with winget?")) {
+            Write-Step "Installing the .NET 10 SDK with winget"
+            & winget install --id Microsoft.DotNet.SDK.10 --exact --silent --accept-source-agreements --accept-package-agreements
+            $dotnetDir = Join-Path $env:ProgramFiles "dotnet"
+            if ($env:Path -notlike "*$dotnetDir*") { $env:Path = "$dotnetDir;$env:Path" }
+        }
+    }
+    if (-not (Test-DotNet10)) {
+        throw @"
+The .NET 10 SDK was not found.
+
+Install it, then run this installer again:
+  winget install --id Microsoft.DotNet.SDK.10 --exact
+  or https://dotnet.microsoft.com/download/dotnet/10.0
 "@
     }
+    $dotnet = Get-Command dotnet
     $ver = & dotnet --version 2>$null
     Write-Ok "dotnet found: $ver ($($dotnet.Source))"
 }
@@ -403,6 +436,50 @@ function Invoke-Verify {
     }
 }
 
+function Register-Uninstaller {
+    param([string] $PackageVersion, [string] $AppDir)
+
+    Write-Step "Windows Settings > Apps entry"
+    $source = Join-Path $PSScriptRoot "Uninstall-CmdWarden.ps1"
+    if (-not (Test-Path $source)) {
+        Write-Warn "Uninstall-CmdWarden.ps1 is not next to this script. No Apps entry."
+        return
+    }
+    $productRoot = if ($env:CW_PRODUCT_ROOT) { $env:CW_PRODUCT_ROOT } else { Join-Path $env:LOCALAPPDATA "CmdWarden" }
+    $dir = Join-Path $productRoot "uninstall"
+    New-Item -ItemType Directory -Force $dir | Out-Null
+    $script = Join-Path $dir "Uninstall-CmdWarden.ps1"
+    Copy-Item -Force $source $script
+
+    $powershell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+    $run = "`"$powershell`" -NoProfile -ExecutionPolicy Bypass -File `"$script`""
+    $icon = Get-ChildItem $AppDir -Recurse -Filter CmdWarden.SecretsManager.exe -ErrorAction SilentlyContinue |
+        Select-Object -First 1 -ExpandProperty FullName
+    $sizeKb = [int]((Get-ChildItem $AppDir -Recurse -File -ErrorAction SilentlyContinue |
+        Measure-Object -Property Length -Sum).Sum / 1KB)
+
+    $key = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\CmdWarden"
+    New-Item -Path $key -Force | Out-Null
+    $values = @{
+        DisplayName          = "CmdWarden"
+        DisplayVersion       = $PackageVersion
+        Publisher            = "CmdWarden"
+        URLInfoAbout         = "https://github.com/$Repo"
+        InstallLocation      = $AppDir
+        UninstallString      = $run
+        QuietUninstallString = "$run -Quiet"
+        NoModify             = 1
+        NoRepair             = 1
+        EstimatedSize        = $sizeKb
+    }
+    if ($icon) { $values.DisplayIcon = $icon }
+    foreach ($name in $values.Keys) {
+        $type = if ($values[$name] -is [int]) { "DWord" } else { "String" }
+        New-ItemProperty -Path $key -Name $name -Value $values[$name] -PropertyType $type -Force | Out-Null
+    }
+    Write-Ok "Registered. Uninstall: Settings > Apps > CmdWarden, or run $script"
+}
+
 function Install-VaultShortcut {
     param([string] $CwCommand = "cw", [switch] $WithDesktop)
 
@@ -448,6 +525,14 @@ try {
             }
             Write-Ok "Using local nupkg: $nupkg"
         }
+        elseif (-not $Version -and -not $Tag -and ($bundled = Get-ChildItem $PSScriptRoot -Filter "CmdWarden.*.nupkg" -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match '^CmdWarden\.([0-9][^\\/]*)\.nupkg$' } |
+                Sort-Object LastWriteTime -Descending | Select-Object -First 1)) {
+            $nupkg = $bundled.FullName
+            $null = $bundled.Name -match '^CmdWarden\.([0-9][^\\/]*)\.nupkg$'
+            $pkgVersion = $Matches[1]
+            Write-Ok "Using the package next to this script: $nupkg"
+        }
         else {
             $releaseTag = $Tag
             if (-not $releaseTag) {
@@ -471,6 +556,7 @@ try {
 
         Install-AsDotNetTool -NupkgPath $nupkg -PackageVersion $pkgVersion -ForceReinstall:$Force
         Install-VaultShortcut -CwCommand "cw" -WithDesktop:$Desktop
+        Register-Uninstaller -PackageVersion $pkgVersion -AppDir (Join-Path (Get-DotNetToolsPath) ".store\cmdwarden")
         Invoke-Verify -CwCommand "cw" -SkipDoctor:$SkipDoctor
 
         Write-Host ""
@@ -481,6 +567,7 @@ try {
         Write-Host "  cw policy enroll --kind terminal" -ForegroundColor Green
         Write-Host "  cw harden gh" -ForegroundColor Green
         Write-Host "  Start Menu: CmdWarden Vault (Desktop icon: cw shortcut install --desktop)" -ForegroundColor Green
+        Write-Host "Uninstall: Settings > Apps > CmdWarden, or uninstall.cmd next to this installer" -ForegroundColor Green
         Write-Host "Docs: docs/install.md and docs/user-guide.md" -ForegroundColor Green
     }
     else {
@@ -502,6 +589,7 @@ try {
         Download-ReleaseAsset -Repository $Repo -ReleaseTag $releaseTag -AssetName $asset -OutFile $zip
         $cw = Install-FromZip -ZipPath $zip -Destination $InstallDir
         Install-VaultShortcut -CwCommand $cw -WithDesktop:$Desktop
+        Register-Uninstaller -PackageVersion $pkgVersion -AppDir $InstallDir
         if (-not $SkipDoctor) {
             Write-Step "Verify (portable)"
             & $cw version
