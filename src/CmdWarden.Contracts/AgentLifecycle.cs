@@ -111,12 +111,13 @@ public static class AgentLifecycle
         var root = productRoot ?? ProductPaths.Root();
         Directory.CreateDirectory(root);
 
+        // Shell execute gives the agent no inherited handles. With CreateProcess, the long-lived agent
+        // keeps the caller's stdout pipe open, and "cw doctor | Out-String" never ends.
+        // Shell execute has no per-child environment, so the agent reads it from this process.
         var psi = new ProcessStartInfo
         {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
+            UseShellExecute = true,
+            WindowStyle = ProcessWindowStyle.Hidden,
             WorkingDirectory = binaryDir,
         };
 
@@ -134,14 +135,9 @@ public static class AgentLifecycle
             psi.FileName = binary;
         }
 
-        psi.Environment["CW_PIPE_NAME"] = pipe;
-        psi.Environment[ProductPaths.EnvVar] = root;
-        var policy = Environment.GetEnvironmentVariable("CW_POLICY_PATH");
-        if (!string.IsNullOrWhiteSpace(policy))
-            psi.Environment["CW_POLICY_PATH"] = policy;
-        var approval = Environment.GetEnvironmentVariable("CW_APPROVAL_MODE");
-        if (!string.IsNullOrWhiteSpace(approval))
-            psi.Environment["CW_APPROVAL_MODE"] = approval;
+        // CW_POLICY_PATH and CW_APPROVAL_MODE pass through as they are.
+        Environment.SetEnvironmentVariable("CW_PIPE_NAME", pipe);
+        Environment.SetEnvironmentVariable(ProductPaths.EnvVar, root);
 
         Process process;
         try
@@ -153,9 +149,6 @@ public static class AgentLifecycle
         {
             return new StatusResult(false, null, pipe, "Failed to start Session Agent: " + ex.Message);
         }
-
-        _ = DrainAsync(process.StandardOutput);
-        _ = DrainAsync(process.StandardError);
 
         try
         {
@@ -286,17 +279,5 @@ public static class AgentLifecycle
         // Heuristic: self-contained publishes ship hostfxr / coreclr next to the apphost.
         return File.Exists(Path.Combine(binaryDir, "hostfxr.dll"))
             || File.Exists(Path.Combine(binaryDir, "coreclr.dll"));
-    }
-
-    private static async Task DrainAsync(StreamReader reader)
-    {
-        try
-        {
-            await reader.ReadToEndAsync().ConfigureAwait(false);
-        }
-        catch
-        {
-            // ignore
-        }
     }
 }
