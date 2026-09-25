@@ -297,7 +297,7 @@ Research: path-shim-patterns.md.
 
 ## 14. First catalog harden designs
 
-All **compat mode by default**. Strong mode is opt-in per tool with `--strong` for `gh`, `git`, and `docker` (map [#185](https://github.com/BasantPandey/CmdWarden/issues/185), plan first-catalog-strong-mode-plan.md). Strong mode moves the stock store into the vault and deletes the originals; `cw unharden` writes them back. `az` has no strong mode ([#157](https://github.com/BasantPandey/CmdWarden/issues/157)).
+All **compat mode by default**. Strong mode is opt-in per tool with `--strong` for `gh`, `git`, `docker` (map [#185](https://github.com/BasantPandey/CmdWarden/issues/185), plan first-catalog-strong-mode-plan.md), and `az` ([#26](https://github.com/BasantPandey/CmdWarden/issues/26)). Strong mode moves the stock store into the vault and deletes the originals; `cw unharden` writes them back.
 
 ### 14.1 gh
 
@@ -339,7 +339,7 @@ Research: az-windows-harden.md. Issue: [#24](https://github.com/BasantPandey/Cmd
 | Harden | Pin real `az.cmd` (+ python); shim `az.cmd`/`az.exe`; leave MSAL cache |
 | Runtime | No user-token env inject; gate only |
 | Classes | `account get-access-token` → **secret-reveal**; login/CRUD → **write**; list/show → **read** |
-| Strong | None. MSAL isolation and ambient env strip deferred ([#157](https://github.com/BasantPandey/CmdWarden/issues/157)) |
+| Strong | `cw harden az --strong` ([#26](https://github.com/BasantPandey/CmdWarden/issues/26)): the login files of the az config dir (`AZURE_CONFIG_DIR`, else `~\.azure`): `azureProfile.json`, `msal_token_cache.*`, `service_principal_entries.*`, `msal_http_cache.bin`, plus copies of `config` and `clouds.config`, move into `%LOCALAPPDATA%\CmdWarden\az\login.bin`, protected with DPAPI (current user) plus a CmdWarden entropy value; the login files are deleted from the stock dir, so a plain `az` has no login. An allowed shim run gets a run folder `az\runs\<shim pid>-<start ticks>` with the files, named in the child env as `AZURE_CONFIG_DIR` (`AZURE_EXTENSION_DIR` stays at the stock `cliextensions`); the audit row names `az/login`. After the run, whatever the exit code, the shim calls `MigrateToolStore { tool=az, run_dir }`; only the shim process that got the folder can hand it back, the store takes the files (a logout removes the login), and the folder goes. Each strong az run sweeps folders of dead shims. Doctor reports Degraded when a login file is back in the stock dir (`stock az login returned`). `cw unharden az` writes the files back (settings changed since stay), deletes the store and run folders, and removes the pin and shim. Residual: two overlapping runs; the last capture wins |
 | Residual | Absolute path; same-user DPAPI; SP env; Azure PowerShell out of scope |
 
 ### 14.4 docker
@@ -364,7 +364,7 @@ Research: docker-windows-harden.md. Issue: [#25](https://github.com/BasantPandey
 |--------|------------|
 | AI harness dumps tokens (`gh auth token`, `git credential fill`, `az account get-access-token`, helper get) | Command class secret-reveal + policy (AI default Read) + Approval Gate / block |
 | Ambient long-lived env tokens | Child-only inject where applicable; scan profiles; `cw launch <harness>` starts the harness without them ([#25](https://github.com/BasantPandey/CmdWarden/issues/25)) |
-| Same-user CredRead / DPAPI | Agent policy is the gate; strong mode empties the stock store for `gh` / `git` / `docker`; residual accepted in compat and for `az` |
+| Same-user CredRead / DPAPI | Agent policy is the gate; strong mode empties the stock store for `gh` / `git` / `docker` / `az`; residual accepted in compat |
 | Absolute path bypass of PATH shim | Scan + guidance; WDAC out of PATH-only v1 |
 | Secret values in tool output read by the model | Leak guard hooks replace each vaulted value with `[CmdWarden: NAME]` ([#27](https://github.com/BasantPandey/CmdWarden/issues/27)) |
 | Prompt injection that hunts for tokens | Canary tokens raise an alarm and block the launcher ([#29](https://github.com/BasantPandey/CmdWarden/issues/29)) |

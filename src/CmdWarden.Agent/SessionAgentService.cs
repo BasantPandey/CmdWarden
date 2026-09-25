@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using System.Security.Cryptography;
 using System.Security.Principal;
 using Google.Protobuf;
 using Grpc.Core;
@@ -28,6 +29,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     private readonly ToolPinStore _pins;
     private readonly AuditLog _audit;
     private readonly CanaryStore _canaries;
+    private readonly string _productRoot;
     private readonly AlarmNotifier _alarm;
 
     public SessionAgentService(
@@ -50,6 +52,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         _pins = pins;
         _audit = audit;
         _canaries = new CanaryStore(runtime.ProductRoot);
+        _productRoot = runtime.ProductRoot;
         _alarm = alarm;
     }
 
@@ -379,7 +382,10 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
 
         // Audit before any vault value read (fail closed, #199).
         // Docker rows name the secret only when the vault holds it; ListNames reads no value.
-        var auditedSecretName = requireVaultSecret
+        // Strong az (#26): the run gets a copy of the az login from the store.
+        var strongAz = tool == "az" && pinCheck.Pin.IsStrong && !helpOnly;
+        var auditedSecretName = strongAz ? AzStrongStore.AuditName
+            : requireVaultSecret
             || (optionalDockerAuth && _vault.ListNames().Contains(secretName, StringComparer.OrdinalIgnoreCase))
             ? secretName
             : null;
@@ -416,12 +422,24 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             if (tool == "gh")
                 response.Env[GhPathEnvName] = pinCheck.Pin.Path;
 
+            if (strongAz)
+            {
+                var azStore = new AzStrongStore(_productRoot);
+                azStore.SweepRuns(ApprovalMemory.ProcessStartUtc);
+                var shimStart = ApprovalMemory.ProcessStartUtc(launcher.ClientPid)
+                    ?? throw new RpcException(new Status(StatusCode.FailedPrecondition, "az strong: the shim process is gone."));
+                response.Env["AZURE_CONFIG_DIR"] = azStore.Materialize(launcher.ClientPid, shimStart);
+                // Extensions stay where az keeps them; only the login moves.
+                response.Env["AZURE_EXTENSION_DIR"] = Path.Combine(AzStrongStore.DefaultStockDir(), "cliextensions");
+                response.MigrateAfterRun = true;
+            }
+
             // Strong git: the child reads the real global config only (#207).
             if (tool == "git" && pinCheck.Pin.IsStrong)
                 response.StripEnv.AddRange(GitCommandClassifier.StrongStripEnv);
 
             // Strong gh: login/refresh/logout through the shim end in MigrateToolStore (#208).
-            response.MigrateAfterRun = strongGh && GhCommandClassifier.KeyringAuthVerb(argv) is "login" or "refresh" or "logout";
+            response.MigrateAfterRun |= strongGh && GhCommandClassifier.KeyringAuthVerb(argv) is "login" or "refresh" or "logout";
             foreach (var (envName, target) in ghReleases)
             {
                 var bytes = _vault.ReadTarget(target)?.Blob ?? throw new KeyNotFoundException($"{target} not found in vault.");
@@ -491,6 +509,8 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     public override Task<MigrateToolStoreResponse> MigrateToolStore(MigrateToolStoreRequest request, ServerCallContext context)
     {
         var tool = request.Tool.Trim().ToLowerInvariant();
+        if (tool == "az")
+            return Task.FromResult(CaptureAzRun(request, context));
         if (tool != "gh")
             throw new RpcException(new Status(StatusCode.InvalidArgument, $"MigrateToolStore: unsupported tool '{tool}'."));
         var launcher = ResolveSafe(context);
@@ -536,6 +556,43 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         catch (Exception ex)
         {
             throw new RpcException(new Status(StatusCode.Internal, "MigrateToolStore failed: " + ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Strong az (#26): the shim that got a run folder hands it back after the run. Only the run
+    /// folder of the calling shim process counts; the store takes its files and the folder goes.
+    /// </summary>
+    private MigrateToolStoreResponse CaptureAzRun(MigrateToolStoreRequest request, ServerCallContext context)
+    {
+        var launcher = ResolveSafe(context);
+        var store = new AzStrongStore(_productRoot);
+        var expected = ApprovalMemory.ProcessStartUtc(launcher.ClientPid) is { } start && launcher.ClientPidFromPipe
+            ? store.RunDir(launcher.ClientPid, start)
+            : null;
+        string requested;
+        try
+        {
+            requested = Path.GetFullPath(request.RunDir);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "MigrateToolStore: bad run folder."));
+        }
+        if (expected is null || !string.Equals(requested, Path.GetFullPath(expected), StringComparison.OrdinalIgnoreCase))
+            throw new RpcException(new Status(StatusCode.PermissionDenied,
+                "MigrateToolStore: only the shim that got this az run folder can hand it back."));
+        if (!Directory.Exists(requested))
+            return new MigrateToolStoreResponse();
+        try
+        {
+            var response = new MigrateToolStoreResponse();
+            response.Migrated.AddRange(store.Capture(requested));
+            return response;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
+        {
+            throw new RpcException(new Status(StatusCode.Internal, "MigrateToolStore az failed: " + ex.Message));
         }
     }
 

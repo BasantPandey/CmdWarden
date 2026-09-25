@@ -38,6 +38,7 @@ public sealed record HardenedToolStatus(string Tool, HardenState State, string? 
     public const string GitGhBlockReturned = "gh git helper returned; run cw harden git --strong";
     public const string GitLegacyReturned = "legacy git credentials returned; run cw harden git --strong";
     public const string GhStockReturned = "stock gh token returned; run cw harden gh --strong";
+    public const string AzStockReturned = "stock az login returned; run cw harden az --strong";
     public const string GhNoVaultTokenPrefix = "no vault token for ";
 
     /// <param name="path">Composed registry PATH. Null reads the registry (machine entries, then user).</param>
@@ -70,6 +71,8 @@ public sealed record HardenedToolStatus(string Tool, HardenState State, string? 
             if (pin.Pin.IsStrong && string.Equals(pin.Pin.Tool, "git", StringComparison.OrdinalIgnoreCase)
                 && OperatingSystem.IsWindows())
                 return ProbeGitStrong(toolId, pin.Pin, Path.Combine(shimsDir, HelperTools.GitHelperExe), gitGlobalConfigPath);
+            if (pin.Pin.IsStrong && string.Equals(pin.Pin.Tool, "az", StringComparison.OrdinalIgnoreCase))
+                return ProbeAzStrong(toolId, pinnedPath, root);
             if (pin.Pin.IsStrong && string.Equals(pin.Pin.Tool, "gh", StringComparison.OrdinalIgnoreCase)
                 && OperatingSystem.IsWindows())
                 return ProbeGhStrong(toolId, pinnedPath);
@@ -202,6 +205,16 @@ public sealed record HardenedToolStatus(string Tool, HardenState State, string? 
         var hostCount = keys.Select(k => k.Host).Distinct().Count();
         var accountCount = keys.Count(k => k.User.Length > 0);
         return new(toolId, HardenState.Hardened, pinnedPath, null, $"strong - {hostCount} hosts, {accountCount} accounts in vault");
+    }
+
+    /// <summary>Strong az (#26): no login file back in the stock config dir.</summary>
+    private static HardenedToolStatus ProbeAzStrong(string toolId, string? pinnedPath, string? productRoot)
+    {
+        var store = new AzStrongStore(productRoot);
+        if (store.StockHasLogin())
+            return new(toolId, HardenState.Degraded, pinnedPath, AzStockReturned);
+        var hasLogin = store.Load().Keys.Any(AzStrongStore.LoginFiles.Contains);
+        return new(toolId, HardenState.Hardened, pinnedPath, null, hasLogin ? "strong - az login in the store" : "strong - no az login yet; run az login");
     }
 
     private static string Norm(string p)

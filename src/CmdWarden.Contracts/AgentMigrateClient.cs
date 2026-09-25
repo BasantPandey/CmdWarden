@@ -10,10 +10,11 @@ public static class AgentMigrateClient
         IEnumerable<string> argv,
         string? pipeName = null,
         TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? runDir = null)
     {
         using var call = AgentCall.Create(pipeName, timeout, cancellationToken);
-        var request = new MigrateToolStoreRequest { Tool = tool };
+        var request = new MigrateToolStoreRequest { Tool = tool, RunDir = runDir ?? "" };
         request.Argv.AddRange(argv);
         return await call.Client.MigrateToolStoreAsync(request, cancellationToken: call.Token).ConfigureAwait(false);
     }

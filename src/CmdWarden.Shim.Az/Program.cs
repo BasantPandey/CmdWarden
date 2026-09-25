@@ -54,7 +54,11 @@ public static class AzShimApp
                 Console.Error.WriteLine($"{ProductInfo.Name}: {BoundFiles.ChangedMessage}: {grant.RealPath}. The az command did not run.");
                 return ExitDenied;
             }
-            return SpawnReal(grant.RealPath, args, grant.Env);
+            var exit = SpawnReal(grant.RealPath, args, grant.Env);
+            // Strong az (#26): the store takes the run folder back, whatever the exit code.
+            if (grant.MigrateAfterRun && grant.Env.TryGetValue("AZURE_CONFIG_DIR", out var runDir))
+                await CaptureRunAsync(args, runDir, pipeName, timeout).ConfigureAwait(false);
+            return exit;
         }
         catch (RpcException ex)
         {
@@ -73,6 +77,19 @@ public static class AzShimApp
         {
             Console.Error.WriteLine($"{ProductInfo.Name} az shim failed: {ex.Message}");
             return ExitSpawnFailed;
+        }
+    }
+
+    private static async Task CaptureRunAsync(string[] args, string runDir, string? pipeName, TimeSpan? timeout)
+    {
+        try
+        {
+            await AgentMigrateClient.MigrateAsync("az", args, pipeName, timeout ?? TimeSpan.FromSeconds(30), runDir: runDir).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            var detail = ex is RpcException rpc ? rpc.Status.Detail : ex.Message;
+            Console.Error.WriteLine($"{ProductInfo.Name} az shim: could not save the az login: {detail}. The next run cleans the run folder.");
         }
     }
 

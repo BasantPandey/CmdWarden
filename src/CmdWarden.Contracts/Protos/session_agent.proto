@@ -22,6 +22,7 @@ service SessionAgent {
   // Credential helper gate (#202). The Agent derives vault name and class; the caller sends none.
   rpc HelperCredential (HelperCredentialRequest) returns (HelperCredentialResponse);
   // Strong gh (#208): after a granted auth login/refresh/logout run, move stock gh tokens into the vault.
+  // Strong az (#26): after any granted run, take the run folder back into the store.
   rpc MigrateToolStore (MigrateToolStoreRequest) returns (MigrateToolStoreResponse);
   // Leak guard (#27): replace every vaulted secret value in the texts with [CmdWarden: NAME].
   // Values never leave the Agent. A canary value raises the alarm (#29).
@@ -227,6 +228,7 @@ message CheckLeakResponse {
 message MigrateToolStoreRequest {
   string tool = 1;            // gh
   repeated string argv = 2;   // the run that just exited 0; logout reconciles, login/refresh migrate
+  string run_dir = 3;         // strong az (#26): the run folder the grant named in AZURE_CONFIG_DIR
 }
 
 message MigrateToolStoreResponse {

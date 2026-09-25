@@ -16,8 +16,8 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw policy hello off\|secret-reveal\|write-and-up` | When the Approval Gate asks for Windows Hello after Approve (default `secret-reveal`) |
 | `cw harden gh\|git\|az\|docker` | Pin + PATH shim (+ gh token import) |
 | `cw harden --list` | One row per catalog tool, same probe as `cw doctor` |
-| `cw harden gh\|git\|docker --strong` | Also move the tool's stock credentials into the Vault |
-| `cw unharden gh\|git\|docker` | Restore the stock store, remove pin and shim |
+| `cw harden gh\|git\|docker\|az --strong` | Also move the tool's stock credentials into the Vault |
+| `cw unharden gh\|git\|docker\|az` | Restore the stock store, remove pin and shim |
 | `cw doctor --fix-path` | Put the shims dir first on the machine PATH (one UAC prompt) |
 | `cw save <NAME>` / `cw delete <NAME>` | Named vault secret |
 | `cw inject +NAME -- <cmd>` | Run cmd with secret in child env only |

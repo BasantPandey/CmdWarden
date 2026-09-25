@@ -53,21 +53,24 @@ public static class CliApp
     {
         if (args.Length == 0 || IsHelp(args[0]))
         {
-            Console.WriteLine("Usage: cw unharden docker|git|gh");
+            Console.WriteLine("Usage: cw unharden docker|git|gh|az");
             Console.WriteLine("  docker  Strong mode: restore credsStore, write registry credentials back, delete CmdWarden/docker/*.");
             Console.WriteLine("  git     Strong mode: restore credential.helper lines and gh blocks, write GCM entries back, delete CmdWarden/git/*.");
             Console.WriteLine("  gh      Strong mode: write gh:<host>:<user> entries back, delete CmdWarden/gh/*; the compat GH_TOKEN stays.");
+            Console.WriteLine("  az      Strong mode: write the az login back to the az config dir, delete the CmdWarden az store.");
             Console.WriteLine("  Then remove the pin, shim, and credential helper.");
             return args.Length > 0 && IsHelp(args[0]) ? 0 : 1;
         }
         var tool = args[0].ToLowerInvariant();
-        if (tool is not ("docker" or "git" or "gh") || !OperatingSystem.IsWindows())
+        if (tool is not ("docker" or "git" or "gh" or "az") || !OperatingSystem.IsWindows())
         {
-            Console.Error.WriteLine($"Unharden for '{args[0]}' is not implemented yet (docker, git, gh).");
+            Console.Error.WriteLine($"Unharden for '{args[0]}' is not implemented yet (docker, git, gh, az).");
             return 1;
         }
         if (tool == "git")
             return UnhardenGit();
+        if (tool == "az")
+            return UnhardenAz();
         if (tool == "gh")
             return UnhardenGh();
 
@@ -113,6 +116,26 @@ public static class CliApp
         catch (Exception ex)
         {
             Console.Error.WriteLine($"unharden git failed: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static int UnhardenAz()
+    {
+        try
+        {
+            var result = AzStrongHarden.Unharden();
+            Ui.Title($"{ProductInfo.Name} unharden az");
+            if (result.WasStrong || result.RestoredLoginFiles.Count > 0)
+                Ui.Kv("login", $"{result.RestoredLoginFiles.Count} files written back to {result.StockDir}");
+            Ui.Kv("pin", (result.PinRemoved ? "removed" : "none"));
+            Ui.Kv("shim", (result.ShimRemoved ? "removed" : "none"));
+            Ui.Line(Ui.Dim("next: run cw doctor"));
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"unharden az failed: {ex.Message}");
             return 1;
         }
     }
@@ -1372,7 +1395,7 @@ public static class CliApp
             Console.WriteLine("Options:");
             Console.WriteLine("  --path <exe>       Absolute path to real tool (skip discovery)");
             Console.WriteLine("  --skip-path        Do not modify user PATH");
-            Console.WriteLine("  --strong           Move the tool's credentials into the vault (docker, git, gh)");
+            Console.WriteLine("  --strong           Move the tool's credentials into the vault (docker, git, gh, az)");
             Console.WriteLine("Options for gh only:");
             Console.WriteLine("  --token <value>    Import this token instead of calling gh auth token");
             Console.WriteLine("  --hostname <host>  Host for --token with --strong (default github.com)");
@@ -1406,7 +1429,7 @@ public static class CliApp
                 skipToken = true;
             else if (a is "--skip-path")
                 skipPath = true;
-            else if (a is "--strong" && tool is "docker" or "git" or "gh")
+            else if (a is "--strong" && tool is "docker" or "git" or "gh" or "az")
                 strong = true;
             else
             {
@@ -1418,7 +1441,7 @@ public static class CliApp
         if (tool == "git")
             return HardenGit(realPath, skipPath, strong);
         if (tool == "az")
-            return HardenAz(realPath, skipPath);
+            return HardenAz(realPath, skipPath, strong);
         if (tool == "docker")
             return HardenDocker(realPath, skipPath, strong);
 
@@ -1528,11 +1551,13 @@ public static class CliApp
         }
     }
 
-    private static int HardenAz(string? realPath, bool skipPath)
+    private static int HardenAz(string? realPath, bool skipPath, bool strong)
     {
         try
         {
-            Ui.Title($"{ProductInfo.Name} harden az (compat mode)");
+            // A compat re-pin keeps an earlier strong mode.
+            strong = strong || new ToolPinStore().TryGet(AzHarden.ToolId)?.IsStrong == true;
+            Ui.Title($"{ProductInfo.Name} harden az ({(strong ? "strong" : "compat")} mode)");
             var result = Ui.Status("Pinning az and installing the shim...", () => AzHarden.Run(new AzHardenOptions
             {
                 RealAzPath = realPath,
@@ -1544,12 +1569,30 @@ public static class CliApp
             Ui.Kv("shim", result.ShimExePath);
             Ui.Kv("shims dir", result.ShimsDir);
             Ui.Kv("user PATH", (result.UserPathUpdated ? "updated (prepended shims dir)" : "unchanged / skipped"));
-            Ui.Kv("credentials", result.CredentialNote);
+            if (strong && OperatingSystem.IsWindows())
+            {
+                var migrated = AzStrongHarden.Migrate();
+                Ui.Kv("login", migrated.MovedLoginFiles.Count == 0
+                    ? $"no login files in {migrated.StockDir}; az login through the shim saves one"
+                    : $"{migrated.MovedLoginFiles.Count} files moved from {migrated.StockDir} to the CmdWarden store");
+                Ui.Kv("store", migrated.StorePath);
+            }
+            else
+            {
+                Ui.Kv("credentials", result.CredentialNote);
+            }
             Console.WriteLine();
             Ui.Line(Ui.Dim("Next: cw policy enroll --kind terminal"));
             Ui.Line(Ui.Dim("Then: open a new shell (PATH refresh) and run az via PATH."));
-            Ui.Line(Ui.Dim("Note: absolute-path to real az bypasses the shim (compat residual)."));
-            Ui.Line(Ui.Dim("Note: allowed az still uses ambient MSAL under ~/.azure (gate only)."));
+            if (strong)
+            {
+                Ui.Line(Ui.Dim("Note: az without the shim now has no login. Undo: cw unharden az."));
+            }
+            else
+            {
+                Ui.Line(Ui.Dim("Note: absolute-path to real az bypasses the shim (compat residual)."));
+                Ui.Line(Ui.Dim("Note: allowed az still uses ambient MSAL under ~/.azure (gate only). Run cw harden az --strong to move the login."));
+            }
             PrintShimOrderHint("az");
             return 0;
         }
@@ -1627,9 +1670,9 @@ public static class CliApp
         Row("delete <NAME>", "Remove secret from vault");
         Row("policy ...", "List/enroll/set tool x launcher policy levels");
         Row("harden gh|git|az|docker", "Pin real tool, install PATH shim (gh also imports token)");
-        Row("harden docker|git|gh --strong", "Also move the tool's credentials into the vault (vault-only)");
+        Row("harden docker|git|gh|az --strong", "Also move the tool's credentials into the vault (vault-only)");
         Row("harden --list", "One status row per catalog tool");
-        Row("unharden docker|git|gh", "Restore the stock store and config, remove pin and shim");
+        Row("unharden docker|git|gh|az", "Restore the stock store and config, remove pin and shim");
         Row("audit [-n N]", "Show recent gate decisions (local audit trail)");
         Row("scan", "First-catalog residual risk detectors (read-only)");
         Row("launch claude|codex|cursor [-- args]", "Start an AI harness without token variables; enroll it if needed");
