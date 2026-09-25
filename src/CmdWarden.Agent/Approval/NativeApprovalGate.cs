@@ -20,7 +20,7 @@ public sealed class NativeApprovalGate : IApprovalGate
         _timeout = timeout ?? DefaultTimeout;
     }
 
-    public ApprovalOutcome Prompt(ApprovalRequest request)
+    public ApprovalAnswer Prompt(ApprovalRequest request)
     {
         if (!OperatingSystem.IsWindows())
             return ApprovalOutcome.Unavailable;

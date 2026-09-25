@@ -26,7 +26,7 @@ This brief consolidates closed map decisions so implementers can ship the Automi
 |-----|-----|
 | Full management app (Secret Gates list, Detectors UI, Secret Usage browser, Doctor window) | Map #68 out of scope |
 | **Always Approve** (or other durable grant) on the dialog | Durable policy stays CLI (`cw policy enroll` / `set`) |
-| **Windows Hello** / OS step-up | Deferred; [issue #20](https://github.com/BasantPandey/CmdWarden/issues/20) |
+| **Windows Hello** / OS step-up | After Approve, per the `hello` policy setting ([#24](https://github.com/BasantPandey/CmdWarden/issues/24)) |
 | Phone / out-of-band approval | Product non-goal |
 | Marketing site redesign | Separate effort |
 | In-process WinUI inside `CmdWarden.Agent` | Research #69: not recommended |
@@ -37,7 +37,7 @@ This brief consolidates closed map decisions so implementers can ship the Automi
 
 | Topic | Decision |
 |-------|----------|
-| Windows Hello / step-up | **Still out of v1** ([Grilling: Windows Hello / step-up in v1 policy](https://github.com/BasantPandey/CmdWarden/issues/20)) |
+| Windows Hello / step-up | After a real Approve, when `cw policy hello` covers the command class ([#24](https://github.com/BasantPandey/CmdWarden/issues/24)) |
 | MessageBox spike | **Chrome superseded** by this WinUI card design. MessageBox may remain a **fallback** or CI-adjacent path until the helper ships (`CW_APPROVAL_MODE`) |
 | Fail closed | Unchanged: UI unavailable → `Unavailable` → block grant |
 | Outcomes | Domain enum unchanged: `AllowOnce`, `Deny`, `Unavailable` |
@@ -284,6 +284,7 @@ An AI agent runs as the same Windows user as the person at the desk. It must not
 | UI Automation | Approve Once and Allow for session expose no Invoke pattern. Their names stay readable for screen readers |
 | Ignored input | The popup stays open and shows `Use your keyboard or mouse.` |
 | Deny | Esc and the Deny button accept every input type |
+| Windows Hello | When the payload says `helloRequired`, a real Approve opens the Hello prompt, and the popup shows `Confirm with Windows Hello.` Cancel gives Deny ([#24](https://github.com/BasantPandey/CmdWarden/issues/24)) |
 | Residual | Tools that inject input (on-screen keyboard, voice control, some remote desktop tools) cannot approve. Code that writes into the helper process memory is out of scope |
 
 ## 13. Open implement choices (still fog / product discretion)
@@ -313,7 +314,7 @@ These are **in scope for implement**, not reopened design tickets unless blocked
 | [#73](https://github.com/BasantPandey/CmdWarden/issues/73) | Details forensic-lite, collapsed |
 | [#74](https://github.com/BasantPandey/CmdWarden/issues/74) | Layout prototype accepted |
 | [#75](https://github.com/BasantPandey/CmdWarden/issues/75) | This brief + `cmdwarden.md` pointer |
-| [#20](https://github.com/BasantPandey/CmdWarden/issues/20) | Hello out of v1 |
+| [#20](https://github.com/BasantPandey/CmdWarden/issues/20) | Hello out of v1 (replaced by [#24](https://github.com/BasantPandey/CmdWarden/issues/24)) |
 | [#138](https://github.com/BasantPandey/CmdWarden/issues/138) | Native title bar Lintel icon + compact in-window header |
 
 Map: [Approval Gate UI: Automic-style card (not MessageBox)](https://github.com/BasantPandey/CmdWarden/issues/68). Chrome pass: [Approval Gate title bar and header chrome](https://github.com/BasantPandey/CmdWarden/issues/138).

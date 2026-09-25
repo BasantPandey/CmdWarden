@@ -29,7 +29,7 @@ public sealed class ProcessApprovalGate : IApprovalGate
         _timeout = timeout ?? DefaultTimeout;
     }
 
-    public ApprovalOutcome Prompt(ApprovalRequest request)
+    public ApprovalAnswer Prompt(ApprovalRequest request)
     {
         if (!OperatingSystem.IsWindows())
             return ApprovalOutcome.Unavailable;
@@ -88,7 +88,7 @@ public sealed class ProcessApprovalGate : IApprovalGate
                     return ApprovalOutcome.Unavailable;
                 }
 
-                return ApprovalHelperExitCodes.ToOutcome(process.ExitCode);
+                return ApprovalHelperExitCodes.ToAnswer(process.ExitCode);
             }
         }
         catch

@@ -147,6 +147,8 @@
           </StackPanel>
         </local:GatedButton>
       </Grid>
+      <TextBlock x:Name="HelloStatus" Text="Confirm with Windows Hello." FontSize="12" Foreground="#60CDFF"
+                 TextAlignment="Center" HorizontalAlignment="Center" Margin="0,10,0,0" Visibility="Collapsed" />
       <TextBlock x:Name="IgnoredInput" FontSize="12" Foreground="#FFB86C" TextAlignment="Center"
                  HorizontalAlignment="Center" Margin="0,10,0,0" Visibility="Collapsed" />
       <TextBlock x:Name="SessionScope" FontSize="11" Foreground="#8CFFFFFF" TextWrapping="Wrap" TextAlignment="Center"

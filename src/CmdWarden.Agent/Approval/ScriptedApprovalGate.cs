@@ -16,7 +16,7 @@ public sealed class ScriptedApprovalGate : IApprovalGate
         _outcome = outcome;
     }
 
-    public ApprovalOutcome Prompt(ApprovalRequest request) => _outcome;
+    public ApprovalAnswer Prompt(ApprovalRequest request) => _outcome;
 }
 
 /// <summary>
@@ -24,5 +24,5 @@ public sealed class ScriptedApprovalGate : IApprovalGate
 /// </summary>
 public sealed class UnavailableApprovalGate : IApprovalGate
 {
-    public ApprovalOutcome Prompt(ApprovalRequest request) => ApprovalOutcome.Unavailable;
+    public ApprovalAnswer Prompt(ApprovalRequest request) => ApprovalOutcome.Unavailable;
 }

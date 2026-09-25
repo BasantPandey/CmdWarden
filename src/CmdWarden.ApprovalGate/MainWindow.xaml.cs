@@ -14,11 +14,14 @@ public partial class MainWindow : Window
     private readonly Stopwatch _shownFor = new();
     private readonly ApprovalInputGuard _inputGuard = new();
     private RealInputHooks? _hooks;
+    private readonly ApprovalHelperPayload _payload;
     private bool _completed;
+    private bool _helloPending;
 
     public MainWindow(ApprovalHelperPayload payload)
     {
         InitializeComponent();
+        _payload = payload;
         Title = string.IsNullOrWhiteSpace(payload.WindowTitle) ? ProductInfo.Name : payload.WindowTitle;
         BrandTitle.Text = Title;
 
@@ -135,12 +138,34 @@ public partial class MainWindow : Window
     /// <summary>An approval needs real keyboard or mouse input (#23). Other input only shows a hint.</summary>
     private void CompleteIfReal(int code)
     {
-        if (_inputGuard.TryConsume(DateTime.UtcNow))
+        if (_helloPending)
+            return;
+        if (!_inputGuard.TryConsume(DateTime.UtcNow))
         {
-            Complete(code);
+            IgnoredInput.Visibility = Visibility.Visible;
             return;
         }
-        IgnoredInput.Visibility = Visibility.Visible;
+        if (_payload.HelloRequired)
+        {
+            _ = ConfirmWithHelloAsync(code);
+            return;
+        }
+        Complete(code);
+    }
+
+    /// <summary>#24: after a real Approve, Windows Hello proves the person. Cancel gives Deny.</summary>
+    private async Task ConfirmWithHelloAsync(int code)
+    {
+        _helloPending = true;
+        ApproveButton.IsEnabled = false;
+        SessionButton.IsEnabled = false;
+        IgnoredInput.Visibility = Visibility.Collapsed;
+        HelloStatus.Visibility = Visibility.Visible;
+        var what = string.IsNullOrWhiteSpace(_payload.CommandLine) ? _payload.Tool : _payload.CommandLine;
+        var check = await WindowsHello.VerifyAsync(new WindowInteropHelper(this).Handle, $"{ProductInfo.Name}: approve {what}");
+        Complete(check == HelloCheck.Canceled
+            ? ApprovalHelperExitCodes.FromAnswer(ApprovalHelperExitCodes.Deny, check)
+            : ApprovalHelperExitCodes.FromAnswer(code, check));
     }
 
     private void Complete(int code)

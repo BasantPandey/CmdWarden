@@ -841,7 +841,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         if (_memory.TryUseSession(selected.Pid, request.Tool, request.SecretName, commandClass) is not null)
             return new GateResult(ApprovalOutcome.AllowOnce, GateDecisions.SessionAllow, PolicyReasonCodes.SessionAllow);
 
-        ApprovalOutcome outcome;
+        ApprovalAnswer answer;
         // One popup at a time. A request that waits here sees the decision of the popup before it.
         lock (_promptLock)
         {
@@ -852,15 +852,16 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             if (_memory.TryUseSession(selected.Pid, request.Tool, request.SecretName, commandClass) is not null)
                 return new GateResult(ApprovalOutcome.AllowOnce, GateDecisions.SessionAllow, PolicyReasonCodes.SessionAllow);
 
-            outcome = _approvalGate.Prompt(request);
-            if (outcome == ApprovalOutcome.Deny)
+            answer = _approvalGate.Prompt(request);
+            if (answer.Outcome == ApprovalOutcome.Deny)
                 _memory.RememberDeny(selected.Pid, selected.PolicyKey, request.Tool);
         }
 
+        var outcome = answer.Outcome;
         if (outcome is not (ApprovalOutcome.AllowOnce or ApprovalOutcome.AllowForSession))
         {
             _memory.RememberTransient(transientKey, outcome, selected.PolicyKey, request.Tool);
-            return new GateResult(outcome, DecisionFor(outcome), null);
+            return new GateResult(outcome, DecisionFor(outcome), answer.HelloReason);
         }
 
         // A session grant is honored only when the card would have offered one - same rule the
@@ -878,7 +879,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             grant is null || outcome == ApprovalOutcome.AllowOnce
                 ? GateDecisions.AllowOnce
                 : GateDecisions.SessionGrant,
-            null);
+            answer.HelloReason);
     }
 
     private static string DecisionFor(ApprovalOutcome outcome) => outcome switch
@@ -888,8 +889,12 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         _ => GateDecisions.Unavailable,
     };
 
-    private static string ReuseSuffix(string? reason) =>
-        reason is null ? "" : $" (reused decision: {reason})";
+    private static string ReuseSuffix(string? reason) => reason switch
+    {
+        null => "",
+        PolicyReasonCodes.HelloCanceled => " (Windows Hello was cancelled)",
+        _ => $" (reused decision: {reason})",
+    };
 
     private LauncherResolution ResolveSafe(ServerCallContext context)
     {
@@ -922,7 +927,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     /// <summary>
     /// Build a card-ready approval request (secret names only — never values).
     /// </summary>
-    private static ApprovalRequest BuildApprovalRequest(
+    private ApprovalRequest BuildApprovalRequest(
         string tool,
         string className,
         string levelName,
@@ -960,7 +965,8 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             LauncherFileName: fileName,
             LauncherPublisher: selected.Publisher,
             RequestedAt: DateTimeOffset.UtcNow,
-            LauncherPid: selected.Pid);
+            LauncherPid: selected.Pid,
+            HelloRequired: WindowsHelloPolicy.Requires(_policy.HelloMode, CommandClassNames.ParseOrUnknown(className)));
     }
 
     private static string FormatCommandLine(string tool, IReadOnlyList<string> argv)

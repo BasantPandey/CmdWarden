@@ -42,7 +42,7 @@ public class ApprovalGateTests
     public void Scripted_modes_return_fixed_outcome(string mode, ApprovalOutcome expected)
     {
         var gate = ApprovalGateFactory.Create(mode);
-        var outcome = gate.Prompt(MinimalRequest());
+        var outcome = gate.Prompt(MinimalRequest()).Outcome;
         Assert.Equal(expected, outcome);
     }
 
@@ -53,7 +53,7 @@ public class ApprovalGateTests
     public void Off_mode_is_unavailable(string mode)
     {
         var gate = ApprovalGateFactory.Create(mode);
-        Assert.Equal(ApprovalOutcome.Unavailable, gate.Prompt(MinimalRequest()));
+        Assert.Equal(ApprovalOutcome.Unavailable, gate.Prompt(MinimalRequest()).Outcome);
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class ApprovalGateTests
             resolveHelperPath: () => null,
             startProcess: _ => throw new InvalidOperationException("must not start"),
             timeout: TimeSpan.FromSeconds(1));
-        Assert.Equal(ApprovalOutcome.Unavailable, gate.Prompt(MinimalRequest()));
+        Assert.Equal(ApprovalOutcome.Unavailable, gate.Prompt(MinimalRequest()).Outcome);
     }
 
     private static ApprovalRequest MinimalRequest() => new(

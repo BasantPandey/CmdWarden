@@ -7,5 +7,5 @@ namespace CmdWarden.Agent.Approval;
 /// </summary>
 public interface IApprovalGate
 {
-    ApprovalOutcome Prompt(ApprovalRequest request);
+    ApprovalAnswer Prompt(ApprovalRequest request);
 }

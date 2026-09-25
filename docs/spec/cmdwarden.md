@@ -175,13 +175,13 @@ Summary for architecture readers:
 - **Deny cooldown:** after a Deny, the same launcher process gets no new popup for that tool for 2 minutes (`CW_DENY_COOLDOWN_SECONDS`). Other arguments do not open a new popup. Each blocked call is audited `deny` with reason `DenyCooldown`. Only one popup shows at a time. A waiting call checks the cooldown before its popup opens.
 - **Approve Once lasts the session ([#205](https://github.com/BasantPandey/CmdWarden/issues/205)):** an Approve Once click grants the launcher process the **one class it showed** for tool + secret, on the same terms as Allow for session (enrolled launcher, never secret-reveal, launcher exit or 60 idle minutes). A higher class prompts again. A later decision **adds** to the live grant, so a narrow answer never takes coverage away. Covered calls audit `session-allow`; the granting call still audits `allow-once`.
 - **Real input only ([#23](https://github.com/BasantPandey/CmdWarden/issues/23)):** Approve Once and Allow for session accept only keyboard or mouse input that the helper's low-level hooks saw without the injected flag. `SendInput`, `PostMessage`, and UI Automation `Invoke` get no answer, and the popup shows `Use your keyboard or mouse.` Deny accepts every input type.
-- **Windows Hello / step-up:** **out of v1** (explicit non-goal).
+- **Windows Hello ([#24](https://github.com/BasantPandey/CmdWarden/issues/24)):** after a real Approve, the popup asks for Windows Hello (fingerprint, face, or PIN) through `UserConsentVerifier` when the policy says so. `policy.json` field `hello`, set with `cw policy hello off|secret-reveal|write-and-up` (default `secret-reveal`), shown by `cw policy list`. Verified → the approve stands, audit reason `HelloVerified`. Cancel, retries exhausted, or device busy → Deny, audit reason `HelloCanceled`. No Hello device, not set up, or disabled by policy → the plain popup decides, audit reason `HelloUnavailable`. The helper adds a flag to its exit code: `0x10` verified, `0x20` unavailable (on an approve), `0x40` cancelled (on a deny). Any other combination fails closed.
 - **CI:** scripted modes via `CW_APPROVAL_MODE`.
 - **Transient reuse ([#131](https://github.com/BasantPandey/CmdWarden/issues/131)):** a human `AllowOnce` / `Deny` is reused, in memory only, for an exact retry (same launcher pid + start time, tool, class, secret name, command line) while the launcher process lives; `CW_TRANSIENT_REUSE_SECONDS` adds an optional time cap; audited with reason `TransientReuse`. Policy auto-allow and `Unavailable` are recomputed every call.
 - **Invalidation ([#133](https://github.com/BasantPandey/CmdWarden/issues/133)):** all memory clears on agent stop and on workstation lock (`SessionSwitch` / `SessionLock`). `cw policy set` clears entries whose launcher key or tool matches; `cw policy unenroll` clears that launcher key; a `cw harden <tool>` that re-pins the binary clears that tool. Cleared through the existing policy-store and pin-store call sites - no polling.
 - **Visibility / revocation ([#134](https://github.com/BasantPandey/CmdWarden/issues/134)):** `cw policy sessions` lists active session allows (id, launcher key + kind, pid, tool, secret name, class, granted / last-used / idle-expiry); `--revoke <id>` / `--revoke-all` withdraw them and print the count. Backed by `ListSessionAllows` / `RevokeSessionAllow` RPCs - names only, no prompt. Transient entries are never listed. The Secret Gates tab mirrors the list read-only under the Defaults card ([#135](https://github.com/BasantPandey/CmdWarden/issues/135)).
 
-Issues: [Approval Gate UI map](https://github.com/BasantPandey/CmdWarden/issues/68), [Windows Hello / step-up](https://github.com/BasantPandey/CmdWarden/issues/20).
+Issues: [Approval Gate UI map](https://github.com/BasantPandey/CmdWarden/issues/68), [Windows Hello / step-up](https://github.com/BasantPandey/CmdWarden/issues/24).
 
 ---
 
@@ -352,7 +352,6 @@ Broader Automic comparison: automic-vault-architecture.md.
 - Enterprise MDM / multi-user org as first-class driver
 - Polished tray Settings app
 - Windows **bless** / capability-bundled scripts (future note only)
-- Windows Hello / step-up in policy
 - Timed session grants ("allow write for 10 minutes") and a live management strip in the shell; persisting approval memory across agent restarts (approval memory v1, [#130](https://github.com/BasantPandey/CmdWarden/issues/130))
 - Downloadable scan rule packs; continuous scan watcher
 - Machine-wide install, winget/MSIX as primary, auto-update, nuget.org requirement

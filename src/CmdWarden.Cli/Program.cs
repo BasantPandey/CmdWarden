@@ -733,6 +733,7 @@ public static class CliApp
             "unenroll" or "remove" => PolicyUnenroll(args.AsSpan(1).ToArray()),
             "path" => PolicyPath(),
             "sessions" => await PolicySessionsAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
+            "hello" => PolicyHello(args.AsSpan(1).ToArray()),
             _ => UnknownPolicy(sub),
         };
     }
@@ -750,6 +751,7 @@ public static class CliApp
         Ui.Kv("path", store.Path);
         Ui.Kv("defaults", $"AI Harness → {PolicyLevelNames.Format(store.DefaultAiHarnessLevel)}; " +
                           $"Terminal → {PolicyLevelNames.Format(store.DefaultTerminalLevel)}");
+        Ui.Kv("hello", $"{store.HelloMode} (Windows Hello after Approve; cw policy hello <{string.Join("|", WindowsHelloPolicy.Modes)}>)");
         if (store.Launchers.Count == 0)
         {
             Ui.Kv("launchers", "(none enrolled)");
@@ -901,6 +903,24 @@ public static class CliApp
         return 0;
     }
 
+    // cw policy hello <off|secret-reveal|write-and-up>
+    private static int PolicyHello(string[] args)
+    {
+        var usage = $"Usage: cw policy hello <{string.Join("|", WindowsHelloPolicy.Modes)}>";
+        if (args.Length != 1 || !WindowsHelloPolicy.TryParse(args[0], out var mode))
+        {
+            Console.Error.WriteLine(usage);
+            return 1;
+        }
+
+        var store = LoadPolicyStore();
+        store.SetHelloMode(mode);
+        store.Save();
+        Console.WriteLine($"Windows Hello after Approve: {mode}");
+        Console.WriteLine($"  policy file: {store.Path}");
+        return 0;
+    }
+
     private static int PolicyUnenroll(string[] args)
     {
         if (args.Length < 1)
@@ -997,6 +1017,7 @@ public static class CliApp
         Console.WriteLine("  set <policyKey> <tool> <Deny|Read|Trusted|Full>");
         Console.WriteLine("  unenroll <policyKey>");
         Console.WriteLine("  sessions [--revoke <id> | --revoke-all]   List/withdraw active session allows");
+        Console.WriteLine("  hello <off|secret-reveal|write-and-up>    When the Approval Gate asks for Windows Hello (default secret-reveal)");
         Console.WriteLine();
         Console.WriteLine("Defaults: AI Harness → Read; Terminal → Trusted; unknown/unenrolled → Deny.");
         Console.WriteLine("Secret release auto-allows only when level × command class permits (see CONTEXT.md).");

@@ -46,7 +46,7 @@ public class ProcessApprovalGateTests
                 resolveHelperPath: () => helper,
                 startProcess: _ => CreateExitedProcess(exitCode),
                 timeout: TimeSpan.FromSeconds(5));
-            Assert.Equal(expected, gate.Prompt(MinimalRequest()));
+            Assert.Equal(expected, gate.Prompt(MinimalRequest()).Outcome);
         }
         finally
         {
@@ -62,7 +62,7 @@ public class ProcessApprovalGateTests
             startProcess: _ => throw new InvalidOperationException("should not start"),
             timeout: TimeSpan.FromSeconds(2));
 
-        Assert.Equal(ApprovalOutcome.Unavailable, gate.Prompt(MinimalRequest()));
+        Assert.Equal(ApprovalOutcome.Unavailable, gate.Prompt(MinimalRequest()).Outcome);
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public class ProcessApprovalGateTests
                 },
                 timeout: TimeSpan.FromSeconds(5));
 
-            Assert.Equal(ApprovalOutcome.AllowOnce, gate.Prompt(MinimalRequest()));
+            Assert.Equal(ApprovalOutcome.AllowOnce, gate.Prompt(MinimalRequest()).Outcome);
             Assert.NotNull(jsonSnapshot);
             Assert.Contains("GH_TOKEN", jsonSnapshot);
             Assert.Contains("gh auth token", jsonSnapshot);
@@ -128,16 +128,36 @@ public class ProcessApprovalGateTests
         Assert.IsType<ProcessApprovalGate>(gate);
     }
 
-    [Fact]
-    public void Exit_code_helper_mapping()
+    [Theory]
+    [InlineData(0, ApprovalOutcome.AllowOnce, HelloCheck.NotAsked)]
+    [InlineData(1, ApprovalOutcome.Deny, HelloCheck.NotAsked)]
+    [InlineData(2, ApprovalOutcome.Unavailable, HelloCheck.NotAsked)]
+    [InlineData(3, ApprovalOutcome.AllowForSession, HelloCheck.NotAsked)]
+    [InlineData(4, ApprovalOutcome.Unavailable, HelloCheck.NotAsked)]
+    [InlineData(-1, ApprovalOutcome.Unavailable, HelloCheck.NotAsked)]
+    [InlineData(0x10, ApprovalOutcome.AllowOnce, HelloCheck.Verified)]
+    [InlineData(0x13, ApprovalOutcome.AllowForSession, HelloCheck.Verified)]
+    [InlineData(0x20, ApprovalOutcome.AllowOnce, HelloCheck.NotAvailable)]
+    [InlineData(0x41, ApprovalOutcome.Deny, HelloCheck.Canceled)]
+    // A flag on the wrong answer fails closed.
+    [InlineData(0x11, ApprovalOutcome.Unavailable, HelloCheck.NotAsked)]
+    [InlineData(0x40, ApprovalOutcome.Unavailable, HelloCheck.NotAsked)]
+    [InlineData(0x30, ApprovalOutcome.Unavailable, HelloCheck.NotAsked)]
+    [InlineData(0x12, ApprovalOutcome.Unavailable, HelloCheck.NotAsked)]
+    public void Exit_code_helper_mapping(int exitCode, ApprovalOutcome outcome, HelloCheck hello)
     {
-        Assert.Equal(ApprovalOutcome.AllowOnce, ApprovalHelperExitCodes.ToOutcome(0));
-        Assert.Equal(ApprovalOutcome.Deny, ApprovalHelperExitCodes.ToOutcome(1));
-        Assert.Equal(ApprovalOutcome.Unavailable, ApprovalHelperExitCodes.ToOutcome(2));
-        Assert.Equal(ApprovalOutcome.AllowForSession, ApprovalHelperExitCodes.ToOutcome(3));
-        Assert.Equal(ApprovalOutcome.Unavailable, ApprovalHelperExitCodes.ToOutcome(4));
-        Assert.Equal(ApprovalOutcome.Unavailable, ApprovalHelperExitCodes.ToOutcome(-1));
+        var answer = ApprovalHelperExitCodes.ToAnswer(exitCode);
+        Assert.Equal(outcome, answer.Outcome);
+        Assert.Equal(hello, answer.Hello);
     }
+
+    [Theory]
+    [InlineData(ApprovalHelperExitCodes.AllowOnce, HelloCheck.Verified)]
+    [InlineData(ApprovalHelperExitCodes.AllowForSession, HelloCheck.NotAvailable)]
+    [InlineData(ApprovalHelperExitCodes.Deny, HelloCheck.Canceled)]
+    [InlineData(ApprovalHelperExitCodes.AllowOnce, HelloCheck.NotAsked)]
+    public void Exit_code_round_trips(int baseCode, HelloCheck hello) =>
+        Assert.Equal(hello, ApprovalHelperExitCodes.ToAnswer(ApprovalHelperExitCodes.FromAnswer(baseCode, hello)).Hello);
 
     /// <summary>Process that has already exited with the given code (no real child).</summary>
     private static Process CreateExitedProcess(int exitCode)

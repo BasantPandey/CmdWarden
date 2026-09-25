@@ -13,12 +13,42 @@ public static class ApprovalHelperExitCodes
     public const int Unavailable = 2;
     public const int AllowForSession = 3;
 
-    public static ApprovalOutcome ToOutcome(int exitCode) => exitCode switch
+    /// <summary>Added to an approve or a deny when the popup ran the Windows Hello step (#24).</summary>
+    public const int HelloVerifiedFlag = 0x10;
+    public const int HelloUnavailableFlag = 0x20;
+    public const int HelloCanceledFlag = 0x40;
+
+    /// <summary>
+    /// Exit code to the human answer. A Hello flag is valid only on the answer it can come with:
+    /// verified or unavailable on an approve, canceled on a deny. Any other code fails closed.
+    /// </summary>
+    public static ApprovalAnswer ToAnswer(int exitCode)
     {
-        AllowOnce => ApprovalOutcome.AllowOnce,
-        Deny => ApprovalOutcome.Deny,
-        AllowForSession => ApprovalOutcome.AllowForSession,
-        _ => ApprovalOutcome.Unavailable,
+        var outcome = (exitCode & ~0x70) switch
+        {
+            AllowOnce => ApprovalOutcome.AllowOnce,
+            Deny => ApprovalOutcome.Deny,
+            AllowForSession => ApprovalOutcome.AllowForSession,
+            _ => ApprovalOutcome.Unavailable,
+        };
+        var approve = outcome is ApprovalOutcome.AllowOnce or ApprovalOutcome.AllowForSession;
+        return (exitCode & 0x70) switch
+        {
+            0 => new ApprovalAnswer(outcome),
+            HelloVerifiedFlag when approve => new ApprovalAnswer(outcome, HelloCheck.Verified),
+            HelloUnavailableFlag when approve => new ApprovalAnswer(outcome, HelloCheck.NotAvailable),
+            HelloCanceledFlag when outcome == ApprovalOutcome.Deny => new ApprovalAnswer(outcome, HelloCheck.Canceled),
+            _ => new ApprovalAnswer(ApprovalOutcome.Unavailable),
+        };
+    }
+
+    /// <summary>The exit code for an answer; the inverse of <see cref="ToAnswer"/>.</summary>
+    public static int FromAnswer(int baseCode, HelloCheck hello) => baseCode | hello switch
+    {
+        HelloCheck.Verified => HelloVerifiedFlag,
+        HelloCheck.NotAvailable => HelloUnavailableFlag,
+        HelloCheck.Canceled => HelloCanceledFlag,
+        _ => 0,
     };
 }
 

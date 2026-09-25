@@ -26,4 +26,10 @@ public static class PolicyReasonCodes
     public const string RunCovered = "RunCovered";
     /// <summary>Git helper store of an identical value, or erase of a mismatch (#205).</summary>
     public const string Unchanged = "Unchanged";
+    /// <summary>Windows Hello confirmed the person after Approve (#24).</summary>
+    public const string HelloVerified = "HelloVerified";
+    /// <summary>Hello was required but is not set up on this PC; the plain popup decided (#24).</summary>
+    public const string HelloUnavailable = "HelloUnavailable";
+    /// <summary>The person cancelled Windows Hello, so the popup denied (#24).</summary>
+    public const string HelloCanceled = "HelloCanceled";
 }

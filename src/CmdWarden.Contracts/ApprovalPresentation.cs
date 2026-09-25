@@ -95,7 +95,8 @@ public static class ApprovalPresentation
             Tool: request.Tool,
             PolicyNote: request.PolicyNote,
             SessionAllowOffered: IsSessionAllowOffered(request.EnrollmentKind, request.CommandClass),
-            SessionScopeLine: BuildSessionScopeLine(display, request.LauncherPid, request.CommandClass));
+            SessionScopeLine: BuildSessionScopeLine(display, request.LauncherPid, request.CommandClass),
+            HelloRequired: request.HelloRequired);
     }
 
     /// <summary>
@@ -182,7 +183,8 @@ public sealed record ApprovalHelperPayload(
     string Tool,
     string? PolicyNote,
     bool SessionAllowOffered = false,
-    string? SessionScopeLine = null)
+    string? SessionScopeLine = null,
+    bool HelloRequired = false)
 {
     // Explicitly no secret value properties — kept for review clarity.
 }

@@ -33,6 +33,17 @@ public sealed class PolicyStore
     public PolicyLevel DefaultTerminalLevel =>
         PolicyLevelNames.ParseOrDeny(_doc.Defaults.Terminal);
 
+    /// <summary>When the Approval Gate asks for Windows Hello (#24): off, secret-reveal, or write-and-up.</summary>
+    public string HelloMode =>
+        WindowsHelloPolicy.TryParse(_doc.Hello, out var mode) ? mode : WindowsHelloPolicy.Default;
+
+    public void SetHelloMode(string mode)
+    {
+        if (!WindowsHelloPolicy.TryParse(mode, out var parsed))
+            throw new ArgumentException($"Unknown Hello mode '{mode}'. Use {string.Join(", ", WindowsHelloPolicy.Modes)}.", nameof(mode));
+        _doc.Hello = parsed;
+    }
+
     public static PolicyStore CreateEmpty()
     {
         var store = new PolicyStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "cw-empty-policy.json"));
@@ -285,6 +296,7 @@ public sealed class PolicyResolveResult
 internal sealed class PolicyDocument
 {
     public PolicyDefaultsDto Defaults { get; set; } = new();
+    public string Hello { get; set; } = WindowsHelloPolicy.Default;
     public Dictionary<string, LauncherEntryDto> Launchers { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
 
