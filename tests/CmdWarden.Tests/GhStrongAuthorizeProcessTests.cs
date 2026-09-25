@@ -38,7 +38,7 @@ public class GhStrongAuthorizeProcessTests
         Assert.False(grant.Env.ContainsKey("GH_ENTERPRISE_TOKEN"));
         Assert.False(grant.MigrateAfterRun);
         var audit = fx.ReadAudit();
-        Assert.Contains("CmdWarden/gh/github.com", audit);
+        Assert.Contains(VaultNames.ProductPrefix + "gh/github.com", audit);
         Assert.DoesNotContain("tok-dotcom", audit);
         Assert.DoesNotContain("\"GH_TOKEN\"", audit);
 
@@ -46,7 +46,7 @@ public class GhStrongAuthorizeProcessTests
         fx.Store.Save("", Ghes1, "tok-one"u8);
         grant = await fx.AuthorizeAsync(new[] { "pr", "list" });
         Assert.Equal("tok-one", grant.Env["GH_ENTERPRISE_TOKEN"]);
-        Assert.Contains("CmdWarden/gh/" + Ghes1, fx.ReadAudit());
+        Assert.Contains(VaultNames.ProductPrefix + "gh/" + Ghes1, fx.ReadAudit());
 
         // Two GHES hosts: none without a name; the named one with --hostname, -R, or GH_HOST.
         fx.Store.Save("", Ghes2, "tok-two"u8);

@@ -165,7 +165,7 @@ public class GhStrongHardenTests
         sb.WriteStock(sb.Host1, "alice", "tok-alice");
         sb.WriteStock(sb.Host1, "bob", "tok-bob");
         GhStrongHarden.Migrate(sb.Options());
-        var compat = "CmdWarden/secret/GH_TOKEN_" + sb.Suffix.Replace('.', '_');
+        var compat = VaultNames.ProductPrefix + "secret/GH_TOKEN_" + sb.Suffix.Replace('.', '_');
         sb.Vault.SaveTarget(compat, null, "compat"u8, comment: "");
         try
         {

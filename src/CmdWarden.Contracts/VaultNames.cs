@@ -5,10 +5,18 @@ namespace CmdWarden.Contracts;
 /// </summary>
 public static class VaultNames
 {
-    public const string TargetPrefix = "CmdWarden/secret/";
+    public const string RootEnvVar = "CW_VAULT_ROOT";
 
-    /// <summary>Every CmdWarden entry: named secrets and the strong-mode tool stores.</summary>
-    public const string ProductPrefix = "CmdWarden/";
+    /// <summary>
+    /// Every CmdWarden entry: named secrets and the strong-mode tool stores. <c>CW_VAULT_ROOT</c>
+    /// moves the whole tree, so a test run never reads or deletes a real vault entry.
+    /// </summary>
+    public static readonly string ProductPrefix =
+        Environment.GetEnvironmentVariable(RootEnvVar) is { Length: > 0 } root && root.EndsWith('/') && !root.Contains('*')
+            ? root
+            : "CmdWarden/";
+
+    public static readonly string TargetPrefix = ProductPrefix + "secret/";
 
     /// <summary>Short name for any CmdWarden target: the secret name, or <c>&lt;tool&gt;/&lt;key&gt;</c>.</summary>
     public static string DisplayName(string targetName) =>
@@ -17,7 +25,7 @@ public static class VaultNames
         : targetName;
 
     /// <summary>Credential helper entries (#202), e.g. <c>CmdWarden/docker/</c>. Hidden from the Secrets tab.</summary>
-    public static string HelperTargetPrefix(string tool) => "CmdWarden/" + tool + "/";
+    public static string HelperTargetPrefix(string tool) => ProductPrefix + tool + "/";
 
     /// <summary>CredMan target for one helper entry: <c>CmdWarden/&lt;tool&gt;/&lt;key&gt;</c>.</summary>
     public static string HelperTargetName(string tool, string key)

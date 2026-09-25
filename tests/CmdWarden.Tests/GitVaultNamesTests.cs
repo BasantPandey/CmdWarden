@@ -10,11 +10,11 @@ public class GitVaultNamesTests
     {
         var host = GitVaultNames.Parse("https://github.com");
         Assert.Equal("https://github.com", host.HostKey);
-        Assert.Equal("CmdWarden/git/https://github.com", GitVaultNames.Target(host.HostKey));
+        Assert.Equal(VaultNames.ProductPrefix + "git/https://github.com", GitVaultNames.Target(host.HostKey));
 
         var account = GitVaultNames.Parse("https://github.com", "alice");
         Assert.Equal("https://alice@github.com", account.AccountKey);
-        Assert.Equal("CmdWarden/git/https://alice@github.com", GitVaultNames.Target(account.AccountKey));
+        Assert.Equal(VaultNames.ProductPrefix + "git/https://alice@github.com", GitVaultNames.Target(account.AccountKey));
 
         var path = GitVaultNames.Parse("https://dev.azure.com/org");
         Assert.Equal("https://dev.azure.com/org", path.HostKey);
@@ -22,7 +22,7 @@ public class GitVaultNamesTests
         var refresh = GitVaultNames.Parse("https://github.com");
         Assert.Equal("https://oauth-refresh-token.github.com", refresh.RefreshKey);
         Assert.Equal(
-            "CmdWarden/git/https://oauth-refresh-token.github.com",
+            VaultNames.ProductPrefix + "git/https://oauth-refresh-token.github.com",
             GitVaultNames.Target(refresh.RefreshKey));
     }
 

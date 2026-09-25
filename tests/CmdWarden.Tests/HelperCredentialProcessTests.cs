@@ -60,7 +60,7 @@ public class HelperCredentialProcessTests
             foreach (var purpose in new[] { "helper-store", "helper-get", "helper-list", "helper-erase" })
                 Assert.Contains(rows, r => r.Contains($"\"purpose\":\"{purpose}\"", StringComparison.Ordinal));
             Assert.Equal(4, rows.Count(r => r.Contains(url, StringComparison.Ordinal)));
-            Assert.Single(rows, r => r.Contains("\"secretName\":\"CmdWarden/docker/*\"", StringComparison.Ordinal));
+            Assert.Single(rows, r => r.Contains($"\"secretName\":\"{VaultNames.ProductPrefix}docker/*\"", StringComparison.Ordinal));
             Assert.DoesNotContain(rows, r => r.Contains(secret, StringComparison.Ordinal));
         }
         finally
