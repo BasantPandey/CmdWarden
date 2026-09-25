@@ -17,6 +17,8 @@ public sealed class ApprovalMemory
     public const string TransientWindowEnvVar = "CW_TRANSIENT_REUSE_SECONDS";
     public const string SessionIdleEnvVar = "CW_SESSION_IDLE_SECONDS";
     public const string DenyCooldownEnvVar = "CW_DENY_COOLDOWN_SECONDS";
+    public const string CanaryCooldownEnvVar = "CW_CANARY_COOLDOWN_SECONDS";
+    public static readonly TimeSpan DefaultCanaryCooldown = TimeSpan.FromHours(1);
     /// <summary>No time cap: a transient entry lives as long as its launcher process (one session).</summary>
     public static readonly TimeSpan DefaultTransientWindow = TimeSpan.MaxValue;
     public static readonly TimeSpan DefaultSessionIdle = TimeSpan.FromMinutes(60);
@@ -26,6 +28,8 @@ public sealed class ApprovalMemory
     private readonly ConcurrentDictionary<string, SessionGrant> _sessions = new();
     private readonly ConcurrentDictionary<int, RunRecord> _runs = new();
     private readonly ConcurrentDictionary<string, DenyEntry> _denies = new();
+    private readonly ConcurrentDictionary<int, AlarmEntry> _alarms = new();
+    private readonly TimeSpan _canaryCooldown = WindowFromEnvironment(CanaryCooldownEnvVar, DefaultCanaryCooldown);
     private readonly TimeSpan _transientWindow;
     private readonly TimeSpan _sessionIdle;
     private readonly TimeSpan _denyCooldown;
@@ -154,6 +158,36 @@ public sealed class ApprovalMemory
     }
 
     private sealed record DenyEntry(string LauncherPolicyKey, string Tool, DateTime ExpiresUtc);
+
+    // ---- canary alarm (#29): a launcher that used a canary token gets nothing for a long time ----
+
+    /// <summary>
+    /// Drop every grant and remembered answer of this launcher key, then block the launcher process
+    /// for every tool until the canary cooldown ends. A restarted launcher is a new process.
+    /// </summary>
+    public void RaiseAlarm(int launcherPid, string launcherPolicyKey)
+    {
+        ClearForLauncherKey(launcherPolicyKey);
+        if (ProcessStartUtc(launcherPid) is not { } start)
+            return;
+        _alarms[launcherPid] = new AlarmEntry(start, DateTime.UtcNow + _canaryCooldown);
+    }
+
+    /// <summary>True when a pid in the caller's chain is a launcher under a canary alarm.</summary>
+    public bool IsAlarmed(IEnumerable<int> chainPids)
+    {
+        foreach (var pid in chainPids)
+        {
+            if (!_alarms.TryGetValue(pid, out var alarm))
+                continue;
+            if (alarm.ExpiresUtc > DateTime.UtcNow && IsLive(pid, alarm.StartUtc))
+                return true;
+            _alarms.TryRemove(pid, out _);
+        }
+        return false;
+    }
+
+    private sealed record AlarmEntry(DateTime StartUtc, DateTime ExpiresUtc);
 
     // ---- session allow (#132) ----
 

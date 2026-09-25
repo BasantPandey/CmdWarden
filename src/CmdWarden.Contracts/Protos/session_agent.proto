@@ -23,6 +23,9 @@ service SessionAgent {
   rpc HelperCredential (HelperCredentialRequest) returns (HelperCredentialResponse);
   // Strong gh (#208): after a granted auth login/refresh/logout run, move stock gh tokens into the vault.
   rpc MigrateToolStore (MigrateToolStoreRequest) returns (MigrateToolStoreResponse);
+  // Leak guard (#27): replace every vaulted secret value in the texts with [CmdWarden: NAME].
+  // Values never leave the Agent. A canary value raises the alarm (#29).
+  rpc CheckLeak (CheckLeakRequest) returns (CheckLeakResponse);
 }
 
 message HealthRequest {}
@@ -123,6 +126,8 @@ message AuthorizeRequest {
   string secret_name = 3;       // vault name for GH_TOKEN inject; empty → "GH_TOKEN"
   // Caller env the Agent classifies or routes by: GIT_CONFIG_KEY_<n> (#207), GH_HOST (#208). Never secrets.
   map<string, string> caller_env = 4;
+  // SHA-256 (hex) of each caller env value, so the Agent can find a canary token (#29). Never values.
+  repeated string env_value_hashes = 5;
 }
 
 message ListSessionAllowsRequest {}
@@ -197,6 +202,17 @@ message HelperCredentialResponse {
   string command_class = 6;
   string password_expiry_utc = 7;         // git get
   string oauth_refresh_token = 8;         // git get
+}
+
+message CheckLeakRequest {
+  repeated string texts = 1;
+  string source = 2;          // audit only, e.g. claude:Bash or cursor:beforeReadFile
+}
+
+message CheckLeakResponse {
+  repeated string texts = 1;  // same order; each match replaced by [CmdWarden: NAME]
+  repeated string names = 2;  // distinct secret names that matched
+  bool canary = 3;            // a canary value matched; the Agent raised the alarm
 }
 
 message MigrateToolStoreRequest {

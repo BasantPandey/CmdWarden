@@ -7,6 +7,15 @@ public static class VaultNames
 {
     public const string TargetPrefix = "CmdWarden/secret/";
 
+    /// <summary>Every CmdWarden entry: named secrets and the strong-mode tool stores.</summary>
+    public const string ProductPrefix = "CmdWarden/";
+
+    /// <summary>Short name for any CmdWarden target: the secret name, or <c>&lt;tool&gt;/&lt;key&gt;</c>.</summary>
+    public static string DisplayName(string targetName) =>
+        targetName.StartsWith(TargetPrefix, StringComparison.Ordinal) ? targetName[TargetPrefix.Length..]
+        : targetName.StartsWith(ProductPrefix, StringComparison.Ordinal) ? targetName[ProductPrefix.Length..]
+        : targetName;
+
     /// <summary>Credential helper entries (#202), e.g. <c>CmdWarden/docker/</c>. Hidden from the Secrets tab.</summary>
     public static string HelperTargetPrefix(string tool) => "CmdWarden/" + tool + "/";
 

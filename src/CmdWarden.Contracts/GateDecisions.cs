@@ -14,4 +14,6 @@ public static class GateDecisions
     public const string SessionGrant = "session-grant";
     /// <summary>A later call covered by an active session allow (#132).</summary>
     public const string SessionAllow = "session-allow";
+    /// <summary>The leak guard replaced a vaulted value in tool output (#27).</summary>
+    public const string Redact = "redact";
 }

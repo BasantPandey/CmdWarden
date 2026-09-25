@@ -185,13 +185,31 @@ Issues: [Approval Gate UI map](https://github.com/BasantPandey/CmdWarden/issues/
 
 ---
 
+## 8a. Leak guard and canary tokens
+
+**Leak guard ([#27](https://github.com/BasantPandey/CmdWarden/issues/27)).** The Session Agent holds the real values, so it finds a leak with no guess.
+
+- `CheckLeak { texts, source }` returns each text with every CmdWarden vault value (`CmdWarden/*`, at least 8 characters) replaced by `[CmdWarden: NAME]`, plus the matched names. Values never leave the Agent.
+- Each match writes an audit row: decision `redact`, reason `LeakRedacted`, tool `leak-guard`, the secret name, the launcher, and the source as purpose.
+- `cw leak-guard install claude` adds a Claude Code `PostToolUse` hook (matcher `*`) to `~/.claude/settings.json`. The hook sends every string of `tool_response` in one call and returns `updatedToolOutput` with the same shape, so the model sees only the placeholder.
+- `cw leak-guard install cursor` adds `beforeReadFile`, `postToolUse`, and `afterShellExecution` to `~/.cursor/hooks.json`. Cursor can block a read (`permission: deny`) and replace MCP output (`updated_mcp_tool_output`). It cannot change shell output, so a shell match only adds a note for the model.
+- When the Agent is down, the hook lets the output pass and shows a note. It never blocks the harness.
+- Residual: only exact values; an encoded copy (base64, URL encoding) passes.
+
+**Canary tokens ([#29](https://github.com/BasantPandey/CmdWarden/issues/29)).** A fake token that no normal work uses is a clear sign of an attack.
+
+- `cw canary install [--env <file>]...` saves `GH_TOKEN_BACKUP` in the vault, appends a `[backup-admin]` profile to `~/.aws/credentials`, and appends `GITHUB_TOKEN=` to each named .env template. `canaries.json` under the product root records each value and the exact text added.
+- The Agent treats a canary as used when: a leak guard text holds a value, a shim argv holds a value, the SHA-256 of a shim caller env value matches (`env_value_hashes`, never values), or `ReleaseSecret` asks for the canary vault entry or names a value on its command line.
+- On a use: the Agent clears every grant and remembered answer of that launcher key, blocks the launcher process for every tool (default 1 hour, `CW_CANARY_COOLDOWN_SECONDS`, or until the launcher restarts), writes a `deny` row with reason `CanaryHit`, and shows an alarm card in the lower right corner (interactive gate only).
+- `cw canary remove` takes out the exact text it added (or each line with a canary value, when someone edited it), deletes the vault entry when it still holds the fake value, and empties `canaries.json`. `cw canary status` lists the places.
+
 ## 9. Audit
 
 | Item | Spec |
 |------|------|
 | Location | `%LOCALAPPDATA%\CmdWarden\audit\` |
 | Format | NDJSON (one JSON object per line) |
-| Events | **Gate decisions only** (auto-allow, allow-once, deny, unavailable, session-grant, session-allow) |
+| Events | **Gate decisions only** (auto-allow, allow-once, deny, unavailable, session-grant, session-allow, redact) |
 | Fields | ts, decision, reason_code, tool, command_class, policy_level, launcher_policy_key, launcher_kind, enrollment_kind, secret_name; optional purpose/path/pid |
 | Never log | Secret **values**, full argv, env dumps |
 | Retention | ~**30 days**, prune older |
@@ -334,6 +352,8 @@ Research: docker-windows-harden.md. Issue: [#25](https://github.com/BasantPandey
 | Ambient long-lived env tokens | Child-only inject where applicable; scan profiles; strip untrusted ambient on mediated children |
 | Same-user CredRead / DPAPI | Agent policy is the gate; strong mode empties the stock store for `gh` / `git` / `docker`; residual accepted in compat and for `az` |
 | Absolute path bypass of PATH shim | Scan + guidance; WDAC out of PATH-only v1 |
+| Secret values in tool output read by the model | Leak guard hooks replace each vaulted value with `[CmdWarden: NAME]` ([#27](https://github.com/BasantPandey/CmdWarden/issues/27)) |
+| Prompt injection that hunts for tokens | Canary tokens raise an alarm and block the launcher ([#29](https://github.com/BasantPandey/CmdWarden/issues/29)) |
 | Wrapper bypass | By design residual (PATH-only) |
 | Approval clickjacking, self-approval by injected input | Native UI; Approve accepts only non-injected hook input, no UI Automation Invoke ([#23](https://github.com/BasantPandey/CmdWarden/issues/23)); phone OOB out of scope |
 

@@ -27,6 +27,8 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     private readonly object _promptLock = new();
     private readonly ToolPinStore _pins;
     private readonly AuditLog _audit;
+    private readonly CanaryStore _canaries;
+    private readonly AlarmNotifier _alarm;
 
     public SessionAgentService(
         AgentRuntimeInfo runtime,
@@ -36,7 +38,8 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         IApprovalGate approvalGate,
         ApprovalMemory memory,
         ToolPinStore pins,
-        AuditLog audit)
+        AuditLog audit,
+        AlarmNotifier alarm)
     {
         _pipeName = runtime.PipeName;
         _vault = vault;
@@ -46,6 +49,8 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         _memory = memory;
         _pins = pins;
         _audit = audit;
+        _canaries = new CanaryStore(runtime.ProductRoot);
+        _alarm = alarm;
     }
 
     public override Task<HealthResponse> GetHealth(HealthRequest request, ServerCallContext context)
@@ -149,6 +154,14 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var decisionLabel = GateDecisions.AutoAllow;
         string? decisionReason = null;
         var secretName = VaultNames.EnvVarName(request.Name);
+
+        ThrowIfAlarmed(launcher, resolved, tool, className, levelName, secretName, request.Purpose);
+        // #29: asking for a canary vault entry, or naming a canary value on the command line, is an attack.
+        var canary = _canaries.Load().FirstOrDefault(e => e.Kind == CanaryStore.VaultKind
+            && string.Equals(e.Location, secretName, StringComparison.OrdinalIgnoreCase))?.Tokens.FirstOrDefault()
+            ?? FindCanary([request.CommandLine], []);
+        if (canary is not null)
+            throw CanaryAlarm(launcher, resolved, tool, className, levelName, canary.Name, request.Purpose);
 
         if (decision != PolicyDecision.AutoAllow)
         {
@@ -282,6 +295,11 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var decision = PolicyEvaluator.Decide(resolved.Level, commandClass);
         var decisionLabel = GateDecisions.AutoAllow;
         string? decisionReason = null;
+
+        ThrowIfAlarmed(launcher, resolved, tool, className, levelName, auditSecretName, "authorize");
+        // #29: a canary value on the command line or in the caller env (hash only) is an attack.
+        if (FindCanary(argv, request.EnvValueHashes) is { } canaryToken)
+            throw CanaryAlarm(launcher, resolved, tool, className, levelName, canaryToken.Name, "authorize");
 
         if (decision != PolicyDecision.AutoAllow)
         {
@@ -536,6 +554,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var levelName = PolicyLevelNames.Format(resolved.Level);
         var className = CommandClassNames.Format(commandClass);
 
+        ThrowIfAlarmed(launcher, resolved, tool, className, levelName, secretName, purpose);
         var pinCheck = _pins.Check(tool);
         var chainError = pinCheck.IsOk && pinCheck.Pin is not null
             ? HelperChainRule.Check(launcher.Chain, pinCheck.Pin)
@@ -663,6 +682,99 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         {
             throw new RpcException(new Status(StatusCode.Internal, "HelperCredential failed: " + ex.Message));
         }
+    }
+
+    /// <summary>
+    /// Leak guard (#27). Each vaulted value in the texts becomes [CmdWarden: NAME]; the values stay
+    /// here. Each match writes an audit row with the name and the launcher. A canary match raises
+    /// the alarm for the launcher (#29) and still redacts.
+    /// </summary>
+    public override Task<CheckLeakResponse> CheckLeak(CheckLeakRequest request, ServerCallContext context)
+    {
+        IReadOnlyList<KnownSecret> known;
+        try
+        {
+            known = KnownSecrets();
+        }
+        catch (Exception ex)
+        {
+            throw new RpcException(new Status(StatusCode.Internal, "CheckLeak failed: " + ex.Message));
+        }
+
+        var result = LeakRedactor.Redact(request.Texts, known);
+        var response = new CheckLeakResponse();
+        response.Texts.AddRange(result.Texts);
+        response.Names.AddRange(result.Matches.Select(m => m.Name).Distinct(StringComparer.Ordinal));
+        if (result.Matches.Count == 0)
+            return Task.FromResult(response);
+
+        const string tool = "leak-guard";
+        var launcher = ResolveSafe(context);
+        var resolved = _policy.ResolveLevel(tool, launcher.Selected.PolicyKey, launcher.AutoApproveEligible);
+        var levelName = PolicyLevelNames.Format(resolved.Level);
+        var purpose = string.IsNullOrWhiteSpace(request.Source) ? tool : request.Source;
+        foreach (var match in result.Matches.Where(m => !m.IsCanary))
+            TryAudit(GateDecisions.Redact, PolicyReasonCodes.LeakRedacted, tool, "", levelName, launcher, resolved, match.Name, purpose);
+        if (result.Matches.FirstOrDefault(m => m.IsCanary) is { } canary)
+        {
+            _ = CanaryAlarm(launcher, resolved, tool, "", levelName, canary.Name, purpose);
+            response.Canary = true;
+        }
+        return Task.FromResult(response);
+    }
+
+    /// <summary>Every value the leak guard looks for: CmdWarden vault entries and the canaries.</summary>
+    private IReadOnlyList<KnownSecret> KnownSecrets()
+    {
+        var known = new List<KnownSecret>(_canaries.Secrets());
+        var canaryValues = known.Select(k => k.Value).ToHashSet(StringComparer.Ordinal);
+        foreach (var target in _vault.ListTargets(VaultNames.ProductPrefix))
+        {
+            if (_vault.ReadTarget(target.Target) is not { } entry)
+                continue;
+            var value = CredentialVault.Utf8(entry.Blob);
+            Array.Clear(entry.Blob);
+            if (!canaryValues.Contains(value))
+                known.Add(new KnownSecret(VaultNames.DisplayName(target.Target), value));
+        }
+        return known;
+    }
+
+    /// <summary>A canary value inside one of the texts, or whose hash is in <paramref name="valueHashes"/>.</summary>
+    private CanaryToken? FindCanary(IEnumerable<string?> texts, IEnumerable<string> valueHashes)
+    {
+        var tokens = _canaries.Load().SelectMany(e => e.Tokens).ToList();
+        if (tokens.Count == 0)
+            return null;
+        var hashes = valueHashes.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var joined = string.Join('\n', texts.Where(t => t is not null));
+        return tokens.FirstOrDefault(t => joined.Contains(t.Value, StringComparison.Ordinal) || hashes.Contains(ValueHash.Of(t.Value)));
+    }
+
+    /// <summary>
+    /// A canary use (#29): drop the launcher's grants and remembered answers, block the launcher
+    /// process for every tool for the canary cooldown, audit CanaryHit, and notify the person.
+    /// </summary>
+    private RpcException CanaryAlarm(LauncherResolution launcher, PolicyResolveResult resolved, string tool,
+        string className, string levelName, string canaryName, string? purpose)
+    {
+        _memory.RaiseAlarm(launcher.Selected.Pid, launcher.Selected.PolicyKey);
+        TryAudit(GateDecisions.Deny, PolicyReasonCodes.CanaryHit, tool, className, levelName, launcher, resolved, canaryName, purpose);
+        var who = ApprovalPresentation.ResolveLauncherDisplayName(null, null, launcher.Selected.FileName, launcher.Selected.Path);
+        _alarm.Show($"{who} used the canary token {canaryName}. A prompt injection or a bad script may be in progress. " +
+                    $"{ProductInfo.Name} blocks {who} (pid {launcher.Selected.Pid}) until it restarts.");
+        return new RpcException(new Status(StatusCode.PermissionDenied,
+            $"{PolicyReasonCodes.CanaryHit}: canary token {canaryName} used; launcher blocked."));
+    }
+
+    private void ThrowIfAlarmed(LauncherResolution launcher, PolicyResolveResult resolved, string tool,
+        string className, string levelName, string? secretName, string? purpose)
+    {
+        if (!_memory.IsAlarmed(launcher.Chain.Select(n => n.Pid)))
+            return;
+        TryAudit(GateDecisions.Deny, PolicyReasonCodes.CanaryHit, tool, className, levelName, launcher, resolved, secretName, purpose);
+        throw new RpcException(new Status(StatusCode.PermissionDenied,
+            $"{PolicyReasonCodes.CanaryHit}: this launcher used a canary token and is blocked."));
     }
 
     public override Task<ListSessionAllowsResponse> ListSessionAllows(

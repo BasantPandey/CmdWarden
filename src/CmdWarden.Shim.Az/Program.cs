@@ -26,6 +26,8 @@ public static class AzShimApp
             var request = new AuthorizeRequest { Tool = "az" };
             foreach (var a in args)
                 request.Argv.Add(a);
+            // #29: hashes only, so the Agent can spot a canary token in the env. Never values.
+            request.EnvValueHashes.AddRange(ValueHash.OfEnvironment());
 
             using var cts = new CancellationTokenSource(timeout ?? ApprovalGateTimeouts.Client);
             var grant = await client.AuthorizeAsync(request, cancellationToken: cts.Token).ConfigureAwait(false);

@@ -67,6 +67,7 @@ public static class AgentHost
         builder.Services.AddSingleton(memory);
         builder.Services.AddSingleton(pins);
         builder.Services.AddSingleton(audit);
+        builder.Services.AddSingleton(new AlarmNotifier(approvalGate is ProcessApprovalGate));
         builder.Services.AddSingleton<CredentialVault>();
         builder.Services.AddSingleton<LauncherIdentityResolver>();
 

@@ -32,4 +32,8 @@ public static class PolicyReasonCodes
     public const string HelloUnavailable = "HelloUnavailable";
     /// <summary>The person cancelled Windows Hello, so the popup denied (#24).</summary>
     public const string HelloCanceled = "HelloCanceled";
+    /// <summary>The leak guard found a vaulted value in tool output and replaced it (#27).</summary>
+    public const string LeakRedacted = "LeakRedacted";
+    /// <summary>A canary token was used or seen: an attack is in progress (#29).</summary>
+    public const string CanaryHit = "CanaryHit";
 }

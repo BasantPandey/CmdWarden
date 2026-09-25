@@ -10,6 +10,12 @@ public partial class App : Application
 
     private void Application_Startup(object sender, StartupEventArgs e)
     {
+        if (e.Args is ["--alarm", var text])
+        {
+            ShowAlarm(text);
+            return;
+        }
+
         var payload = LoadPayload(e.Args);
         if (payload is null)
         {
@@ -20,6 +26,12 @@ public partial class App : Application
 
         var window = new MainWindow(payload);
         window.Show();
+    }
+
+    private void ShowAlarm(string text)
+    {
+        ShutdownMode = ShutdownMode.OnLastWindowClose;
+        new AlarmWindow(text).Show();
     }
 
     private static ApprovalHelperPayload? LoadPayload(string[] args)

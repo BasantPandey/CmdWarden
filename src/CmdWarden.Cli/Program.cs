@@ -39,6 +39,8 @@ public static class CliApp
             "audit" => AuditAsync(args.AsSpan(1).ToArray()),
             "scan" => ScanAsync(args.AsSpan(1).ToArray()),
             "shortcut" => ShortcutAsync(args.AsSpan(1).ToArray()),
+            "leak-guard" => await CmdWarden.Cli.Hooks.LeakGuardCommands.LeakGuardAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
+            "canary" => CmdWarden.Cli.Hooks.LeakGuardCommands.Canary(args.AsSpan(1).ToArray()),
             _ => Unknown(args[0]),
         };
     }
@@ -1458,6 +1460,8 @@ public static class CliApp
         Row("unharden docker|git|gh", "Restore the stock store and config, remove pin and shim");
         Row("audit [-n N]", "Show recent gate decisions (local audit trail)");
         Row("scan", "First-catalog residual risk detectors (read-only)");
+        Row("leak-guard install|uninstall claude|cursor", "Hide vaulted secret values in tool output from the model");
+        Row("canary install [--env F]|remove|status", "Fake tokens that show an attack when used");
         Row("shortcut install [--desktop]|remove|status", "Start Menu (and Desktop) entry for CmdWarden Vault");
         AnsiConsole.Write(table);
         Console.WriteLine();

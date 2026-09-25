@@ -26,6 +26,8 @@ public static class GitShimApp
             var request = new AuthorizeRequest { Tool = "git" };
             foreach (var a in args)
                 request.Argv.Add(a);
+            // #29: hashes only, so the Agent can spot a canary token in the env. Never values.
+            request.EnvValueHashes.AddRange(ValueHash.OfEnvironment());
             foreach (var (key, value) in ConfigEnv())
                 request.CallerEnv[key] = value;
 

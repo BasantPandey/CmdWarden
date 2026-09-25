@@ -13,7 +13,8 @@ public static class AgentAuthorizeClient
         string? pipeName = null,
         TimeSpan? timeout = null,
         CancellationToken cancellationToken = default,
-        IReadOnlyDictionary<string, string>? callerEnv = null)
+        IReadOnlyDictionary<string, string>? callerEnv = null,
+        IEnumerable<string>? envValueHashes = null)
     {
         using var channel = AgentChannelFactory.Create(pipeName, timeout);
         var client = new SessionAgent.SessionAgentClient(channel);
@@ -28,6 +29,7 @@ public static class AgentAuthorizeClient
         request.Argv.AddRange(argv);
         foreach (var (key, value) in callerEnv ?? new Dictionary<string, string>())
             request.CallerEnv[key] = value;
+        request.EnvValueHashes.AddRange(envValueHashes ?? []);
 
         return await client.AuthorizeAsync(request, cancellationToken: cts.Token).ConfigureAwait(false);
     }
