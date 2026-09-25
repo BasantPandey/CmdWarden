@@ -751,7 +751,7 @@ public static class CliApp
         Ui.Kv("path", store.Path);
         Ui.Kv("defaults", $"AI Harness → {PolicyLevelNames.Format(store.DefaultAiHarnessLevel)}; " +
                           $"Terminal → {PolicyLevelNames.Format(store.DefaultTerminalLevel)}");
-        Ui.Kv("hello", $"{store.HelloMode} (Windows Hello after Approve; cw policy hello <{string.Join("|", WindowsHelloPolicy.Modes)}>)");
+        Ui.Kv("hello", $"{store.HelloMode} (Windows Hello after Approve; change: cw policy hello)");
         if (store.Launchers.Count == 0)
         {
             Ui.Kv("launchers", "(none enrolled)");
