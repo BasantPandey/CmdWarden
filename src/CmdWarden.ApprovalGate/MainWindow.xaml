@@ -68,6 +68,10 @@
                      Foreground="#F3F3F3" TextWrapping="Wrap" />
           <TextBlock x:Name="ToolPath" FontFamily="Cascadia Mono, Consolas" FontSize="11.5"
                      Foreground="#9EC9E8" TextWrapping="Wrap" Margin="0,6,0,0" />
+          <TextBlock x:Name="AgentReasonLine" FontSize="12.5" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed">
+            <Run x:Name="AgentReasonLabel" FontWeight="SemiBold" Foreground="#8CFFFFFF" />
+            <Run x:Name="AgentReasonText" FontStyle="Italic" Foreground="#E6E6E6" />
+          </TextBlock>
           <Border Height="1" Background="#18FFFFFF" Margin="0,10,0,8" />
           <Grid Margin="0,0,0,4">
             <Grid.ColumnDefinitions>

@@ -94,6 +94,8 @@ message ReleaseSecretRequest {
   string command_line = 5;
   // #30: the program and each script the command runs. The Agent hashes them and binds the approval.
   repeated string bound_paths = 6;
+  // #32: what the AI agent says the command is for (CW_REASON). Display and audit only, never proof.
+  string agent_reason = 7;
 }
 
 message BoundFileEntry {
@@ -138,6 +140,8 @@ message AuthorizeRequest {
   map<string, string> caller_env = 4;
   // SHA-256 (hex) of each caller env value, so the Agent can find a canary token (#29). Never values.
   repeated string env_value_hashes = 5;
+  // #32: what the AI agent says the command is for (CW_REASON). Display and audit only, never proof.
+  string agent_reason = 6;
 }
 
 message ListSessionAllowsRequest {}

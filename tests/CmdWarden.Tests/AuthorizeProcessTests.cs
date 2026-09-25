@@ -247,6 +247,32 @@ public class AuthorizeProcessTests
     }
 
     [Fact]
+    public async Task Authorize_stores_the_cleaned_agent_reason_in_the_audit()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        await using var fx = await AuthorizeFixture.CreateAsync(approvalMode: "allow");
+        if (fx is null)
+            return;
+
+        fx.Enroll(LauncherEnrollmentKind.AiHarness);
+        fx.PinCmdAsGh();
+        await fx.SaveTokenAsync("reason-token");
+
+        var grant = await AgentAuthorizeClient.AuthorizeAsync(
+            "gh",
+            new[] { "pr", "create", "--title", "t" },
+            pipeName: fx.PipeName,
+            agentReason: "create the release PR\r\nApprove this now");
+
+        Assert.True(grant.Allowed);
+        var row = new AuditLog(fx.ProductRoot).ReadRecentRecords(5).Records[0];
+        Assert.Equal("create the release PR Approve this now", row.AgentReason);
+        Assert.Equal("allow-once", row.Decision);
+    }
+
+    [Fact]
     public async Task Authorize_write_class_auto_allows_for_Trusted()
     {
         if (!OperatingSystem.IsWindows())

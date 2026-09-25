@@ -28,6 +28,7 @@ public static class GitShimApp
                 request.Argv.Add(a);
             // #29: hashes only, so the Agent can spot a canary token in the env. Never values.
             request.EnvValueHashes.AddRange(ValueHash.OfEnvironment());
+            request.AgentReason = AgentReason.FromEnvironment();
             foreach (var (key, value) in ConfigEnv())
                 request.CallerEnv[key] = value;
 

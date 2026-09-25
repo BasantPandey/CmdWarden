@@ -51,7 +51,8 @@ public sealed record ApprovalRequest(
     bool HelloRequired = false,
     IReadOnlyList<BoundFile>? Files = null,
     IReadOnlyList<string>? ChangedFiles = null,
-    string? HiddenCommand = null)
+    string? HiddenCommand = null,
+    string? AgentReason = null)
 {
     /// <summary>Secret names only (never values). Defaults to single <see cref="SecretName"/> when set.</summary>
     public IReadOnlyList<string> SecretNames =>
@@ -97,6 +98,8 @@ public static class ApprovalPromptText
 
         if (!string.IsNullOrWhiteSpace(request.CommandLine))
             lines.Add($"Command:         {request.CommandLine}");
+        if (!string.IsNullOrWhiteSpace(request.AgentReason))
+            lines.Add($"{AgentReason.Label} {request.AgentReason}");
         if (!string.IsNullOrWhiteSpace(request.ToolPath))
             lines.Add($"Tool path:       {request.ToolPath}");
         if (!string.IsNullOrWhiteSpace(request.WorkingDirectory))

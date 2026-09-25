@@ -498,7 +498,8 @@ public partial class MainWindow : Window
     private sealed record UsageRow(
         string Time, string Launcher, string LauncherKind, string ToolClass, string Secret,
         string Pill, System.Windows.Media.Brush PillBg, System.Windows.Media.Brush PillFg, string Reason,
-        System.Windows.Media.ImageSource? ToolIcon, System.Windows.Media.ImageSource? LauncherIcon);
+        System.Windows.Media.ImageSource? ToolIcon, System.Windows.Media.ImageSource? LauncherIcon,
+        string AgentSays, Visibility AgentSaysVisibility);
 
     private const int UsageMaxRows = 200;
     private bool _usageBusy;
@@ -559,9 +560,12 @@ public partial class MainWindow : Window
             ? r.LauncherKind
             : "";
         var toolClass = r.CommandClass.Length == 0 ? r.Tool : r.Tool + " \u00B7 " + r.CommandClass;
+        var says = AgentReason.Clean(r.AgentReason);
         return new UsageRow(r.LocalTimeLabel(now), launcher, launcherKind, toolClass,
             string.IsNullOrEmpty(r.SecretName) ? "-" : r.SecretName, pill, bg, fg, r.ReasonCode ?? "",
-            BrandImages.ForTool(r.Tool), BrandImages.ForLauncher(null, r.LauncherPath));
+            BrandImages.ForTool(r.Tool), BrandImages.ForLauncher(null, r.LauncherPath),
+            says is null ? "" : $"{AgentReason.Label} \u201C{says}\u201D",
+            says is null ? Visibility.Collapsed : Visibility.Visible);
     }
 
     // ---- Detectors (read-only, in-process scan; issue #118) ----

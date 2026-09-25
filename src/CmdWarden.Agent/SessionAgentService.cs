@@ -157,6 +157,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var decisionLabel = GateDecisions.AutoAllow;
         string? decisionReason = null;
         var secretName = VaultNames.EnvVarName(request.Name);
+        var agentReason = AgentReason.Clean(request.AgentReason);
 
         ThrowIfAlarmed(launcher, resolved, tool, className, levelName, secretName, request.Purpose);
         IReadOnlyList<BoundFile> boundFiles;
@@ -192,14 +193,15 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 policyNote: resolved.ReasonCode,
                 commandLine: string.IsNullOrWhiteSpace(request.CommandLine) ? null : request.CommandLine,
                 toolPath: boundFiles.FirstOrDefault()?.Path,
-                workingDirectory: null) with { Files = boundFiles, HiddenCommand = hidden }, verb: "release", auditSecretName: secretName, purpose: request.Purpose);
+                workingDirectory: null) with { Files = boundFiles, HiddenCommand = hidden, AgentReason = agentReason },
+                verb: "release", auditSecretName: secretName, purpose: request.Purpose);
             decisionLabel = gate.Decision;
             decisionReason = gate.Reason;
         }
 
         // Audit before vault read (fail closed, #199).
         AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName,
-            launcher, resolved, secretName, request.Purpose));
+            launcher, resolved, secretName, request.Purpose, agentReason));
 
         try
         {
@@ -283,6 +285,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             }
             : VaultNames.EnvVarName(request.SecretName);
         var argv = request.Argv.ToList();
+        var agentReason = AgentReason.Clean(request.AgentReason);
         // gh auth login/refresh/logout/switch refuse GH_TOKEN; the grant carries none (#198).
         var ghKeyringAuth = tool == "gh" && GhCommandClassifier.IsKeyringAuthMutation(argv);
         // Audit secret id only when a vault value may be released (gh always; docker when present).
@@ -339,7 +342,8 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 policyNote: note,
                 commandLine: commandLine,
                 toolPath: toolPathForUi,
-                workingDirectory: null) with { HiddenCommand = hidden }, verb: "authorize", auditSecretName: auditSecretName, purpose: "authorize");
+                workingDirectory: null) with { HiddenCommand = hidden, AgentReason = agentReason },
+                verb: "authorize", auditSecretName: auditSecretName, purpose: "authorize");
             decisionLabel = gate.Decision;
             decisionReason = gate.Reason;
         }
@@ -390,11 +394,11 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             ? secretName
             : null;
         AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName,
-            launcher, resolved, auditedSecretName, helpOnly ? "authorize-help" : "authorize"));
+            launcher, resolved, auditedSecretName, helpOnly ? "authorize-help" : "authorize", agentReason));
         // One row per released strong-gh entry, vault name only (#208).
         foreach (var (_, target) in ghReleases)
             AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName,
-                launcher, resolved, target, "authorize"));
+                launcher, resolved, target, "authorize", agentReason));
 
         // A live shim run covers helper reads from its chain (#202). Help-only and secret-reveal never do.
         if (!helpOnly && commandClass != CommandClass.SecretReveal)
@@ -916,7 +920,8 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         LauncherResolution launcher,
         PolicyResolveResult resolved,
         string? secretName,
-        string? purpose) => new()
+        string? purpose,
+        string? agentReason = null) => new()
     {
         Decision = decisionLabel,
         ReasonCode = reason,
@@ -930,6 +935,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         Purpose = purpose,
         LauncherPath = launcher.Selected.Path,
         ClientPid = launcher.ClientPid,
+        AgentReason = agentReason,
     };
 
     /// <summary>Grant path: no value leaves before the row persists (#199).</summary>
@@ -957,12 +963,13 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         LauncherResolution launcher,
         PolicyResolveResult resolved,
         string? secretName,
-        string? purpose = "authorize")
+        string? purpose = "authorize",
+        string? agentReason = null)
     {
         try
         {
             _audit.AppendGateDecision(GateRecord(decisionLabel, reason, tool, className, levelName,
-                launcher, resolved, secretName, purpose));
+                launcher, resolved, secretName, purpose, agentReason));
         }
         catch
         {
@@ -1011,7 +1018,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 return gate;
             case ApprovalOutcome.Deny:
                 TryAudit(GateDecisions.Deny, gate.Reason ?? PolicyReasonCodes.UserDenied, request.Tool, request.CommandClass,
-                    request.PolicyLevel, launcher, resolved, auditSecretName, purpose);
+                    request.PolicyLevel, launcher, resolved, auditSecretName, purpose, request.AgentReason);
                 throw new RpcException(new Status(
                     StatusCode.PermissionDenied,
                     $"{PolicyReasonCodes.UserDenied}: user denied {verb} for {context}." + ReuseSuffix(gate.Reason)));
@@ -1022,7 +1029,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                     ? note
                     : PolicyReasonCodes.ApprovalUnavailable;
                 TryAudit(GateDecisions.Unavailable, failReason, request.Tool, request.CommandClass,
-                    request.PolicyLevel, launcher, resolved, auditSecretName, purpose);
+                    request.PolicyLevel, launcher, resolved, auditSecretName, purpose, request.AgentReason);
                 throw new RpcException(new Status(
                     StatusCode.PermissionDenied,
                     $"{failReason}: Approval Gate unavailable; {verb} blocked for {context}."));

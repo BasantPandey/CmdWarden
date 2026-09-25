@@ -51,6 +51,13 @@ public partial class MainWindow : Window
         CommandLine.Text = string.IsNullOrWhiteSpace(payload.CommandLine) ? payload.Tool : payload.CommandLine;
         ToolPath.Text = string.IsNullOrWhiteSpace(payload.ToolPath) ? "" : "\u2192 " + payload.ToolPath;
         ToolPath.Visibility = string.IsNullOrWhiteSpace(payload.ToolPath) ? Visibility.Collapsed : Visibility.Visible;
+        // #32: the Agent cleans the reason; the card cleans it again because the payload file is input too.
+        if (AgentReason.Clean(payload.AgentReason) is { } reason)
+        {
+            AgentReasonLabel.Text = AgentReason.Label + " ";
+            AgentReasonText.Text = "“" + reason + "”";
+            AgentReasonLine.Visibility = Visibility.Visible;
+        }
         WorkingDirectory.Text = string.IsNullOrWhiteSpace(payload.WorkingDirectory)
             ? "(unknown)"
             : payload.WorkingDirectory;

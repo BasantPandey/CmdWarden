@@ -138,7 +138,7 @@ $rows = @(
     @(21, $codex, "AiHarness", "C:\Users\dev\AppData\Roaming\npm\codex.cmd", "az", "write", "deny", "UserDenied", "AZURE_SP"),
     @(14, $claude, "AiHarness", $claudePath, "gh", "read", "auto-allow", $null, "GH_TOKEN"),
     @(7, $claude, "AiHarness", $claudePath, "docker", "secret-reveal", "deny", "UserDenied", "DOCKER_TOKEN"),
-    @(0, $claude, "AiHarness", $claudePath, "gh", "write", "allow-once", $null, "GH_TOKEN")
+    @(0, $claude, "AiHarness", $claudePath, "gh", "write", "allow-once", $null, "GH_TOKEN", "create the release PR")
 )
 foreach ($r in $rows) {
     $audit.AppendGateDecision([CmdWarden.Contracts.AuditGateRecord]@{
@@ -152,6 +152,7 @@ foreach ($r in $rows) {
         Decision = $r[6]
         ReasonCode = $r[7]
         SecretName = $r[8]
+        AgentReason = $r[9]
         PolicyLevel = "Read"
     })
 }
@@ -161,6 +162,7 @@ $payload = Join-Path $root "gate.json"
 @{
     windowTitle = "CmdWarden"; launcherDisplayName = "Claude Code"; subtitle = "wants to run"
     commandLine = "gh pr create --fill"; toolPath = "C:\Program Files\GitHub CLI\gh.exe"
+    agentReason = "create the release PR"
     workingDirectory = "C:\src\my-app"; secretNames = @("GH_TOKEN")
     reasonHeading = "GH_TOKEN requested"; reasonLine = "gh needs GH_TOKEN"
     enrollmentKind = "AiHarness"; identityKind = "Authenticode"; launcherPath = $claudePath

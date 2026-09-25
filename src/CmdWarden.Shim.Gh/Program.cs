@@ -28,6 +28,7 @@ public static class GhShimApp
                 request.Argv.Add(a);
             // #29: hashes only, so the Agent can spot a canary token in the env. Never values.
             request.EnvValueHashes.AddRange(ValueHash.OfEnvironment());
+            request.AgentReason = AgentReason.FromEnvironment();
             // Strong gh routes GH_ENTERPRISE_TOKEN by GH_HOST (#208). Never a token.
             if (Environment.GetEnvironmentVariable("GH_HOST") is { Length: > 0 } ghHost)
                 request.CallerEnv["GH_HOST"] = ghHost;

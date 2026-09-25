@@ -40,6 +40,7 @@ public static class AgentVaultClient
             CommandLine = commandLine ?? "",
         };
         request.BoundPaths.AddRange(boundPaths ?? []);
+        request.AgentReason = AgentReason.FromEnvironment();
         return await call.Client.ReleaseSecretAsync(request, cancellationToken: call.Token).ConfigureAwait(false);
     }
 

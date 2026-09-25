@@ -106,7 +106,8 @@ public static class ApprovalPresentation
             // #31: a hidden command gets no session grant, so the card offers none.
             SessionAllowOffered: request.HiddenCommand is null && IsSessionAllowOffered(request.EnrollmentKind, request.CommandClass),
             SessionScopeLine: BuildSessionScopeLine(display, request.LauncherPid, request.CommandClass),
-            HelloRequired: request.HelloRequired);
+            HelloRequired: request.HelloRequired,
+            AgentReason: request.AgentReason);
     }
 
     /// <summary>
@@ -194,7 +195,8 @@ public sealed record ApprovalHelperPayload(
     string? PolicyNote,
     bool SessionAllowOffered = false,
     string? SessionScopeLine = null,
-    bool HelloRequired = false)
+    bool HelloRequired = false,
+    string? AgentReason = null)
 {
     // Explicitly no secret value properties — kept for review clarity.
 }

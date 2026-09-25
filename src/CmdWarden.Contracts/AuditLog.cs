@@ -175,6 +175,8 @@ public sealed class AuditGateRecord
     public string? Purpose { get; init; }
     public string? LauncherPath { get; init; }
     public int? ClientPid { get; init; }
+    /// <summary>#32: what the AI agent said the command is for. A statement, never proof.</summary>
+    public string? AgentReason { get; init; }
 
     private static readonly JsonSerializerOptions ParseOptions = new() { PropertyNameCaseInsensitive = true };
 
