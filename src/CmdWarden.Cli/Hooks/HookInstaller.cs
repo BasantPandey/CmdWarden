@@ -11,6 +11,10 @@ public static class HookInstaller
 {
     public static readonly string[] CursorEvents = ["beforeReadFile", "postToolUse", "afterShellExecution"];
 
+    /// <summary>The words that mark a hook entry as ours: the leak guard (#27) or the policy hook (#33).</summary>
+    public const string LeakGuardMarker = " leak-guard ";
+    public const string PolicyMarker = " hook check ";
+
     public static string ClaudeSettingsPath(string? home = null) =>
         Path.Combine(home ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "settings.json");
 
@@ -40,19 +44,20 @@ public static class HookInstaller
         return path.Contains(' ') ? $"\"{path}\"" : path;
     }
 
-    /// <summary>Adds one PostToolUse entry for every tool. Returns false when it is already there.</summary>
-    public static bool InstallClaude(string settingsPath, string command)
+    /// <summary>Adds one entry for the event and tool matcher. Returns false when it is already there.</summary>
+    public static bool InstallClaude(string settingsPath, string command,
+        string hookEvent = "PostToolUse", string matcher = "*", string marker = LeakGuardMarker)
     {
         var root = Load(settingsPath);
         var hooks = root["hooks"] as JsonObject ?? new JsonObject();
         root["hooks"] = hooks;
-        var list = hooks["PostToolUse"] as JsonArray ?? new JsonArray();
-        hooks["PostToolUse"] = list;
-        if (list.Any(g => g?["hooks"] is JsonArray inner && inner.Any(h => IsOurs(h?["command"]))))
+        var list = hooks[hookEvent] as JsonArray ?? new JsonArray();
+        hooks[hookEvent] = list;
+        if (list.Any(g => g?["hooks"] is JsonArray inner && inner.Any(h => IsOurs(h?["command"], marker))))
             return false;
         list.Add(new JsonObject
         {
-            ["matcher"] = "*",
+            ["matcher"] = matcher,
             ["hooks"] = new JsonArray(new JsonObject
             {
                 ["type"] = "command",
@@ -64,16 +69,16 @@ public static class HookInstaller
         return true;
     }
 
-    public static bool UninstallClaude(string settingsPath)
+    public static bool UninstallClaude(string settingsPath, string hookEvent = "PostToolUse", string marker = LeakGuardMarker)
     {
-        if (!File.Exists(settingsPath) || Load(settingsPath) is not { } root || root["hooks"]?["PostToolUse"] is not JsonArray list)
+        if (!File.Exists(settingsPath) || Load(settingsPath) is not { } root || root["hooks"]?[hookEvent] is not JsonArray list)
             return false;
         var removed = false;
         foreach (var group in list.ToList())
         {
             if (group?["hooks"] is not JsonArray inner)
                 continue;
-            foreach (var h in inner.Where(h => IsOurs(h?["command"])).ToList())
+            foreach (var h in inner.Where(h => IsOurs(h?["command"], marker)).ToList())
                 removed |= inner.Remove(h);
             if (inner.Count == 0)
                 list.Remove(group);
@@ -83,18 +88,19 @@ public static class HookInstaller
         return removed;
     }
 
-    public static bool InstallCursor(string hooksPath, string command)
+    public static bool InstallCursor(string hooksPath, string command,
+        IReadOnlyList<string>? events = null, string marker = LeakGuardMarker)
     {
         var root = Load(hooksPath);
         root["version"] ??= 1;
         var hooks = root["hooks"] as JsonObject ?? new JsonObject();
         root["hooks"] = hooks;
         var added = false;
-        foreach (var name in CursorEvents)
+        foreach (var name in events ?? CursorEvents)
         {
             var list = hooks[name] as JsonArray ?? new JsonArray();
             hooks[name] = list;
-            if (list.Any(h => IsOurs(h?["command"])))
+            if (list.Any(h => IsOurs(h?["command"], marker)))
                 continue;
             list.Add(new JsonObject { ["command"] = command });
             added = true;
@@ -104,7 +110,7 @@ public static class HookInstaller
         return added;
     }
 
-    public static bool UninstallCursor(string hooksPath)
+    public static bool UninstallCursor(string hooksPath, string marker = LeakGuardMarker)
     {
         if (!File.Exists(hooksPath) || Load(hooksPath)["hooks"] is not JsonObject hooks)
             return false;
@@ -114,7 +120,7 @@ public static class HookInstaller
         {
             if (value is not JsonArray list)
                 continue;
-            foreach (var h in list.Where(h => IsOurs(h?["command"])).ToList())
+            foreach (var h in list.Where(h => IsOurs(h?["command"], marker)).ToList())
                 removed |= list.Remove(h);
         }
         if (removed)
@@ -122,8 +128,8 @@ public static class HookInstaller
         return removed;
     }
 
-    private static bool IsOurs(JsonNode? command) =>
-        command is JsonValue v && v.TryGetValue<string>(out var text) && text.Contains(" leak-guard ", StringComparison.Ordinal);
+    private static bool IsOurs(JsonNode? command, string marker) =>
+        command is JsonValue v && v.TryGetValue<string>(out var text) && text.Contains(marker, StringComparison.Ordinal);
 
     private static JsonObject Load(string path)
     {

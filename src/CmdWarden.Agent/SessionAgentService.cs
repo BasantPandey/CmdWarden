@@ -297,14 +297,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             _memory.ClearForTool(tool);
 
         var strongPin = _pins.TryGet(tool)?.IsStrong == true;
-        var commandClass = tool switch
-        {
-            "gh" => GhCommandClassifier.Classify(argv),
-            "git" => GitCommandClassifier.Classify(argv),
-            "az" => AzCommandClassifier.Classify(argv),
-            "docker" => DockerCommandClassifier.Classify(argv),
-            _ => CommandClass.Unknown,
-        };
+        var commandClass = Classify(tool, argv);
         // Strong git: a credential.* key in GIT_CONFIG_KEY_<n> reads like -c credential.* (#207).
         if (tool == "git" && strongPin && GitCommandClassifier.HasSecretAdjacentConfigEnv(request.CallerEnv))
             commandClass = CommandClass.SecretReveal;
@@ -799,6 +792,64 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             _ = CanaryAlarm(launcher, resolved, tool, "", levelName, canary.Name, purpose);
             response.Canary = true;
         }
+        return Task.FromResult(response);
+    }
+
+    private static CommandClass Classify(string tool, IReadOnlyList<string> argv) => tool switch
+    {
+        "gh" => GhCommandClassifier.Classify(argv),
+        "git" => GitCommandClassifier.Classify(argv),
+        "az" => AzCommandClassifier.Classify(argv),
+        "docker" => DockerCommandClassifier.Classify(argv),
+        _ => CommandClass.Unknown,
+    };
+
+    /// <summary>
+    /// #33: what Authorize would do for this call, before the harness runs it. It never prompts,
+    /// never releases a value, and changes no memory. A canary value in the call still raises the
+    /// alarm, because the call is the attack. A tool that is not hardened is not ours: allow.
+    /// </summary>
+    public override Task<CheckPolicyResponse> CheckPolicy(CheckPolicyRequest request, ServerCallContext context)
+    {
+        var tool = request.Tool.Trim().ToLowerInvariant();
+        var argv = request.Argv.ToList();
+        var launcher = ResolveSafe(context);
+        var resolved = _policy.ResolveLevel(tool, launcher.Selected.PolicyKey, launcher.AutoApproveEligible);
+        var commandClass = Classify(tool, argv);
+        var response = new CheckPolicyResponse
+        {
+            Decision = PolicyCheckDecisions.Allow,
+            CommandClass = CommandClassNames.Format(commandClass),
+            PolicyLevel = PolicyLevelNames.Format(resolved.Level),
+            LauncherPolicyKey = launcher.Selected.PolicyKey,
+        };
+        Task<CheckPolicyResponse> Deny(string reason, string message)
+        {
+            response.Decision = PolicyCheckDecisions.Deny;
+            response.ReasonCode = reason;
+            response.Message = message;
+            return Task.FromResult(response);
+        }
+
+        var pin = _pins.Check(tool);
+        if (pin.IsMissing)
+            return Task.FromResult(response);
+        if (_memory.IsAlarmed(launcher.Chain.Select(n => n.Pid)))
+            return Deny(PolicyReasonCodes.CanaryHit, "This launcher used a canary token and is blocked.");
+        if (FindCanary(argv, []) is { } canary)
+        {
+            _ = CanaryAlarm(launcher, resolved, tool, response.CommandClass, response.PolicyLevel, canary.Name, "check-policy");
+            return Deny(PolicyReasonCodes.CanaryHit, "The command holds a canary token. This launcher is now blocked.");
+        }
+        if (!pin.IsOk)
+            return Deny(PolicyReasonCodes.PinMismatch, $"The {tool} binary changed since cw harden {tool}: {pin.Error}");
+
+        if (HiddenWrapper(launcher) is null && PolicyEvaluator.Decide(resolved.Level, commandClass) == PolicyDecision.AutoAllow)
+            return Task.FromResult(response);
+        if (_memory.IsDenyCoolingDown(launcher.Selected.Pid, tool))
+            return Deny(PolicyReasonCodes.DenyCooldown, $"The user denied {tool} a short time ago.");
+        response.Decision = PolicyCheckDecisions.Ask;
+        response.ReasonCode = PolicyReasonCodes.NeedsApproval;
         return Task.FromResult(response);
     }
 

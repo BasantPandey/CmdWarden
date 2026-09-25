@@ -168,11 +168,11 @@ if (-not $Quiet) {
     }
 }
 
-Write-Step "Unharden gh, git, docker"
+Write-Step "Unharden gh, git, az, docker"
 $cw = Find-Cw
 if ($cw) {
     Write-Ok "Using: $($cw -join ' ')"
-    foreach ($tool in "gh", "git", "docker") {
+    foreach ($tool in "gh", "git", "az", "docker") {
         if ((Invoke-Cw $cw @("unharden", $tool)) -ne 0) {
             Write-Warn "cw unharden $tool failed. See the lines above."
         }
@@ -180,6 +180,19 @@ if ($cw) {
 }
 else {
     Write-Warn "No working cw found. Unharden runs as a direct clean-up."
+}
+
+# A hook left in the harness config would call a cw that is gone, on every tool call.
+Write-Step "Remove the Claude Code and Cursor hooks"
+if ($cw) {
+    foreach ($command in "leak-guard", "hook") {
+        foreach ($harness in "claude", "cursor") {
+            Invoke-Cw $cw @($command, "uninstall", $harness) | Out-Null
+        }
+    }
+}
+else {
+    Write-Warn "No working cw found. Remove the entries with 'leak-guard' or 'hook check' from ~\.claude\settings.json and ~\.cursor\hooks.json."
 }
 Clear-GitHelper
 Clear-DockerHelper

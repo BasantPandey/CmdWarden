@@ -24,6 +24,7 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw scan [--move-to-vault]` | Read-only residual risk scan; `--move-to-vault` moves plain MCP server secrets into the vault |
 | `cw launch claude\|codex\|cursor [-- args]` | Start an AI harness without the token variables `cw scan` knows; enroll its binary as ai-harness if needed |
 | `cw leak-guard install\|uninstall claude\|cursor` | Hook that replaces vaulted secret values in tool output with `[CmdWarden: NAME]` |
+| `cw hook install\|uninstall claude\|cursor` | Hook that checks the policy before the harness runs a shell command. A deny stops the command, and the agent reads "CmdWarden denied this. Ask the user. Do not retry." Allow and ask add no step |
 | `cw canary install [--env <file>]...\|remove\|status` | Fake tokens that block the launcher and show an alarm when used |
 | `cw audit [-n N]` | Recent gate decisions |
 | `cw shortcut install [--desktop]\|remove\|status` | Start Menu (and Desktop) entry for CmdWarden Vault, plus a `cw launch` entry per harness on this PC |

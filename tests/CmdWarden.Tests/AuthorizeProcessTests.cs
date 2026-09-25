@@ -273,6 +273,38 @@ public class AuthorizeProcessTests
     }
 
     [Fact]
+    public async Task CheckPolicy_says_ask_then_deny_after_a_user_deny_and_never_prompts()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        await using var fx = await AuthorizeFixture.CreateAsync(approvalMode: "deny");
+        if (fx is null)
+            return;
+
+        fx.Enroll(LauncherEnrollmentKind.AiHarness); // Read: write needs approval
+        fx.PinCmdAsGh();
+        await fx.SaveTokenAsync("check-policy-token");
+        string[] create = ["pr", "create", "--title", "t"];
+
+        var before = await AgentPolicyClient.CheckAsync("gh", create, fx.PipeName);
+        Assert.Equal(PolicyCheckDecisions.Ask, before.Decision);
+        Assert.Equal(CommandClassNames.Write, before.CommandClass);
+        Assert.Empty(new AuditLog(fx.ProductRoot).ReadRecentLines(5));
+
+        await Assert.ThrowsAsync<Grpc.Core.RpcException>(() =>
+            AgentAuthorizeClient.AuthorizeAsync("gh", create, pipeName: fx.PipeName));
+
+        var after = await AgentPolicyClient.CheckAsync("gh", ["pr", "create", "--title", "other"], fx.PipeName);
+        Assert.Equal(PolicyCheckDecisions.Deny, after.Decision);
+        Assert.Equal(PolicyReasonCodes.DenyCooldown, after.ReasonCode);
+        Assert.Equal("The user denied gh a short time ago.", after.Message);
+
+        Assert.Equal(PolicyCheckDecisions.Allow, (await AgentPolicyClient.CheckAsync("gh", ["pr", "list"], fx.PipeName)).Decision);
+        Assert.Equal(PolicyCheckDecisions.Allow, (await AgentPolicyClient.CheckAsync("az", ["group", "delete"], fx.PipeName)).Decision);
+    }
+
+    [Fact]
     public async Task Authorize_write_class_auto_allows_for_Trusted()
     {
         if (!OperatingSystem.IsWindows())

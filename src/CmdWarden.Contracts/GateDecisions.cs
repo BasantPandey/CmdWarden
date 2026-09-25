@@ -17,3 +17,12 @@ public static class GateDecisions
     /// <summary>The leak guard replaced a vaulted value in tool output (#27).</summary>
     public const string Redact = "redact";
 }
+
+/// <summary>What a CheckPolicy call (#33) says Authorize would do. It never prompts.</summary>
+public static class PolicyCheckDecisions
+{
+    public const string Allow = "allow";
+    /// <summary>The Approval Gate will ask the person when the command runs.</summary>
+    public const string Ask = "ask";
+    public const string Deny = "deny";
+}

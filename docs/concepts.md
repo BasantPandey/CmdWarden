@@ -63,8 +63,9 @@ Many commands lazy-start the agent; prefer `cw doctor` after install.
 1. Use `gh` / `git` / … **via PATH** in a **new shell** after harden (not absolute path to the real binary - that bypasses the shim).
 2. Work normally. When the Approval Gate appears, click **Approve Once**, **Allow for session**, or **Deny**.
 3. Let the agent say why it runs a command. Set `CW_REASON` for the command, for example `CW_REASON="create the release PR" gh pr create`. The Approval Gate shows the text under the command, with the label **The agent says:**. The audit stores it. CmdWarden never treats it as proof, and policy never reads it. The text is one line of 200 characters or less.
-4. Tighten with `cw policy set` only when defaults are not enough ([UC3](use-cases/agent-reads-github-writes-need-approval.md)).
-5. Periodically open CmdWarden Vault (**Detectors**, **Secret Usage**) or run `cw scan` / `cw audit` ([UC7](use-cases/audit-and-scan.md)).
+4. Stop an agent before it runs a command that CmdWarden will deny. Run `cw hook install claude` or `cw hook install cursor` once. After you deny a tool, the agent gets the deny before the next try, and not a failed command.
+5. Tighten with `cw policy set` only when defaults are not enough ([UC3](use-cases/agent-reads-github-writes-need-approval.md)).
+6. Periodically open CmdWarden Vault (**Detectors**, **Secret Usage**) or run `cw scan` / `cw audit` ([UC7](use-cases/audit-and-scan.md)).
 
 Secrets reminder:
 

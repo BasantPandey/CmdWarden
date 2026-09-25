@@ -27,6 +27,22 @@ service SessionAgent {
   // Leak guard (#27): replace every vaulted secret value in the texts with [CmdWarden: NAME].
   // Values never leave the Agent. A canary value raises the alarm (#29).
   rpc CheckLeak (CheckLeakRequest) returns (CheckLeakResponse);
+  // #33: what Authorize would do for this call, before it runs. Never prompts, never releases a value.
+  rpc CheckPolicy (CheckPolicyRequest) returns (CheckPolicyResponse);
+}
+
+message CheckPolicyRequest {
+  string tool = 1;              // gh | git | az | docker
+  repeated string argv = 2;     // args after the tool name
+}
+
+message CheckPolicyResponse {
+  string decision = 1;          // allow | ask | deny
+  string command_class = 2;
+  string policy_level = 3;
+  string launcher_policy_key = 4;
+  string reason_code = 5;       // empty for allow
+  string message = 6;           // why, for deny
 }
 
 message HealthRequest {}
