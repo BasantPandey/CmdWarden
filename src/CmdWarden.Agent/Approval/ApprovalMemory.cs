@@ -16,18 +16,23 @@ public sealed class ApprovalMemory
 {
     public const string TransientWindowEnvVar = "CW_TRANSIENT_REUSE_SECONDS";
     public const string SessionIdleEnvVar = "CW_SESSION_IDLE_SECONDS";
+    public const string DenyCooldownEnvVar = "CW_DENY_COOLDOWN_SECONDS";
     /// <summary>No time cap: a transient entry lives as long as its launcher process (one session).</summary>
     public static readonly TimeSpan DefaultTransientWindow = TimeSpan.MaxValue;
     public static readonly TimeSpan DefaultSessionIdle = TimeSpan.FromMinutes(60);
+    public static readonly TimeSpan DefaultDenyCooldown = TimeSpan.FromMinutes(2);
 
     private readonly ConcurrentDictionary<string, TransientEntry> _transient = new();
     private readonly ConcurrentDictionary<string, SessionGrant> _sessions = new();
     private readonly ConcurrentDictionary<int, RunRecord> _runs = new();
+    private readonly ConcurrentDictionary<string, DenyEntry> _denies = new();
     private readonly TimeSpan _transientWindow;
     private readonly TimeSpan _sessionIdle;
+    private readonly TimeSpan _denyCooldown;
 
-    public ApprovalMemory(TimeSpan? transientWindow = null, TimeSpan? sessionIdle = null)
+    public ApprovalMemory(TimeSpan? transientWindow = null, TimeSpan? sessionIdle = null, TimeSpan? denyCooldown = null)
     {
+        _denyCooldown = denyCooldown ?? WindowFromEnvironment(DenyCooldownEnvVar, DefaultDenyCooldown);
         _transientWindow = transientWindow ?? WindowFromEnvironment(TransientWindowEnvVar, DefaultTransientWindow);
         _sessionIdle = sessionIdle ?? WindowFromEnvironment(SessionIdleEnvVar, DefaultSessionIdle);
     }
@@ -114,6 +119,41 @@ public sealed class ApprovalMemory
         string Tool,
         ApprovalOutcome Outcome,
         DateTime ExpiresUtc);
+
+    // ---- deny cooldown: an AI harness retries a denied tool with other arguments ----
+
+    private static string DenyKey(int launcherPid, long startTicks, string tool) =>
+        string.Join('\n', launcherPid, startTicks, tool.ToLowerInvariant());
+
+    /// <summary>
+    /// After a human deny, the same launcher process gets no new prompt for this tool until the
+    /// cooldown ends. Any argument change counts: the harness must stop and ask the user.
+    /// </summary>
+    public void RememberDeny(int launcherPid, string launcherPolicyKey, string tool)
+    {
+        if (ProcessStartUtc(launcherPid) is not { } start)
+            return;
+        var now = DateTime.UtcNow;
+        // ponytail: expired entries linger until this sweep; 256 bounds the map.
+        if (_denies.Count >= 256)
+            RemoveDenies(d => d.ExpiresUtc <= now);
+        _denies[DenyKey(launcherPid, start.Ticks, tool)] = new DenyEntry(launcherPolicyKey, tool, now + _denyCooldown);
+    }
+
+    public bool IsDenyCoolingDown(int launcherPid, string tool)
+    {
+        if (ProcessStartUtc(launcherPid) is not { } start)
+            return false;
+        var key = DenyKey(launcherPid, start.Ticks, tool);
+        if (!_denies.TryGetValue(key, out var entry))
+            return false;
+        if (entry.ExpiresUtc > DateTime.UtcNow)
+            return true;
+        _denies.TryRemove(key, out _);
+        return false;
+    }
+
+    private sealed record DenyEntry(string LauncherPolicyKey, string Tool, DateTime ExpiresUtc);
 
     // ---- session allow (#132) ----
 
@@ -304,24 +344,28 @@ public sealed class ApprovalMemory
     public int ClearForLauncherKey(string launcherPolicyKey) =>
         RemoveTransient(e => Matches(e.LauncherPolicyKey, launcherPolicyKey))
         + RemoveSessions(g => Matches(g.LauncherPolicyKey, launcherPolicyKey))
-        + RemoveRuns(r => Matches(r.LauncherPolicyKey, launcherPolicyKey));
+        + RemoveRuns(r => Matches(r.LauncherPolicyKey, launcherPolicyKey))
+        + RemoveDenies(d => Matches(d.LauncherPolicyKey, launcherPolicyKey));
 
     /// <summary>Re-harden: every entry for this tool, any launcher.</summary>
     public int ClearForTool(string tool) =>
         RemoveTransient(e => Matches(e.Tool, tool))
         + RemoveSessions(g => Matches(g.Tool, tool))
-        + RemoveRuns(r => Matches(r.Tool, tool));
+        + RemoveRuns(r => Matches(r.Tool, tool))
+        + RemoveDenies(d => Matches(d.Tool, tool));
 
     /// <summary>Policy set: entries whose tool or launcher key matches the changed pair.</summary>
     public int ClearForPolicyChange(string launcherPolicyKey, string tool) =>
         RemoveTransient(e => Matches(e.LauncherPolicyKey, launcherPolicyKey) || Matches(e.Tool, tool))
         + RemoveSessions(g => Matches(g.LauncherPolicyKey, launcherPolicyKey) || Matches(g.Tool, tool))
-        + RemoveRuns(r => Matches(r.LauncherPolicyKey, launcherPolicyKey) || Matches(r.Tool, tool));
+        + RemoveRuns(r => Matches(r.LauncherPolicyKey, launcherPolicyKey) || Matches(r.Tool, tool))
+        + RemoveDenies(d => Matches(d.LauncherPolicyKey, launcherPolicyKey) || Matches(d.Tool, tool));
 
     /// <summary>Workstation lock or agent shutdown: everything.</summary>
     public int ClearAll()
     {
-        var removed = _transient.Count + _sessions.Count + _runs.Count;
+        var removed = _transient.Count + _sessions.Count + _runs.Count + _denies.Count;
+        _denies.Clear();
         _transient.Clear();
         _sessions.Clear();
         _runs.Clear();
@@ -335,6 +379,14 @@ public sealed class ApprovalMemory
         var keys = _transient.Where(kv => predicate(kv.Value)).Select(kv => kv.Key).ToList();
         foreach (var key in keys)
             _transient.TryRemove(key, out _);
+        return keys.Count;
+    }
+
+    private int RemoveDenies(Func<DenyEntry, bool> predicate)
+    {
+        var keys = _denies.Where(kv => predicate(kv.Value)).Select(kv => kv.Key).ToList();
+        foreach (var key in keys)
+            _denies.TryRemove(key, out _);
         return keys.Count;
     }
 

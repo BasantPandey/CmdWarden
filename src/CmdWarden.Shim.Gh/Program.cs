@@ -35,7 +35,7 @@ public static class GhShimApp
 
             if (!grant.Allowed)
             {
-                Console.Error.WriteLine(
+                WriteStop(string.IsNullOrWhiteSpace(grant.Message) ? grant.ReasonCode : grant.Message,
                     string.IsNullOrWhiteSpace(grant.Message)
                         ? $"{ProductInfo.Name} gh shim: denied ({grant.ReasonCode})"
                         : grant.Message);
@@ -55,7 +55,7 @@ public static class GhShimApp
         }
         catch (RpcException ex)
         {
-            Console.Error.WriteLine($"{ProductInfo.Name} gh shim: {ex.Status.Detail}");
+            WriteStop(ex.Status.Detail, $"{ProductInfo.Name} gh shim: {ex.Status.Detail}");
             return ex.StatusCode is StatusCode.PermissionDenied or StatusCode.FailedPrecondition
                 ? ExitDenied
                 : ExitAgentDown;
@@ -86,6 +86,9 @@ public static class GhShimApp
             Console.Error.WriteLine($"{ProductInfo.Name} gh shim: token migration failed: {detail}. Run cw harden gh --strong.");
         }
     }
+
+    private static void WriteStop(string? detail, string fallback) =>
+        Console.Error.WriteLine(ShimStopText.TryPlain("gh", detail) ?? fallback);
 
     private static async Task TryEnsureAgentAsync(string? pipeName)
     {

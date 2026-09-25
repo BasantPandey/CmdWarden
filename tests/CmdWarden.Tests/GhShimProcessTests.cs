@@ -153,6 +153,150 @@ public class GhShimProcessTests
     }
 
     [Fact]
+    public async Task Shim_user_deny_prints_a_plain_sentence()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var (exit, err) = await RunStoppedShimAsync("deny");
+        if (exit is null)
+            return;
+
+        Assert.Equal(GhShimApp.ExitDenied, exit);
+        Assert.Equal("CmdWarden: you denied this gh command." + Environment.NewLine, err);
+        Assert.DoesNotContain("UserDenied", err, StringComparison.Ordinal);
+        Assert.DoesNotContain("launcher=", err, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Shim_gate_unavailable_prints_the_timeout_sentence()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var (exit, err) = await RunStoppedShimAsync("off");
+        if (exit is null)
+            return;
+
+        Assert.Equal(GhShimApp.ExitDenied, exit);
+        Assert.Equal(
+            "CmdWarden: the Approval Gate timed out. The gh command did not run." + Environment.NewLine,
+            err);
+        Assert.DoesNotContain("ApprovalUnavailable", err, StringComparison.Ordinal);
+    }
+
+    private static async Task<(int? Exit, string Error)> RunStoppedShimAsync(string approvalMode)
+    {
+        var pipeName = $"{AgentEndpoints.PipeNamePrefix}-shimstop-{Guid.NewGuid():N}";
+        var productRoot = Path.Combine(Path.GetTempPath(), "cw-prod-" + Guid.NewGuid().ToString("N"));
+        var policyPath = Path.Combine(productRoot, "policy.json");
+        Directory.CreateDirectory(productRoot);
+
+        var realGh = Path.Combine(productRoot, "real-gh.cmd");
+        await File.WriteAllTextAsync(realGh, "@echo off\r\nexit /b 0\r\n");
+
+        Environment.SetEnvironmentVariable("CW_PIPE_NAME", pipeName);
+        Environment.SetEnvironmentVariable("CW_POLICY_PATH", policyPath);
+        Environment.SetEnvironmentVariable(ProductPaths.EnvVar, productRoot);
+        var err = new StringWriter();
+        var previous = Console.Error;
+        try
+        {
+            await using var agent = await AgentProcess.StartAsync(
+                TestPaths.FindAgentDll(), pipeName, policyPath, productRoot, approvalMode);
+            var id = await AgentHealthClient.ResolveIdentityAsync(pipeName);
+            if (!id.AutoApproveEligible)
+                return (null, "");
+
+            var store = new PolicyStore(policyPath);
+            store.Load();
+            store.Enroll(id.SelectedPolicyKey, LauncherEnrollmentKind.AiHarness);
+            store.Save();
+            new ToolPinStore(productRoot).Save("gh", realGh);
+            await AgentVaultClient.SaveAsync("GH_TOKEN", Encoding.UTF8.GetBytes("secret-value"), pipeName);
+
+            Console.SetError(err);
+            var exit = await GhShimApp.RunAsync(
+                new[] { "pr", "create" },
+                pipeName: pipeName,
+                timeout: TimeSpan.FromSeconds(30));
+            return (exit, err.ToString());
+        }
+        finally
+        {
+            Console.SetError(previous);
+            try { await AgentVaultClient.DeleteAsync("GH_TOKEN", pipeName); } catch { /* ignore */ }
+            Environment.SetEnvironmentVariable("CW_PIPE_NAME", null);
+            Environment.SetEnvironmentVariable("CW_POLICY_PATH", null);
+            Environment.SetEnvironmentVariable(ProductPaths.EnvVar, null);
+            try { Directory.Delete(productRoot, recursive: true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public async Task Deny_stops_new_prompts_for_retries_from_the_same_launcher()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var pipeName = $"{AgentEndpoints.PipeNamePrefix}-denyloop-{Guid.NewGuid():N}";
+        var productRoot = Path.Combine(Path.GetTempPath(), "cw-prod-" + Guid.NewGuid().ToString("N"));
+        var policyPath = Path.Combine(productRoot, "policy.json");
+        Directory.CreateDirectory(productRoot);
+
+        var realGh = Path.Combine(productRoot, "real-gh.cmd");
+        await File.WriteAllTextAsync(realGh, "@echo off\r\nexit /b 0\r\n");
+        // Stand-in Approval Gate: count each popup, then answer Deny.
+        var countFile = Path.Combine(productRoot, "prompts.txt");
+        var helper = Path.Combine(productRoot, "gate.cmd");
+        await File.WriteAllTextAsync(helper,
+            $"@echo off\r\necho x>>\"{countFile}\"\r\nexit /b {ApprovalHelperExitCodes.Deny}\r\n");
+
+        Environment.SetEnvironmentVariable("CW_PIPE_NAME", pipeName);
+        Environment.SetEnvironmentVariable("CW_POLICY_PATH", policyPath);
+        Environment.SetEnvironmentVariable(ProductPaths.EnvVar, productRoot);
+        var previous = Console.Error;
+        try
+        {
+            await using var agent = await AgentProcess.StartAsync(
+                TestPaths.FindAgentDll(), pipeName, policyPath, productRoot, approvalMode: "prompt",
+                helperPath: helper);
+            var id = await AgentHealthClient.ResolveIdentityAsync(pipeName);
+            if (!id.AutoApproveEligible)
+                return;
+
+            var store = new PolicyStore(policyPath);
+            store.Load();
+            store.Enroll(id.SelectedPolicyKey, LauncherEnrollmentKind.AiHarness);
+            store.Save();
+            new ToolPinStore(productRoot).Save("gh", realGh);
+            await AgentVaultClient.SaveAsync("GH_TOKEN", Encoding.UTF8.GetBytes("secret-value"), pipeName);
+
+            Console.SetError(TextWriter.Null);
+            Task<int> Run(params string[] args) =>
+                GhShimApp.RunAsync(args, pipeName: pipeName, timeout: TimeSpan.FromSeconds(30));
+
+            Assert.Equal(GhShimApp.ExitDenied, await Run("pr", "create"));
+            // An AI harness retries with other arguments, one by one and in parallel.
+            Assert.Equal(GhShimApp.ExitDenied, await Run("pr", "create", "--draft"));
+            Assert.Equal(GhShimApp.ExitDenied, await Run("issue", "create"));
+            var parallel = await Task.WhenAll(Run("pr", "merge", "1"), Run("pr", "merge", "2"), Run("pr", "merge", "3"));
+            Assert.All(parallel, exit => Assert.Equal(GhShimApp.ExitDenied, exit));
+
+            Assert.Single(await File.ReadAllLinesAsync(countFile));
+        }
+        finally
+        {
+            Console.SetError(previous);
+            try { await AgentVaultClient.DeleteAsync("GH_TOKEN", pipeName); } catch { /* ignore */ }
+            Environment.SetEnvironmentVariable("CW_PIPE_NAME", null);
+            Environment.SetEnvironmentVariable("CW_POLICY_PATH", null);
+            Environment.SetEnvironmentVariable(ProductPaths.EnvVar, null);
+            try { Directory.Delete(productRoot, recursive: true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
     public async Task Shim_keyring_auth_commands_get_GH_PATH_and_no_token()
     {
         if (!OperatingSystem.IsWindows())
@@ -263,7 +407,8 @@ public class GhShimProcessTests
             string pipeName,
             string policyPath,
             string productRoot,
-            string approvalMode = "off")
+            string approvalMode = "off",
+            string? helperPath = null)
         {
             var psi = new ProcessStartInfo
             {
@@ -278,6 +423,8 @@ public class GhShimProcessTests
             psi.Environment["CW_POLICY_PATH"] = policyPath;
             psi.Environment[ProductPaths.EnvVar] = productRoot;
             psi.Environment[ApprovalGateFactory.EnvVar] = approvalMode;
+            if (helperPath is not null)
+                psi.Environment[ProcessApprovalGate.HelperPathEnvVar] = helperPath;
 
             var process = Process.Start(psi)
                 ?? throw new InvalidOperationException("Failed to start agent.");

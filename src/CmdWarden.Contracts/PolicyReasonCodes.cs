@@ -18,6 +18,8 @@ public static class PolicyReasonCodes
     public const string TransientReuse = "TransientReuse";
     /// <summary>Session allow granted earlier to this launcher process covered the call (#132).</summary>
     public const string SessionAllow = "SessionAllow";
+    /// <summary>A recent human deny for this launcher process and tool stopped a new prompt.</summary>
+    public const string DenyCooldown = "DenyCooldown";
     /// <summary>Credential helper chain has no pinned real tool directly above it (#202).</summary>
     public const string HelperParentMissing = "HelperParentMissing";
     /// <summary>A granted shim run is still alive in the helper's chain (#202).</summary>

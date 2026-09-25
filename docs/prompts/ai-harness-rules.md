@@ -42,8 +42,10 @@ CLI: `cw` (alias `cmdwarden`). Desktop app: CmdWarden Vault. You are an **AI har
 
 ## Read the result
 
-- Shim exit code `2`: Session Agent down. Tell the user to run `cw agent start`.
-- Shim exit code `3`: denied. The stderr line names the reason: `UserDenied`, `NotEnrolled`, `UnknownLauncher`, `ApprovalUnavailable`, `PinMissing`, or `PinMismatch`. Stop. Report the reason. Do not work around a deny.
+- Shim exit code `2`: Session Agent down. The line says `Session Agent not reachable`. Tell the user to run `cw agent start`.
+- Shim exit code `3` and the line says `you denied this`: the user clicked Deny. Stop. Do not retry.
+- Shim exit code `3` and the line says `Approval Gate timed out`: the gate timed out. Stop. Tell the user.
+- Shim exit code `3` with another line: the line names `NotEnrolled`, `UnknownLauncher`, `PinMissing`, or `PinMismatch`. Stop. Report that line. Do not work around a deny.
 - Shim exit code `4`: the real tool did not start.
 - Any other exit code comes from the real tool.
 - `git` in strong mode fails with an auth error and stderr `CmdWarden: git credential denied for <url> (<reason>)`. Treat it as a deny.

@@ -26,6 +26,25 @@ public class ApprovalMemoryTests
     }
 
     [Fact]
+    public async Task Deny_cooldown_blocks_the_tool_for_the_launcher_until_it_ends()
+    {
+        var memory = new ApprovalMemory(denyCooldown: TimeSpan.FromMilliseconds(300));
+        var pid = Environment.ProcessId;
+
+        memory.RememberDeny(pid, "key", "gh");
+
+        Assert.True(memory.IsDenyCoolingDown(pid, "gh"));
+        Assert.True(memory.IsDenyCoolingDown(pid, "GH"));
+        Assert.False(memory.IsDenyCoolingDown(pid, "git"));
+        await Task.Delay(400);
+        Assert.False(memory.IsDenyCoolingDown(pid, "gh"));
+
+        memory.RememberDeny(pid, "key", "gh");
+        Assert.Equal(1, memory.ClearForLauncherKey("key"));
+        Assert.False(memory.IsDenyCoolingDown(pid, "gh"));
+    }
+
+    [Fact]
     public void Grant_refuses_a_start_time_that_differs_from_the_live_process()
     {
         var memory = new ApprovalMemory();

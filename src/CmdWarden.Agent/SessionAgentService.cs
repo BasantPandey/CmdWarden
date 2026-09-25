@@ -24,6 +24,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     private readonly PolicyStore _policy;
     private readonly IApprovalGate _approvalGate;
     private readonly ApprovalMemory _memory;
+    private readonly object _promptLock = new();
     private readonly ToolPinStore _pins;
     private readonly AuditLog _audit;
 
@@ -840,7 +841,22 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         if (_memory.TryUseSession(selected.Pid, request.Tool, request.SecretName, commandClass) is not null)
             return new GateResult(ApprovalOutcome.AllowOnce, GateDecisions.SessionAllow, PolicyReasonCodes.SessionAllow);
 
-        var outcome = _approvalGate.Prompt(request);
+        ApprovalOutcome outcome;
+        // One popup at a time. A request that waits here sees the decision of the popup before it.
+        lock (_promptLock)
+        {
+            if (_memory.IsDenyCoolingDown(selected.Pid, request.Tool))
+                return new GateResult(ApprovalOutcome.Deny, GateDecisions.Deny, PolicyReasonCodes.DenyCooldown);
+            if (_memory.TryGetTransient(transientKey) is { } decided)
+                return new GateResult(decided, DecisionFor(decided), PolicyReasonCodes.TransientReuse);
+            if (_memory.TryUseSession(selected.Pid, request.Tool, request.SecretName, commandClass) is not null)
+                return new GateResult(ApprovalOutcome.AllowOnce, GateDecisions.SessionAllow, PolicyReasonCodes.SessionAllow);
+
+            outcome = _approvalGate.Prompt(request);
+            if (outcome == ApprovalOutcome.Deny)
+                _memory.RememberDeny(selected.Pid, selected.PolicyKey, request.Tool);
+        }
+
         if (outcome is not (ApprovalOutcome.AllowOnce or ApprovalOutcome.AllowForSession))
         {
             _memory.RememberTransient(transientKey, outcome, selected.PolicyKey, request.Tool);

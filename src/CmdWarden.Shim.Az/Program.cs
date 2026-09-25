@@ -32,7 +32,7 @@ public static class AzShimApp
 
             if (!grant.Allowed)
             {
-                Console.Error.WriteLine(
+                WriteStop(string.IsNullOrWhiteSpace(grant.Message) ? grant.ReasonCode : grant.Message,
                     string.IsNullOrWhiteSpace(grant.Message)
                         ? $"{ProductInfo.Name} az shim: denied ({grant.ReasonCode})"
                         : grant.Message);
@@ -49,7 +49,7 @@ public static class AzShimApp
         }
         catch (RpcException ex)
         {
-            Console.Error.WriteLine($"{ProductInfo.Name} az shim: {ex.Status.Detail}");
+            WriteStop(ex.Status.Detail, $"{ProductInfo.Name} az shim: {ex.Status.Detail}");
             return ex.StatusCode is StatusCode.PermissionDenied or StatusCode.FailedPrecondition
                 ? ExitDenied
                 : ExitAgentDown;
@@ -66,6 +66,9 @@ public static class AzShimApp
             return ExitSpawnFailed;
         }
     }
+
+    private static void WriteStop(string? detail, string fallback) =>
+        Console.Error.WriteLine(ShimStopText.TryPlain("az", detail) ?? fallback);
 
     private static async Task TryEnsureAgentAsync(string? pipeName)
     {
