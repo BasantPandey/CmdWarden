@@ -14,6 +14,7 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw policy unenroll <key>` | Remove enrollment |
 | `cw policy sessions [--revoke <id> \| --revoke-all]` | List or revoke active session allows |
 | `cw policy hello off\|secret-reveal\|write-and-up` | When the Approval Gate asks for Windows Hello after Approve (default `secret-reveal`) |
+| `cw policy low-risk ask\|allow` | `allow`: a low-risk write of an enrolled launcher, like a push to a feature branch, runs with no popup (default `ask`) |
 | `cw harden gh\|git\|az\|docker` | Pin + PATH shim (+ gh token import) |
 | `cw harden --list` | One row per catalog tool, same probe as `cw doctor` |
 | `cw harden gh\|git\|docker\|az --strong` | Also move the tool's stock credentials into the Vault |

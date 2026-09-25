@@ -5,7 +5,7 @@ using CmdWarden.Contracts;
 namespace CmdWarden.Cli.Hooks;
 
 /// <summary>One call of a gated tool inside a shell command.</summary>
-public sealed record ToolCall(string Tool, IReadOnlyList<string> Argv);
+public sealed record ToolCall(string Tool, IReadOnlyList<string> Argv, string? Cwd = null);
 
 /// <summary>What CheckPolicy said about one call.</summary>
 public sealed record PolicyVerdict(string Decision, string Message);
@@ -23,7 +23,7 @@ public static class PolicyHook
     /// <summary>Claude Code PreToolUse for Bash and PowerShell: a deny goes back as permissionDecision.</summary>
     public static async Task<string?> ClaudePreToolUseAsync(JsonNode input, Func<ToolCall, Task<PolicyVerdict>> check)
     {
-        var denied = await DeniedAsync((string?)input["tool_input"]?["command"], check).ConfigureAwait(false);
+        var denied = await DeniedAsync((string?)input["tool_input"]?["command"], (string?)input["cwd"], check).ConfigureAwait(false);
         return denied.Count == 0 ? null : new JsonObject
         {
             ["hookSpecificOutput"] = new JsonObject
@@ -38,19 +38,19 @@ public static class PolicyHook
     /// <summary>Cursor beforeShellExecution: it waits for a permission on every command.</summary>
     public static async Task<string> CursorBeforeShellAsync(JsonNode input, Func<ToolCall, Task<PolicyVerdict>> check)
     {
-        var denied = await DeniedAsync((string?)input["command"], check).ConfigureAwait(false);
+        var denied = await DeniedAsync((string?)input["command"], (string?)input["cwd"], check).ConfigureAwait(false);
         if (denied.Count == 0)
             return """{"permission":"allow"}""";
         var text = DenyText(denied);
         return new JsonObject { ["permission"] = "deny", ["user_message"] = text, ["agent_message"] = text }.ToJsonString();
     }
 
-    private static async Task<List<string>> DeniedAsync(string? command, Func<ToolCall, Task<PolicyVerdict>> check)
+    private static async Task<List<string>> DeniedAsync(string? command, string? cwd, Func<ToolCall, Task<PolicyVerdict>> check)
     {
         var denied = new List<string>();
         foreach (var call in FindToolCalls(command ?? ""))
         {
-            var verdict = await check(call).ConfigureAwait(false);
+            var verdict = await check(call with { Cwd = cwd }).ConfigureAwait(false);
             if (verdict.Decision == PolicyCheckDecisions.Deny)
                 denied.Add(verdict.Message);
         }

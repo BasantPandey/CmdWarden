@@ -34,6 +34,7 @@ service SessionAgent {
 message CheckPolicyRequest {
   string tool = 1;              // gh | git | az | docker
   repeated string argv = 2;     // args after the tool name
+  string working_directory = 3;  // #35: repo and branch for the risk check
 }
 
 message CheckPolicyResponse {
@@ -112,6 +113,8 @@ message ReleaseSecretRequest {
   repeated string bound_paths = 6;
   // #32: what the AI agent says the command is for (CW_REASON). Display and audit only, never proof.
   string agent_reason = 7;
+  // #35: the working folder of the caller, for the Approval card. Display only.
+  string working_directory = 8;
 }
 
 message BoundFileEntry {
@@ -158,6 +161,8 @@ message AuthorizeRequest {
   repeated string env_value_hashes = 5;
   // #32: what the AI agent says the command is for (CW_REASON). Display and audit only, never proof.
   string agent_reason = 6;
+  // #35: the working folder of the caller. The Agent reads the repo and branch from it. Display and risk only.
+  string working_directory = 7;
 }
 
 message ListSessionAllowsRequest {}

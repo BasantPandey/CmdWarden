@@ -29,6 +29,7 @@ public static class AzShimApp
             // #29: hashes only, so the Agent can spot a canary token in the env. Never values.
             request.EnvValueHashes.AddRange(ValueHash.OfEnvironment());
             request.AgentReason = AgentReason.FromEnvironment();
+            request.WorkingDirectory = Environment.CurrentDirectory;
 
             using var cts = new CancellationTokenSource(timeout ?? ApprovalGateTimeouts.Client);
             var grant = await client.AuthorizeAsync(request, cancellationToken: cts.Token).ConfigureAwait(false);

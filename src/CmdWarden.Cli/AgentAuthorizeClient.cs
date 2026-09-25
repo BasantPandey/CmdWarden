@@ -15,7 +15,8 @@ public static class AgentAuthorizeClient
         CancellationToken cancellationToken = default,
         IReadOnlyDictionary<string, string>? callerEnv = null,
         IEnumerable<string>? envValueHashes = null,
-        string? agentReason = null)
+        string? agentReason = null,
+        string? workingDirectory = null)
     {
         using var channel = AgentChannelFactory.Create(pipeName, timeout);
         var client = new SessionAgent.SessionAgentClient(channel);
@@ -27,6 +28,7 @@ public static class AgentAuthorizeClient
             Tool = tool,
             SecretName = secretName ?? "",
             AgentReason = agentReason ?? "",
+            WorkingDirectory = workingDirectory ?? "",
         };
         request.Argv.AddRange(argv);
         foreach (var (key, value) in callerEnv ?? new Dictionary<string, string>())

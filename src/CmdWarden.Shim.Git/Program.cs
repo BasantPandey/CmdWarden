@@ -29,6 +29,7 @@ public static class GitShimApp
             // #29: hashes only, so the Agent can spot a canary token in the env. Never values.
             request.EnvValueHashes.AddRange(ValueHash.OfEnvironment());
             request.AgentReason = AgentReason.FromEnvironment();
+            request.WorkingDirectory = Environment.CurrentDirectory;
             foreach (var (key, value) in ConfigEnv())
                 request.CallerEnv[key] = value;
 

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media;
 using CmdWarden.Contracts;
 using CmdWarden.Ui;
 
@@ -51,6 +52,20 @@ public partial class MainWindow : Window
         CommandLine.Text = string.IsNullOrWhiteSpace(payload.CommandLine) ? payload.Tool : payload.CommandLine;
         ToolPath.Text = string.IsNullOrWhiteSpace(payload.ToolPath) ? "" : "\u2192 " + payload.ToolPath;
         ToolPath.Visibility = string.IsNullOrWhiteSpace(payload.ToolPath) ? Visibility.Collapsed : Visibility.Visible;
+        // #35: the card starts with what the command does. High risk is red.
+        if (!string.IsNullOrWhiteSpace(payload.Impact))
+        {
+            ImpactText.Text = payload.Impact;
+            ImpactBanner.Visibility = Visibility.Visible;
+            if (payload.ImpactHigh)
+            {
+                ImpactBanner.Background = new SolidColorBrush(Color.FromRgb(0x3A, 0x1D, 0x20));
+                ImpactBanner.BorderBrush = new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0x6B, 0x6B));
+                ImpactGlyph.Text = "";
+                ImpactGlyph.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0x8A, 0x80));
+            }
+        }
+
         // #32: the Agent cleans the reason; the card cleans it again because the payload file is input too.
         if (AgentReason.Clean(payload.AgentReason) is { } reason)
         {

@@ -12,6 +12,14 @@
         PreviewKeyDown="Window_PreviewKeyDown">
   <Border Margin="16" Background="#2C2C2C" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="12" Padding="24,16,24,20">
     <StackPanel>
+      <Border x:Name="ImpactBanner" CornerRadius="8" BorderThickness="1" Padding="12,10" Margin="0,0,0,16"
+              Background="#1F2A33" BorderBrush="#6660CDFF" Visibility="Collapsed">
+        <DockPanel>
+          <TextBlock x:Name="ImpactGlyph" DockPanel.Dock="Left" Text="&#xE946;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                     FontSize="16" Foreground="#60CDFF" Margin="0,1,10,0" VerticalAlignment="Top" />
+          <TextBlock x:Name="ImpactText" FontSize="13.5" FontWeight="SemiBold" Foreground="White" TextWrapping="Wrap" />
+        </DockPanel>
+      </Border>
       <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
         <Viewbox Width="20" Height="20" Margin="0,0,8,0" Stretch="Uniform">
           <Canvas Width="16" Height="16">

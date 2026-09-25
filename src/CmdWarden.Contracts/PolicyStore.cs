@@ -44,6 +44,16 @@ public sealed class PolicyStore
         _doc.Hello = parsed;
     }
 
+    /// <summary>#35: "allow" auto-allows a write that the risk check marks low risk, for an enrolled launcher. Default "ask".</summary>
+    public bool LowRiskWritesAllowed => string.Equals(_doc.LowRisk, LowRiskModes.Allow, StringComparison.OrdinalIgnoreCase);
+
+    public void SetLowRisk(string mode)
+    {
+        if (mode is not (LowRiskModes.Allow or LowRiskModes.Ask))
+            throw new ArgumentException($"Unknown low-risk mode '{mode}'. Use {LowRiskModes.Allow} or {LowRiskModes.Ask}.", nameof(mode));
+        _doc.LowRisk = mode;
+    }
+
     public static PolicyStore CreateEmpty()
     {
         var store = new PolicyStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "cw-empty-policy.json"));
@@ -297,6 +307,7 @@ internal sealed class PolicyDocument
 {
     public PolicyDefaultsDto Defaults { get; set; } = new();
     public string Hello { get; set; } = WindowsHelloPolicy.Default;
+    public string LowRisk { get; set; } = LowRiskModes.Ask;
     public Dictionary<string, LauncherEntryDto> Launchers { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
 
@@ -326,4 +337,11 @@ public sealed class LauncherEntryDto
     public string? Path { get; set; }
 
     public Dictionary<string, string>? Levels { get; set; }
+}
+
+/// <summary>#35: what policy does with a low-risk write that the level does not auto-allow.</summary>
+public static class LowRiskModes
+{
+    public const string Ask = "ask";
+    public const string Allow = "allow";
 }

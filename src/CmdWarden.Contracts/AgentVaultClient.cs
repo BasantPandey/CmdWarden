@@ -41,6 +41,7 @@ public static class AgentVaultClient
         };
         request.BoundPaths.AddRange(boundPaths ?? []);
         request.AgentReason = AgentReason.FromEnvironment();
+        request.WorkingDirectory = Environment.CurrentDirectory;
         return await call.Client.ReleaseSecretAsync(request, cancellationToken: call.Token).ConfigureAwait(false);
     }
 

@@ -80,7 +80,7 @@ public static class PolicyHookCommands
     {
         try
         {
-            var r = await AgentPolicyClient.CheckAsync(call.Tool, call.Argv, timeout: TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+            var r = await AgentPolicyClient.CheckAsync(call.Tool, call.Argv, timeout: TimeSpan.FromSeconds(5), workingDirectory: call.Cwd).ConfigureAwait(false);
             return new PolicyVerdict(r.Decision, $"{call.Tool}: {r.Message}");
         }
         catch (Exception)

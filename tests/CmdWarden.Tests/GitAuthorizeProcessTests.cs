@@ -230,6 +230,68 @@ public class GitAuthorizeProcessTests
     }
 
     [Fact]
+    public async Task Low_risk_rule_lets_a_feature_branch_push_run_with_no_popup()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        // "off": any popup fails closed, so an allowed call proves no popup was needed.
+        await using var fx = await GitAuthFixture.CreateAsync(approvalMode: "off");
+        if (fx is null)
+            return;
+        fx.Enroll(LauncherEnrollmentKind.AiHarness); // Read: a write asks
+        fx.PinCmdAsGit();
+        using var repo = new FakeGitRepo();
+
+        await Assert.ThrowsAsync<Grpc.Core.RpcException>(() =>
+            AgentAuthorizeClient.AuthorizeAsync("git", ["push"], pipeName: fx.PipeName, workingDirectory: repo.Dir));
+
+        var store = new PolicyStore(fx.PolicyPath);
+        store.Load();
+        store.SetLowRisk(LowRiskModes.Allow);
+        store.Save();
+
+        var grant = await AgentAuthorizeClient.AuthorizeAsync("git", ["push"], pipeName: fx.PipeName, workingDirectory: repo.Dir);
+        Assert.True(grant.Allowed);
+        Assert.Equal(GateDecisions.AutoAllow, grant.Decision);
+        Assert.Equal(PolicyReasonCodes.LowRisk, grant.ReasonCode);
+        Assert.Equal(PolicyCheckDecisions.Allow,
+            (await AgentPolicyClient.CheckAsync("git", ["push"], fx.PipeName, workingDirectory: repo.Dir)).Decision);
+
+        // The rule never covers the default branch.
+        await Assert.ThrowsAsync<Grpc.Core.RpcException>(() =>
+            AgentAuthorizeClient.AuthorizeAsync("git", ["push", "origin", "main"], pipeName: fx.PipeName, workingDirectory: repo.Dir));
+    }
+
+    [Fact]
+    public async Task Force_push_to_main_asks_even_under_Trusted_and_is_never_reused()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        await using var fx = await GitAuthFixture.CreateAsync(approvalMode: "allow");
+        if (fx is null)
+            return;
+        fx.Enroll(LauncherEnrollmentKind.Terminal); // Trusted: writes run with no popup
+        fx.PinCmdAsGit();
+        using var repo = new FakeGitRepo();
+        string[] force = ["push", "--force", "origin", "main"];
+
+        Assert.Equal(GateDecisions.AutoAllow,
+            (await AgentAuthorizeClient.AuthorizeAsync("git", ["push", "origin", "main"], pipeName: fx.PipeName, workingDirectory: repo.Dir)).Decision);
+        var check = await AgentPolicyClient.CheckAsync("git", force, fx.PipeName, workingDirectory: repo.Dir);
+        Assert.Equal(PolicyCheckDecisions.Ask, check.Decision);
+        Assert.Equal(PolicyReasonCodes.HighRisk, check.ReasonCode);
+
+        for (var i = 0; i < 2; i++)
+        {
+            var grant = await AgentAuthorizeClient.AuthorizeAsync("git", force, pipeName: fx.PipeName, workingDirectory: repo.Dir);
+            Assert.Equal(GateDecisions.AllowOnce, grant.Decision);
+            Assert.Equal(PolicyReasonCodes.HighRisk, grant.ReasonCode);
+        }
+    }
+
+    [Fact]
     public async Task Authorize_git_secret_reveal_allow_once_still_no_secret_map()
     {
         if (!OperatingSystem.IsWindows())

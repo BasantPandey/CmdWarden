@@ -31,6 +31,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     private readonly CanaryStore _canaries;
     private readonly string _productRoot;
     private readonly AlarmNotifier _alarm;
+    private readonly SeenCommands _seen;
 
     public SessionAgentService(
         AgentRuntimeInfo runtime,
@@ -54,6 +55,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         _canaries = new CanaryStore(runtime.ProductRoot);
         _productRoot = runtime.ProductRoot;
         _alarm = alarm;
+        _seen = new SeenCommands(runtime.ProductRoot);
     }
 
     public override Task<HealthResponse> GetHealth(HealthRequest request, ServerCallContext context)
@@ -193,7 +195,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 policyNote: resolved.ReasonCode,
                 commandLine: string.IsNullOrWhiteSpace(request.CommandLine) ? null : request.CommandLine,
                 toolPath: boundFiles.FirstOrDefault()?.Path,
-                workingDirectory: null) with { Files = boundFiles, HiddenCommand = hidden, AgentReason = agentReason },
+                workingDirectory: NullIfEmpty(request.WorkingDirectory)) with { Files = boundFiles, HiddenCommand = hidden, AgentReason = agentReason },
                 verb: "release", auditSecretName: secretName, purpose: request.Purpose);
             decisionLabel = gate.Decision;
             decisionReason = gate.Reason;
@@ -305,9 +307,8 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
 
         var resolved = _policy.ResolveLevel(tool, launcher.Selected.PolicyKey, launcher.AutoApproveEligible);
         var levelName = PolicyLevelNames.Format(resolved.Level);
-        var decision = PolicyEvaluator.Decide(resolved.Level, commandClass);
+        var (decision, decisionReason, risk) = DecideWithRisk(tool, argv, commandClass, resolved, request.WorkingDirectory, auditSecretName);
         var decisionLabel = GateDecisions.AutoAllow;
-        string? decisionReason = null;
 
         ThrowIfAlarmed(launcher, resolved, tool, className, levelName, auditSecretName, "authorize");
         // #29: a canary value on the command line or in the caller env (hash only) is an attack.
@@ -335,10 +336,16 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 policyNote: note,
                 commandLine: commandLine,
                 toolPath: toolPathForUi,
-                workingDirectory: null) with { HiddenCommand = hidden, AgentReason = agentReason },
+                workingDirectory: NullIfEmpty(request.WorkingDirectory)) with
+                {
+                    HiddenCommand = hidden,
+                    AgentReason = agentReason,
+                    Impact = WithFirstUse(risk.Impact, launcher.Selected.PolicyKey, tool, argv),
+                    ImpactHigh = risk.Level == RiskLevel.High,
+                },
                 verb: "authorize", auditSecretName: auditSecretName, purpose: "authorize");
             decisionLabel = gate.Decision;
-            decisionReason = gate.Reason;
+            decisionReason = gate.Reason ?? decisionReason;
         }
 
         var pinCheck = _pins.Check(tool);
@@ -396,6 +403,8 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         // A live shim run covers helper reads from its chain (#202). Help-only and secret-reveal never do.
         if (!helpOnly && commandClass != CommandClass.SecretReveal)
             _memory.RecordRun(launcher.ClientPid, launcher.ClientPidFromPipe, launcher.Selected.PolicyKey, tool);
+        if (!helpOnly)
+            _seen.Mark(launcher.Selected.PolicyKey, tool, RiskAssessor.Verb(tool, argv));
 
         try
         {
@@ -795,6 +804,35 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         return Task.FromResult(response);
     }
 
+    /// <summary>
+    /// #35: the level decides, then the risk: a high-risk command asks below Full, and a low-risk
+    /// write of an enrolled launcher runs when policy auto-allows low-risk writes.
+    /// </summary>
+    private (PolicyDecision Decision, string? Reason, RiskAssessment Risk) DecideWithRisk(string tool, IReadOnlyList<string> argv,
+        CommandClass commandClass, PolicyResolveResult resolved, string? workingDirectory, string? secretName)
+    {
+        var risk = RiskAssessor.Assess(tool, argv, commandClass, NullIfEmpty(workingDirectory), secretName);
+        var decision = PolicyEvaluator.Decide(resolved.Level, commandClass);
+        if (risk.Level == RiskLevel.High && resolved.Level != PolicyLevel.Full)
+            return (PolicyDecision.NeedsApproval, PolicyReasonCodes.HighRisk, risk);
+        if (decision == PolicyDecision.NeedsApproval && risk.Level == RiskLevel.Low && commandClass == CommandClass.Write
+            && resolved.IsEnrolled && _policy.LowRiskWritesAllowed)
+            return (PolicyDecision.AutoAllow, PolicyReasonCodes.LowRisk, risk);
+        return (decision, null, risk);
+    }
+
+    /// <summary>The impact line, plus a note when this launcher never ran this command before (#35).</summary>
+    private string? WithFirstUse(string? impact, string launcherKey, string tool, IReadOnlyList<string> argv)
+    {
+        var verb = RiskAssessor.Verb(tool, argv);
+        if (verb.Length == 0 || _seen.Contains(launcherKey, tool, verb))
+            return impact;
+        var first = $"First use of {tool} {verb} by this app.";
+        return impact is null ? first : impact + " " + first;
+    }
+
+    private static string? NullIfEmpty(string? text) => string.IsNullOrWhiteSpace(text) ? null : text;
+
     private static CommandClass Classify(string tool, IReadOnlyList<string> argv) => tool switch
     {
         "gh" => GhCommandClassifier.Classify(argv),
@@ -844,12 +882,16 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         if (!pin.IsOk)
             return Deny(PolicyReasonCodes.PinMismatch, $"The {tool} binary changed since cw harden {tool}: {pin.Error}");
 
-        if (HiddenWrapper(launcher) is null && PolicyEvaluator.Decide(resolved.Level, commandClass) == PolicyDecision.AutoAllow)
+        var (decision, reason, _) = DecideWithRisk(tool, argv, commandClass, resolved, request.WorkingDirectory, null);
+        if (HiddenWrapper(launcher) is null && decision == PolicyDecision.AutoAllow)
+        {
+            response.ReasonCode = reason ?? "";
             return Task.FromResult(response);
+        }
         if (_memory.IsDenyCoolingDown(launcher.Selected.Pid, tool))
             return Deny(PolicyReasonCodes.DenyCooldown, $"The user denied {tool} a short time ago.");
         response.Decision = PolicyCheckDecisions.Ask;
-        response.ReasonCode = PolicyReasonCodes.NeedsApproval;
+        response.ReasonCode = reason ?? PolicyReasonCodes.NeedsApproval;
         return Task.FromResult(response);
     }
 
@@ -1097,15 +1139,16 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         CommandClass commandClass,
         ApprovalRequest request)
     {
-        // #31: a hidden command always shows the popup; no remembered answer covers it.
-        var transientKey = request.HiddenCommand is null ? ApprovalMemory.TransientKey(request) : null;
+        // #31, #35: a hidden or a high-risk command always shows the popup; no remembered answer covers it.
+        var fresh = request.HiddenCommand is not null || request.ImpactHigh;
+        var transientKey = fresh ? null : ApprovalMemory.TransientKey(request);
         if (_memory.TryGetTransient(transientKey) is { } remembered)
         {
             return new GateResult(remembered, DecisionFor(remembered), PolicyReasonCodes.TransientReuse);
         }
 
         var selected = launcher.Selected;
-        var useSession = request.HiddenCommand is null;
+        var useSession = !fresh;
         if (useSession && _memory.TryUseSession(selected.Pid, request.Tool, request.SecretName, commandClass, request.Files) is not null)
             return new GateResult(ApprovalOutcome.AllowOnce, GateDecisions.SessionAllow, PolicyReasonCodes.SessionAllow);
 

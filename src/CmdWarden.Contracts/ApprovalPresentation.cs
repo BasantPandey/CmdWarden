@@ -61,6 +61,10 @@ public static class ApprovalPresentation
         return $"{secretName.Trim()} requested";
     }
 
+    /// <summary>"Write command": the heading when the tool takes no vault secret, as git and az do.</summary>
+    public static string BuildNoSecretHeading(string? commandClass) =>
+        string.IsNullOrWhiteSpace(commandClass) ? "Command" : char.ToUpperInvariant(commandClass.Trim()[0]) + commandClass.Trim()[1..] + " command";
+
     public static ApprovalHelperPayload ToHelperPayload(ApprovalRequest request)
     {
         var secretNames = request.SecretNames;
@@ -83,12 +87,17 @@ public static class ApprovalPresentation
                 ? HiddenCommandHeading
                 : request.ChangedFiles is { Count: > 0 }
                     ? BoundFiles.ChangedMessage
-                    : BuildReasonHeading(primarySecret),
+                    : primarySecret.Length == 0
+                        ? BuildNoSecretHeading(request.CommandClass)
+                        : BuildReasonHeading(primarySecret),
             ReasonLine: request.HiddenCommand is { } hidden
                 ? $"{ProductInfo.Name} cannot read what runs {request.Tool}: {hidden}."
                 : request.ChangedFiles is { Count: > 0 } changed
                     ? "Changed since you approved it: " + string.Join(", ", changed.Select(Path.GetFileName))
-                    : BuildReasonLine(request.Tool, primarySecret, request.Purpose),
+                    : primarySecret.Length == 0
+                        ? $"{request.Tool} gets no secret from the vault for this {request.CommandClass} command."
+                        // "authorize" is the name of the Agent call, not a purpose a person can read.
+                        : BuildReasonLine(request.Tool, primarySecret, request.Purpose?.StartsWith("authorize", StringComparison.Ordinal) == true ? null : request.Purpose),
             EnrollmentKind: string.IsNullOrWhiteSpace(request.EnrollmentKind) ? "unknown" : request.EnrollmentKind,
             IdentityKind: string.IsNullOrWhiteSpace(request.LauncherKind) ? "unknown" : request.LauncherKind,
             Publisher: string.IsNullOrWhiteSpace(request.LauncherPublisher)
@@ -103,11 +112,13 @@ public static class ApprovalPresentation
             RequestedAt: request.RequestedAt ?? DateTimeOffset.UtcNow,
             Tool: request.Tool,
             PolicyNote: request.PolicyNote,
-            // #31: a hidden command gets no session grant, so the card offers none.
-            SessionAllowOffered: request.HiddenCommand is null && IsSessionAllowOffered(request.EnrollmentKind, request.CommandClass),
+            // #31, #35: a hidden or a high-risk command gets no session grant, so the card offers none.
+            SessionAllowOffered: request.HiddenCommand is null && !request.ImpactHigh && IsSessionAllowOffered(request.EnrollmentKind, request.CommandClass),
             SessionScopeLine: BuildSessionScopeLine(display, request.LauncherPid, request.CommandClass),
             HelloRequired: request.HelloRequired,
-            AgentReason: request.AgentReason);
+            AgentReason: request.AgentReason,
+            Impact: request.Impact,
+            ImpactHigh: request.ImpactHigh);
     }
 
     /// <summary>
@@ -196,7 +207,9 @@ public sealed record ApprovalHelperPayload(
     bool SessionAllowOffered = false,
     string? SessionScopeLine = null,
     bool HelloRequired = false,
-    string? AgentReason = null)
+    string? AgentReason = null,
+    string? Impact = null,
+    bool ImpactHigh = false)
 {
     // Explicitly no secret value properties — kept for review clarity.
 }

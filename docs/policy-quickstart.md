@@ -93,6 +93,25 @@ Every command gets one **command class**: **read**, **write**, **secret-reveal**
 
 The Approval Gate is a desktop card with **Deny**, **Allow for session**, and **Approve Once**. Both allow buttons last until the launcher exits or 60 idle minutes pass. **Approve Once** covers the one command class you saw. **Allow for session** covers that class and every lower one. Neither covers secret-reveal. If no desktop is available, the request **fails closed**.
 
+### Risk: fewer popups, and the impact first
+
+CmdWarden also reads the risk of each command from the repo and the branch of the working folder.
+
+| Risk | Examples | What happens |
+|------|----------|--------------|
+| **High** | `git push --force` or a branch delete on the default branch, `git push --mirror`, `gh repo delete`, `az group delete` | The Approval Gate always asks, even at **Trusted**. Only **Full** skips it. No session allow covers it |
+| **Low** | `git push` to a branch that is not the default branch | Runs with no popup when you turn on the low-risk rule (below) |
+| **Normal** | everything else | The level decides, as in the table above |
+
+The card starts with one impact line, for example "Force-pushes to main of owner/repo. You cannot undo this." A high-risk line is red. The card also says when an app runs a command for the first time.
+
+```powershell
+# Let an enrolled launcher run low-risk writes with no popup (default: ask)
+cw policy low-risk allow
+```
+
+*Expect:* `git push` to a feature branch runs with no popup. `cw audit` shows `auto-allow` with the reason `LowRisk`.
+
 The tables below show how CmdWarden classifies each tool. Help and version flags are always **read**.
 
 ### gh

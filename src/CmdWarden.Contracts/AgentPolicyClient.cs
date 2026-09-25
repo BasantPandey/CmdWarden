@@ -10,10 +10,11 @@ public static class AgentPolicyClient
         IEnumerable<string> argv,
         string? pipeName = null,
         TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? workingDirectory = null)
     {
         using var call = AgentCall.Create(pipeName, timeout, cancellationToken);
-        var request = new CheckPolicyRequest { Tool = tool };
+        var request = new CheckPolicyRequest { Tool = tool, WorkingDirectory = workingDirectory ?? "" };
         request.Argv.AddRange(argv);
         return await call.Client.CheckPolicyAsync(request, cancellationToken: call.Token).ConfigureAwait(false);
     }
