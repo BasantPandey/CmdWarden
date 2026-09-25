@@ -555,7 +555,9 @@ public partial class MainWindow : Window
             _ => (char.ToUpperInvariant(r.Decision[0]) + r.Decision[1..], PillKind.Danger),
         };
         var (bg, fg) = PillBrushes(kind);
-        var launcher = r.LauncherPolicyKey.Length == 0 ? "-" : r.LauncherPolicyKey;
+        // #36: an agent account reads better than its SID key.
+        var launcher = r.AgentAccount is { Length: > 0 } account ? account + " (agent account)"
+            : r.LauncherPolicyKey.Length == 0 ? "-" : r.LauncherPolicyKey;
         var launcherKind = r.LauncherKind.Length > 0 && !string.Equals(r.LauncherKind, r.LauncherPolicyKey, StringComparison.Ordinal)
             ? r.LauncherKind
             : "";

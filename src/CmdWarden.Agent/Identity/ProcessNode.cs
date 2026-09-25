@@ -23,4 +23,6 @@ public sealed class LauncherResolution
     public required IReadOnlyList<ProcessNode> Chain { get; init; }
     public required bool AutoApproveEligible { get; init; }
     public string Notes { get; init; } = "";
+    /// <summary>#36: the agent account that made the call, as "PC\name", or null for the owner.</summary>
+    public string? AgentAccount { get; init; }
 }

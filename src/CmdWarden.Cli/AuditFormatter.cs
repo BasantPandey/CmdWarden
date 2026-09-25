@@ -8,7 +8,7 @@ namespace CmdWarden.Cli;
 public static class AuditFormatter
 {
     public sealed record Row(string Ts, string Decision, string Tool, string CommandClass, string Level,
-        string LauncherKey, string Reason, string Secret, string AgentReason);
+        string LauncherKey, string Reason, string Secret, string AgentReason, string AgentAccount);
 
     /// <summary>Parse one NDJSON audit line. Returns null when the line is not JSON.</summary>
     public static Row? Parse(string ndjsonLine)
@@ -20,7 +20,7 @@ public static class AuditFormatter
             return new Row(
                 Get(r, "ts"), Get(r, "decision"), Get(r, "tool"), Get(r, "commandClass"),
                 Get(r, "policyLevel"), Get(r, "launcherPolicyKey"), Get(r, "reasonCode"), Get(r, "secretName"),
-                Get(r, "agentReason"));
+                Get(r, "agentReason"), Get(r, "agentAccount"));
         }
         catch
         {
@@ -46,7 +46,7 @@ public static class AuditFormatter
         if (r.Level.Length > 0)
             parts.Add($"level={r.Level}");
         if (r.LauncherKey.Length > 0)
-            parts.Add($"launcher={r.LauncherKey}");
+            parts.Add(r.AgentAccount.Length > 0 ? $"launcher={r.AgentAccount} (agent account)" : $"launcher={r.LauncherKey}");
         if (r.Reason.Length > 0)
             parts.Add($"reason={r.Reason}");
         if (r.Secret.Length > 0)

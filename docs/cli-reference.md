@@ -9,6 +9,7 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw agent start\|stop\|status` | Explicit agent control |
 | `cw whoami` | Current launcher identity |
 | `cw policy enroll --kind terminal\|ai-harness [--key …]` | Enroll launcher |
+| `cw policy enroll --account <name> [--kind ai-harness]` | Enroll a Windows agent account, for example `CodexSandboxOffline`, as a launcher. The Session Agent pipe then accepts it |
 | `cw policy list` | Enrolled launchers + defaults |
 | `cw policy set <key> <tool> <Deny\|Read\|Trusted\|Full>` | Per tool × launcher level; tool `"*"` sets every tool |
 | `cw policy unenroll <key>` | Remove enrollment |

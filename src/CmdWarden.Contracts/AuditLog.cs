@@ -175,6 +175,8 @@ public sealed class AuditGateRecord
     public string? Purpose { get; init; }
     public string? LauncherPath { get; init; }
     public int? ClientPid { get; init; }
+    /// <summary>#36: the agent account that made the call, as "PC\name", or null for the person.</summary>
+    public string? AgentAccount { get; init; }
     /// <summary>#32: what the AI agent said the command is for. A statement, never proof.</summary>
     public string? AgentReason { get; init; }
 

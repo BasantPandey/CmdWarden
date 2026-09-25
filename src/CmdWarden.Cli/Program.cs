@@ -24,6 +24,20 @@ public static class CliApp
         }
 
         var cmd = args[0].ToLowerInvariant();
+        try
+        {
+            return await DispatchAsync(cmd, args).ConfigureAwait(false);
+        }
+        catch (Grpc.Core.RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.PermissionDenied)
+        {
+            // For example #36: an agent account called an owner-only command.
+            Console.Error.WriteLine($"{ProductInfo.Name}: {ex.Status.Detail}");
+            return 3;
+        }
+    }
+
+    private static async Task<int> DispatchAsync(string cmd, string[] args)
+    {
         return cmd switch
         {
             "version" or "--version" or "-v" => PrintVersion(),
@@ -886,7 +900,7 @@ public static class CliApp
             "list" or "show" => PolicyList(),
             "enroll" => await PolicyEnrollAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "set" => PolicySet(args.AsSpan(1).ToArray()),
-            "unenroll" or "remove" => PolicyUnenroll(args.AsSpan(1).ToArray()),
+            "unenroll" or "remove" => await PolicyUnenrollAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "path" => PolicyPath(),
             "sessions" => await PolicySessionsAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "hello" => PolicyHello(args.AsSpan(1).ToArray()),
@@ -923,9 +937,18 @@ public static class CliApp
             var levels = entry.Levels is { Count: > 0 }
                 ? string.Join("\n", entry.Levels.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase).Select(kv => $"{kv.Key}: {kv.Value}"))
                 : "(kind default)";
-            table.AddRow(Ui.E(key), Ui.E(entry.Kind), Ui.E(levels));
+            var name = key.StartsWith(AgentAccounts.PolicyKeyPrefix, StringComparison.OrdinalIgnoreCase) && entry.Path is { } account
+                ? $"{key}\n{account} (agent account)"
+                : key;
+            table.AddRow(Ui.E(name), Ui.E(entry.Kind), Ui.E(levels));
         }
         AnsiConsole.Write(table);
+        if (OperatingSystem.IsWindows())
+        {
+            // #36: name the agent accounts on this PC that no policy covers yet.
+            foreach (var (account, _) in AgentAccounts.OnThisPc().Where(a => !store.Launchers.ContainsKey(AgentAccounts.PolicyKey(a.Sid))))
+                Ui.Line(Ui.Dim($"  Agent account {account} is not enrolled; its calls cannot reach the Session Agent. Enroll: cw policy enroll --account {account}"));
+        }
 
         return 0;
     }
@@ -948,6 +971,26 @@ public static class CliApp
                 }
 
                 kindRaw = args[++i];
+                continue;
+            }
+
+            if (a is "--account")
+            {
+                // #36: an agent account (a Windows user) is the launcher, for example CodexSandboxOffline.
+                if (i + 1 >= args.Length || !OperatingSystem.IsWindows())
+                {
+                    Console.Error.WriteLine("--account requires a Windows account name, for example CodexSandboxOffline.");
+                    return 1;
+                }
+                var name = args[++i];
+                if (AgentAccounts.TryFind(name) is not { } sid)
+                {
+                    Console.Error.WriteLine($"No Windows account named {name} on this PC.");
+                    return 1;
+                }
+                policyKey = AgentAccounts.PolicyKey(sid);
+                displayPath = AgentAccounts.NameOf(sid);
+                kindRaw ??= LauncherEnrollmentKindNames.AiHarness;
                 continue;
             }
 
@@ -1033,7 +1076,24 @@ public static class CliApp
             : PolicyLevelNames.Format(store.DefaultTerminalLevel));
         Ui.Kv("policy file", store.Path);
         Ui.Line($"  {Ui.Ok("Enrolled.")} {Ui.Dim("Next: cw policy set <policyKey> <tool> <Deny|Read|Trusted|Full>")}");
+        if (policyKey.StartsWith(AgentAccounts.PolicyKeyPrefix, StringComparison.OrdinalIgnoreCase))
+            await RestartAgentForPipeAccessAsync().ConfigureAwait(false);
         return 0;
+    }
+
+    /// <summary>#36: the agent reads the enrolled accounts for its pipe access at start, so a running agent restarts.</summary>
+    private static async Task RestartAgentForPipeAccessAsync()
+    {
+        if (!(await AgentLifecycle.StatusAsync().ConfigureAwait(false)).Up)
+        {
+            Ui.Kv("pipe access", "the new account access applies when the Session Agent starts");
+            return;
+        }
+        await AgentLifecycle.StopAsync().ConfigureAwait(false);
+        var started = await AgentLifecycle.StartAsync().ConfigureAwait(false);
+        Ui.Kv("pipe access", started.Up
+            ? "Session Agent restarted with the new account access"
+            : $"Session Agent did not restart: {started.Detail}. Run: cw agent start");
     }
 
     private static int PolicySet(string[] args)
@@ -1097,7 +1157,7 @@ public static class CliApp
         return 0;
     }
 
-    private static int PolicyUnenroll(string[] args)
+    private static async Task<int> PolicyUnenrollAsync(string[] args)
     {
         if (args.Length < 1)
         {
@@ -1109,6 +1169,8 @@ public static class CliApp
         var removed = store.Unenroll(args[0]);
         store.Save();
         Console.WriteLine(removed ? $"Unenrolled {args[0]}." : $"No enrollment for {args[0]}.");
+        if (removed && args[0].StartsWith(AgentAccounts.PolicyKeyPrefix, StringComparison.OrdinalIgnoreCase))
+            await RestartAgentForPipeAccessAsync().ConfigureAwait(false);
         return 0;
     }
 
@@ -1190,6 +1252,7 @@ public static class CliApp
         Console.WriteLine("  list                         Show enrolled launchers and defaults");
         Console.WriteLine("  path                         Print policy.json path");
         Console.WriteLine("  enroll --kind <terminal|ai-harness> [--key <policyKey>]");
+        Console.WriteLine("  enroll --account <name> [--kind ai-harness]   An agent account, for example CodexSandboxOffline, is the launcher");
         Console.WriteLine("  set <policyKey> <tool> <Deny|Read|Trusted|Full>");
         Console.WriteLine("  unenroll <policyKey>");
         Console.WriteLine("  sessions [--revoke <id> | --revoke-all]   List/withdraw active session allows");
@@ -1301,7 +1364,10 @@ public static class CliApp
             };
             var reason = r.Reason.Length > 0 ? "  " + Ui.Dim(r.Reason) : "";
             Ui.Line($"  {Ui.Dim(LocalTime(r.Ts))}  {decision} {Ui.E(r.Tool),-7} {Ui.E(r.CommandClass),-13} {Ui.E(r.Level),-7} [bold]{Ui.E(r.Secret)}[/]");
-            Ui.Line($"      {Ui.Dim("launcher " + r.LauncherKey)}{reason}");
+            var launcher = r.AgentAccount.Length > 0 ? r.AgentAccount + " (agent account)" : r.LauncherKey;
+            Ui.Line($"      {Ui.Dim("launcher " + Ui.E(launcher))}{reason}");
+            if (AgentReason.Clean(r.AgentReason) is { } says)
+                Ui.Line($"      {Ui.Dim(Ui.E($"{AgentReason.Label} “{says}”"))}");
         }
 
         return 0;

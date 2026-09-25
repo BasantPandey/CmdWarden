@@ -8,6 +8,8 @@ public static class LauncherKinds
     public const string Authenticode = "authenticode";
     public const string PathHash = "pathhash";
     public const string Unknown = "unknown";
+    /// <summary>#36: the caller runs under an agent account; the account SID is the key.</summary>
+    public const string Account = "account";
 
     public static string PolicyKeyAuthenticode(string sha1Thumbprint) =>
         "auth:sha1:" + sha1Thumbprint.ToLowerInvariant();

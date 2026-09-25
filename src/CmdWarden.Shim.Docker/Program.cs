@@ -62,6 +62,12 @@ public static class DockerShimApp
         }
         catch (RpcException ex)
         {
+            // #36: an agent account that the person did not enroll cannot open the agent pipe.
+            if (AgentEndpoints.RunsAsOtherAccount && AgentLifecycle.IsAccessDenied(ex))
+            {
+                Console.Error.WriteLine(ShimStopText.AccountRefused());
+                return ExitAgentDown;
+            }
             WriteStop(ex.Status.Detail, $"{ProductInfo.Name} docker shim: {ex.Status.Detail}");
             return ex.StatusCode is StatusCode.PermissionDenied or StatusCode.FailedPrecondition
                 ? ExitDenied

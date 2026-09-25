@@ -24,6 +24,8 @@ public static class AgentChannelFactory
                 try
                 {
                     await client.ConnectAsync(connectCts.Token).ConfigureAwait(false);
+                    if (AgentEndpoints.RunsAsOtherAccount)
+                        CheckServerOwner(client);
                 }
                 catch
                 {
@@ -44,11 +46,28 @@ public static class AgentChannelFactory
             });
     }
 
+    /// <summary>
+    /// CurrentUserOnly makes the client refuse a pipe that another account owns. An agent account (#36)
+    /// talks to the agent of the person it works for, so it checks that owner by hand instead.
+    /// Identification lets the agent read the account of the caller; it cannot act as the caller.
+    /// </summary>
     internal static NamedPipeClientStream CreateClientStream(string pipeName) =>
         new(
             serverName: ".",
             pipeName: pipeName,
             direction: PipeDirection.InOut,
-            options: PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly,
-            impersonationLevel: TokenImpersonationLevel.Anonymous);
+            options: AgentEndpoints.RunsAsOtherAccount
+                ? PipeOptions.Asynchronous
+                : PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly,
+            impersonationLevel: TokenImpersonationLevel.Identification);
+
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    private static void CheckServerOwner(NamedPipeClientStream client)
+    {
+        var expected = AgentAccounts.TryFind(AgentEndpoints.OwnerUserName);
+        var owner = client.GetAccessControl().GetOwner(typeof(SecurityIdentifier));
+        if (expected is null || !expected.Equals(owner))
+            throw new UnauthorizedAccessException(
+                $"The Session Agent pipe is not owned by {AgentEndpoints.OwnerUserName}. {ProductInfo.Name} does not connect to it.");
+    }
 }

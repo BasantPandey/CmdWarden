@@ -1,4 +1,7 @@
+using System.IO.Pipes;
 using System.Runtime.Versioning;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using CmdWarden.Agent.Approval;
 using CmdWarden.Agent.Identity;
 using CmdWarden.Contracts;
@@ -22,10 +25,26 @@ public static class AgentHost
         builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
 
+        var policy = new PolicyStore(policyPath);
+        policy.Load();
         // Tight ACL: same user + elevation only (not default Everyone-open pipe SD).
+        // #36: plus each agent account that the person enrolled. The account set is read at start.
+        var accounts = policy.Launchers.Keys.Select(AgentAccounts.SidOf).OfType<SecurityIdentifier>().ToList();
         builder.WebHost.UseNamedPipes(options =>
         {
-            options.CurrentUserOnly = true;
+            if (accounts.Count == 0)
+            {
+                options.CurrentUserOnly = true;
+                return;
+            }
+            var security = new PipeSecurity();
+            security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+            security.SetOwner(PipeCaller.Owner);
+            security.AddAccessRule(new PipeAccessRule(PipeCaller.Owner, PipeAccessRights.FullControl, AccessControlType.Allow));
+            foreach (var sid in accounts)
+                security.AddAccessRule(new PipeAccessRule(sid, PipeAccessRights.ReadWrite | PipeAccessRights.Synchronize, AccessControlType.Allow));
+            options.CurrentUserOnly = false;
+            options.PipeSecurity = security;
         });
 
         builder.WebHost.ConfigureKestrel(options =>
@@ -43,8 +62,6 @@ public static class AgentHost
             ["CW_PRODUCT_ROOT"] = productRoot,
         });
 
-        var policy = new PolicyStore(policyPath);
-        policy.Load();
         var approvalGate = ApprovalGateFactory.CreateFromEnvironment();
         var pins = new ToolPinStore(productRoot);
         var audit = new AuditLog(productRoot);
@@ -60,7 +77,7 @@ public static class AgentHost
                     memory.ClearAll();
             };
 
-        builder.Services.AddGrpc();
+        builder.Services.AddGrpc(o => o.Interceptors.Add<OwnerOnlyInterceptor>());
         builder.Services.AddSingleton(new AgentRuntimeInfo(pipeName, policyPath, productRoot));
         builder.Services.AddSingleton(policy);
         builder.Services.AddSingleton<IApprovalGate>(approvalGate);

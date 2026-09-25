@@ -614,6 +614,9 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         if (tool is not "docker" and not "git")
             throw new RpcException(new Status(StatusCode.InvalidArgument, $"HelperCredential: unsupported tool '{tool}'."));
         var action = request.Action.Trim().ToLowerInvariant();
+        // #36: an agent account may read a credential through the gate, never change the vault of the person.
+        if (action is not "get" && PipeCaller.IsForeign(context.GetHttpContext()))
+            throw new RpcException(new Status(StatusCode.PermissionDenied, $"HelperCredential: an agent account may not {action}."));
         var commandClass = action switch
         {
             "get" or "list" => CommandClass.Read,
@@ -954,7 +957,8 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             {
                 return $"{node.FileName} (pid {node.Pid}) - {why}";
             }
-            if (ReferenceEquals(node, launcher.Selected))
+            // By pid: an agent account launcher (#36) is a new node for the same process.
+            if (node.Pid == launcher.Selected.Pid)
                 break;
         }
         return null;
@@ -1029,6 +1033,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         LauncherPath = launcher.Selected.Path,
         ClientPid = launcher.ClientPid,
         AgentReason = agentReason,
+        AgentAccount = launcher.AgentAccount,
     };
 
     /// <summary>Grant path: no value leaves before the row persists (#199).</summary>
@@ -1224,7 +1229,8 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         {
             var http = context.GetHttpContext();
             ApplyPolicyChanges(_policy.Load());
-            return LauncherIdentityResolver.PreferHarnessAncestor(_identity.Resolve(http), IsHarnessKey);
+            return LauncherIdentityResolver.ApplyAccount(
+                LauncherIdentityResolver.PreferHarnessAncestor(_identity.Resolve(http), IsHarnessKey), PipeCaller.Account(http));
         }
         catch (Exception ex)
         {
@@ -1265,6 +1271,9 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var selected = launcher.Selected;
         var (product, description, fileName) =
             ApprovalPresentation.TryReadImageVersionInfo(selected.Path);
+        // #36: an agent account is the launcher; the card names it, not the process that runs under it.
+        if (launcher.AgentAccount is { } account)
+            (product, description, fileName) = (account[(account.LastIndexOf('\\') + 1)..] + " (agent account)", null, null);
         if (string.IsNullOrWhiteSpace(fileName) && !string.IsNullOrWhiteSpace(selected.FileName))
             fileName = selected.FileName;
 

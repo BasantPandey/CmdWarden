@@ -174,6 +174,22 @@ cw policy set <terminalKey> gh Full
 
 ---
 
+### Agent accounts
+
+Some AI tools run commands under their own Windows account. Codex, for example, uses `CodexSandboxOnline` and `CodexSandboxOffline`. The account is a stronger identity than the process chain, so CmdWarden uses the account as the launcher.
+
+```powershell
+# Let the Codex sandbox reach the Session Agent; its policy is its own
+cw policy enroll --account CodexSandboxOffline
+cw policy set account:<SID> git Trusted
+```
+
+*Expect:* `cw policy list` shows the account next to its `account:` key. A command from the sandbox gets the policy of that account. The Approval Gate, `cw audit`, and Secret Usage name the account.
+
+- The Session Agent accepts an account only after you enroll it. Enroll and unenroll restart a running agent.
+- An agent account can use the gate: tool runs, `cw inject`, and credential reads. It cannot save, delete, or list vault secrets, or change grants.
+- `cw policy list` names each known agent account on this PC that is not enrolled yet.
+
 ## 5. Other tools and scripts
 
 Any script or CLI can get a vault secret through `cw inject`. The default tool name is `inject` and the default class is **write**. An agent at **Read** always gets a prompt for inject. That is on purpose.

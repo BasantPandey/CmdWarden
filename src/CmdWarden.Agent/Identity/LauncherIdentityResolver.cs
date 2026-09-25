@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using System.Security.Principal;
 using CmdWarden.Contracts;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http;
@@ -174,6 +175,38 @@ public sealed class LauncherIdentityResolver
     /// An enrolled AI harness above the selected launcher wins. A harness that spawns
     /// bash.exe or pwsh.exe must not get the shell's terminal level.
     /// </summary>
+    /// <summary>
+    /// #36: a caller under another account gets that account as its launcher, whatever the process
+    /// chain says. The node keeps the pid of the chain launcher, so remembered answers still end with it.
+    /// </summary>
+    public static LauncherResolution ApplyAccount(LauncherResolution resolution, SecurityIdentifier? account)
+    {
+        if (account is null || account.Equals(PipeCaller.Owner))
+            return resolution;
+        var known = !account.Equals(PipeCaller.Unknown);
+        var name = known ? AgentAccounts.NameOf(account) : "unknown account";
+        var chainLauncher = resolution.Selected;
+        return new LauncherResolution
+        {
+            ClientPid = resolution.ClientPid,
+            ClientPidFromPipe = resolution.ClientPidFromPipe,
+            Selected = new ProcessNode
+            {
+                Pid = chainLauncher.Pid,
+                ParentPid = chainLauncher.ParentPid,
+                CreateTimeUtc = chainLauncher.CreateTimeUtc,
+                Path = chainLauncher.Path,
+                FileName = name,
+                Kind = known ? LauncherKinds.Account : LauncherKinds.Unknown,
+                PolicyKey = known ? AgentAccounts.PolicyKey(account) : LauncherKinds.PolicyKeyUnknown,
+            },
+            Chain = resolution.Chain,
+            AutoApproveEligible = known,
+            Notes = Append(resolution.Notes, $"caller runs as {name}"),
+            AgentAccount = name,
+        };
+    }
+
     public static LauncherResolution PreferHarnessAncestor(
         LauncherResolution resolution,
         Func<string, bool> isHarnessKey)

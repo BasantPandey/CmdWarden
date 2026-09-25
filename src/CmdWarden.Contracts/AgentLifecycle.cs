@@ -62,9 +62,12 @@ public static class AgentLifecycle
         TimeSpan? readyTimeout = null,
         CancellationToken cancellationToken = default)
     {
-        var current = await StatusAsync(pipeName, TimeSpan.FromMilliseconds(800), cancellationToken)
+        // An agent account starts slowly in its sandbox, and it never starts an agent, so it may wait longer.
+        var probe = AgentEndpoints.RunsAsOtherAccount ? TimeSpan.FromSeconds(3) : TimeSpan.FromMilliseconds(800);
+        var current = await StatusAsync(pipeName, probe, cancellationToken)
             .ConfigureAwait(false);
-        if (current.Up)
+        // #36: an agent account never starts an agent; it uses the agent of the person it works for.
+        if (current.Up || AgentEndpoints.RunsAsOtherAccount)
             return current;
 
         return await StartAsync(pipeName, agentBinary, productRoot, readyTimeout, cancellationToken)
