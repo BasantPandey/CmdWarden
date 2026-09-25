@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -570,7 +571,8 @@ public partial class MainWindow : Window
         System.Windows.Media.Brush PillBg, System.Windows.Media.Brush PillFg,
         string Summary, string Evidence,
         string Remediation, Visibility RemediationVisibility,
-        string Hint, Visibility HintVisibility, System.Windows.Media.ImageSource? Icon = null);
+        string Hint, Visibility HintVisibility, System.Windows.Media.ImageSource? Icon = null,
+        string? Fix = null, Visibility FixVisibility = Visibility.Collapsed);
 
     private const string ScanScopeNote =
         " Scanned from the app's environment. Run cw scan in a terminal to check that session's variables.";
@@ -632,9 +634,51 @@ public partial class MainWindow : Window
         var summary = f.Id == SystemScanBannerDetector.FindingId ? f.Summary + ScanScopeNote : f.Summary;
         var remediation = f.Remediation ?? "";
         var hint = string.IsNullOrWhiteSpace(f.HardenHint) ? "" : $"Run {f.HardenHint}.";
+        var canMove = McpSecretLocation.FromFix(f.Fix) is not null;
         return new FindingCard(f.Title, f.Tool, label, bg, fg, summary, f.Evidence,
             remediation, remediation.Length == 0 ? Visibility.Collapsed : Visibility.Visible,
-            hint, hint.Length == 0 ? Visibility.Collapsed : Visibility.Visible, BrandImages.ForTool(f.Tool));
+            canMove ? "" : hint, !canMove && hint.Length > 0 ? Visibility.Visible : Visibility.Collapsed, BrandImages.ForTool(f.Tool),
+            f.Fix, canMove ? Visibility.Visible : Visibility.Collapsed);
+    }
+
+    /// <summary>#28: save the value in the vault, put a placeholder in the file, start the server through cw inject.</summary>
+    private async void MoveToVault_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string fix } button || McpSecretLocation.FromFix(fix) is not { } location)
+            return;
+        button.IsEnabled = false;
+        try
+        {
+            var name = await Task.Run(() => McpSecretMover.Move(location, new CredentialVault(), CwCommand())).ConfigureAwait(true);
+            MessageBox.Show(this,
+                $"{name} is now in the vault. {Path.GetFileName(location.File)} holds a placeholder, and the server starts through cw inject. Restart the harness.",
+                WindowTitle, MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "Move to vault failed: " + VaultSecretFormValidation.SanitizeError(ex.Message),
+                WindowTitle, MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        await DetectorsScanAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>cw on PATH (the dotnet tool shim), else the bare name for the harness to find.</summary>
+    private static IReadOnlyList<string> CwCommand()
+    {
+        foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            try
+            {
+                var candidate = Path.Combine(dir.Trim(), "cw.exe");
+                if (File.Exists(candidate))
+                    return [Path.GetFullPath(candidate)];
+            }
+            catch (ArgumentException)
+            {
+                // Bad PATH entry.
+            }
+        }
+        return ["cw"];
     }
 
     // ---- Secret Gates (read-only policy browser; issue #119) ----

@@ -393,6 +393,9 @@
                       <TextBlock Text="{Binding Hint}" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
                                  FontStyle="Italic" Foreground="{StaticResource TextTertiaryBrush}"
                                  Visibility="{Binding HintVisibility}" />
+                      <Button Content="Move to vault" Style="{StaticResource PrimaryButtonStyle}" Tag="{Binding Fix}"
+                              HorizontalAlignment="Left" Margin="0,10,0,0" Click="MoveToVault_Click"
+                              Visibility="{Binding FixVisibility}" />
                     </StackPanel>
                   </Border>
                 </DataTemplate>

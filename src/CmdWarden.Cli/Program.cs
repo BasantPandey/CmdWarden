@@ -813,6 +813,13 @@ public static class CliApp
         for (var i = 0; i < args.Length; i++)
         {
             var a = args[i];
+            // Everything after -- belongs to the child command.
+            if (a == "--")
+            {
+                remainder.AddRange(args[i..]);
+                break;
+            }
+
             if (a is "--tool" or "-t")
             {
                 if (i + 1 >= args.Length)
@@ -1256,11 +1263,14 @@ public static class CliApp
 
     private static int ScanAsync(string[] args)
     {
+        if (args is ["--move-to-vault"])
+            return MoveMcpSecretsToVault();
         for (var i = 0; i < args.Length; i++)
         {
             if (IsHelp(args[i]))
             {
-                Console.WriteLine("Usage: cw scan");
+                Console.WriteLine("Usage: cw scan [--move-to-vault]");
+                Console.WriteLine("  --move-to-vault  Move each plain MCP server secret into the vault; the server starts through cw inject.");
                 Console.WriteLine("  Run first-catalog residual-risk detectors (read-only).");
                 Console.WriteLine("  Findings never include secret values. No auto-harden.");
                 Console.WriteLine($"  Product root: {ProductPaths.Root()}");
@@ -1301,6 +1311,46 @@ public static class CliApp
         }
         // Exit 0 always for successful scan; findings are informational (not a CI fail gate in v1).
         return 0;
+    }
+
+    /// <summary>#28: apply every "Move to vault" fix the scan offers.</summary>
+    private static int MoveMcpSecretsToVault()
+    {
+        if (!OperatingSystem.IsWindows())
+            return 1;
+        var fixes = new ScanEngine([new McpConfigSecretDetector()]).Run(new ScanContext())
+            .Select(f => McpSecretLocation.FromFix(f.Fix))
+            .OfType<McpSecretLocation>()
+            .ToList();
+        if (fixes.Count == 0)
+        {
+            Console.WriteLine("No plain MCP server secrets to move.");
+            return 0;
+        }
+        if (fixes.Any(f => f.File.EndsWith(".claude.json", StringComparison.OrdinalIgnoreCase))
+            && System.Diagnostics.Process.GetProcessesByName("claude").Length > 0)
+        {
+            Console.Error.WriteLine("Claude Code is running and rewrites ~/.claude.json. Close it, then run this again.");
+            return 1;
+        }
+        var cw = CmdWarden.Cli.Hooks.HookInstaller.SelfCommandParts();
+        var vault = new CredentialVault();
+        var failed = 0;
+        foreach (var fix in fixes)
+        {
+            try
+            {
+                var name = McpSecretMover.Move(fix, vault, cw);
+                Ui.Line($"  {Ui.Ok("moved")}  {Ui.E(fix.File)}: {Ui.E(fix.Describe())} -> vault {Ui.E(name)}");
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or InvalidDataException or IOException or System.Text.Json.JsonException)
+            {
+                failed++;
+                Ui.Line($"  {Ui.Fail("failed")} {Ui.E(fix.File)}: {Ui.E(fix.Describe())}: {Ui.E(ex.Message)}");
+            }
+        }
+        Ui.Line(Ui.Dim("  Restart the harness so it starts the servers through cw inject."));
+        return failed == 0 ? 0 : 1;
     }
 
     private static async Task<int> HardenAsync(string[] args)

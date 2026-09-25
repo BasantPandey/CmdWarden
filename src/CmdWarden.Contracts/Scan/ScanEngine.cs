@@ -67,6 +67,7 @@ public sealed class ScanEngine
         yield return new AzNotHardenedDetector();
         yield return new DockerAmbientAuthConfigDetector();
         yield return new DockerNotHardenedDetector();
+        yield return new McpConfigSecretDetector();
         yield return new SystemScanBannerDetector();
     }
 }

@@ -22,13 +22,16 @@ public static class HookInstaller
     /// cmd, PowerShell, and bash. A path with a space gets quotes.
     /// ponytail: quotes suit cmd and bash; a PowerShell host needs "&amp;" before a quoted path.
     /// </summary>
-    public static string SelfCommand(string args)
+    public static string SelfCommand(string args) =>
+        string.Join(' ', SelfCommandParts().Select(Quote)) + " " + args;
+
+    /// <summary>How to start this cw: its path, or the dotnet host and cw.dll.</summary>
+    public static IReadOnlyList<string> SelfCommandParts()
     {
         var process = Environment.ProcessPath ?? "cw";
-        var parts = Path.GetFileNameWithoutExtension(process).Equals("dotnet", StringComparison.OrdinalIgnoreCase)
-            ? new[] { process, typeof(HookInstaller).Assembly.Location }
-            : new[] { process };
-        return string.Join(' ', parts.Select(Quote)) + " " + args;
+        return Path.GetFileNameWithoutExtension(process).Equals("dotnet", StringComparison.OrdinalIgnoreCase)
+            ? [process, typeof(HookInstaller).Assembly.Location]
+            : [process];
     }
 
     private static string Quote(string path)

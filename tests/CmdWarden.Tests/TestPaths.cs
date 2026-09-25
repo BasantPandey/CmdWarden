@@ -29,6 +29,19 @@ internal static class TestPaths
             Path.Combine(RepoRoot, "src", "CmdWarden.ApprovalGate", "bin"));
     }
 
+    /// <summary>cw.dll from the CLI build output. The copy in the test folder runs with the test's dependency set.</summary>
+    public static string FindCliDll()
+    {
+        foreach (var config in PreferredConfigs())
+        {
+            var path = Path.Combine(RepoRoot, "src", "CmdWarden.Cli", "bin", config, Tfms, "cw.dll");
+            if (File.Exists(path))
+                return path;
+        }
+
+        throw new FileNotFoundException("cw.dll not found under src/CmdWarden.Cli/bin. Build the solution before running tests.");
+    }
+
     public static string FindAgentDll()
     {
         foreach (var config in PreferredConfigs())

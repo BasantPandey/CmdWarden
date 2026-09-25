@@ -11,7 +11,9 @@ public sealed record ScanFinding(
     string Summary,
     string Evidence,
     string? Remediation = null,
-    string? HardenHint = null);
+    string? HardenHint = null,
+    // A fix the CLI and the Vault can apply, e.g. an MCP secret location (#28). Never a value.
+    string? Fix = null);
 
 /// <summary>
 /// Severity labels for findings (stable wire/display names).

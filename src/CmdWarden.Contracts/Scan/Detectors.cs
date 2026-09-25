@@ -351,7 +351,7 @@ public sealed class SystemScanBannerDetector : IScanDetector
                 Severity: ScanSeverity.Info,
                 Title: "First-catalog scan scope",
                 Summary:
-                "Scan covers coded detectors for gh/git/az/docker residual risks plus light system notes. No FS watcher; no auto-harden.",
+                "Scan covers coded detectors for gh/git/az/docker residual risks, AI harness and MCP config files, plus light system notes. No FS watcher; no auto-harden.",
                 Evidence: "product root: " + context.ProductRoot,
                 Remediation: "Re-run cw scan after harden or env changes.",
                 HardenHint: null),
