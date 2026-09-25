@@ -38,4 +38,6 @@ public static class PolicyReasonCodes
     public const string CanaryHit = "CanaryHit";
     /// <summary>A script or binary changed after its approval, so the Approval Gate asked again (#30).</summary>
     public const string ScriptChanged = "ScriptChanged";
+    /// <summary>A PowerShell wrapper in the caller chain runs code CmdWarden cannot read, so the popup is forced (#31).</summary>
+    public const string HiddenCommand = "HiddenCommand";
 }

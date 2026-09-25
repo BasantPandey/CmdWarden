@@ -10,6 +10,7 @@ public static class ApprovalPresentation
 {
     public const string UnknownAppDisplayName = "Unknown app";
     public const string SubtitleWantsToRun = "wants to run";
+    public const string HiddenCommandHeading = "Hidden PowerShell command";
 
     /// <summary>
     /// ProductName → FileDescription → file name → Unknown app.
@@ -78,12 +79,16 @@ public static class ApprovalPresentation
             ToolPath: request.ToolPath,
             WorkingDirectory: request.WorkingDirectory,
             SecretNames: secretNames,
-            ReasonHeading: request.ChangedFiles is { Count: > 0 }
-                ? BoundFiles.ChangedMessage
-                : BuildReasonHeading(primarySecret),
-            ReasonLine: request.ChangedFiles is { Count: > 0 } changed
-                ? "Changed since you approved it: " + string.Join(", ", changed.Select(Path.GetFileName))
-                : BuildReasonLine(request.Tool, primarySecret, request.Purpose),
+            ReasonHeading: request.HiddenCommand is not null
+                ? HiddenCommandHeading
+                : request.ChangedFiles is { Count: > 0 }
+                    ? BoundFiles.ChangedMessage
+                    : BuildReasonHeading(primarySecret),
+            ReasonLine: request.HiddenCommand is { } hidden
+                ? $"{ProductInfo.Name} cannot read what runs {request.Tool}: {hidden}."
+                : request.ChangedFiles is { Count: > 0 } changed
+                    ? "Changed since you approved it: " + string.Join(", ", changed.Select(Path.GetFileName))
+                    : BuildReasonLine(request.Tool, primarySecret, request.Purpose),
             EnrollmentKind: string.IsNullOrWhiteSpace(request.EnrollmentKind) ? "unknown" : request.EnrollmentKind,
             IdentityKind: string.IsNullOrWhiteSpace(request.LauncherKind) ? "unknown" : request.LauncherKind,
             Publisher: string.IsNullOrWhiteSpace(request.LauncherPublisher)
@@ -98,7 +103,8 @@ public static class ApprovalPresentation
             RequestedAt: request.RequestedAt ?? DateTimeOffset.UtcNow,
             Tool: request.Tool,
             PolicyNote: request.PolicyNote,
-            SessionAllowOffered: IsSessionAllowOffered(request.EnrollmentKind, request.CommandClass),
+            // #31: a hidden command gets no session grant, so the card offers none.
+            SessionAllowOffered: request.HiddenCommand is null && IsSessionAllowOffered(request.EnrollmentKind, request.CommandClass),
             SessionScopeLine: BuildSessionScopeLine(display, request.LauncherPid, request.CommandClass),
             HelloRequired: request.HelloRequired);
     }

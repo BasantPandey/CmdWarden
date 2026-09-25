@@ -14,8 +14,17 @@
     <NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="System.Management.Automation" Version="7.6.6" />
     <ProjectReference Include="..\CmdWarden.Contracts\CmdWarden.Contracts.csproj" />
     <PackageReference Include="Grpc.AspNetCore" Version="2.71.0" />
     <PackageReference Include="Microsoft.Win32.SystemEvents" Version="10.0.0" />
   </ItemGroup>
+  <!-- The Agent runs on Windows only. The PowerShell parser (#31) ships copies for other systems; drop them (about 15 MB). -->
+  <Target Name="DropNonWindowsRuntimes" AfterTargets="Build">
+    <ItemGroup>
+      <_NonWindowsRuntimeDirs Include="$([System.IO.Directory]::GetDirectories('$(OutDir)runtimes'))" Condition="Exists('$(OutDir)runtimes')" />
+      <_NonWindowsRuntimeDirs Remove="@(_NonWindowsRuntimeDirs)" Condition="$([System.String]::Copy('%(Filename)').StartsWith('win'))" />
+    </ItemGroup>
+    <RemoveDir Directories="@(_NonWindowsRuntimeDirs)" />
+  </Target>
 </Project>

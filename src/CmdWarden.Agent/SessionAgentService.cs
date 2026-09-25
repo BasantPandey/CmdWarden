@@ -172,6 +172,9 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             ?? FindCanary([request.CommandLine], []);
         if (canary is not null)
             throw CanaryAlarm(launcher, resolved, tool, className, levelName, canary.Name, request.Purpose);
+        var hidden = HiddenWrapper(launcher);
+        if (hidden is not null)
+            decision = PolicyDecision.NeedsApproval;
 
         if (decision != PolicyDecision.AutoAllow)
         {
@@ -186,7 +189,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 policyNote: resolved.ReasonCode,
                 commandLine: string.IsNullOrWhiteSpace(request.CommandLine) ? null : request.CommandLine,
                 toolPath: boundFiles.FirstOrDefault()?.Path,
-                workingDirectory: null) with { Files = boundFiles }, verb: "release", auditSecretName: secretName, purpose: request.Purpose);
+                workingDirectory: null) with { Files = boundFiles, HiddenCommand = hidden }, verb: "release", auditSecretName: secretName, purpose: request.Purpose);
             decisionLabel = gate.Decision;
             decisionReason = gate.Reason;
         }
@@ -311,6 +314,10 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         // #29: a canary value on the command line or in the caller env (hash only) is an attack.
         if (FindCanary(argv, request.EnvValueHashes) is { } canaryToken)
             throw CanaryAlarm(launcher, resolved, tool, className, levelName, canaryToken.Name, "authorize");
+        // #31: a PowerShell wrapper that hides code forces the Approval Gate, whatever the policy.
+        var hidden = HiddenWrapper(launcher);
+        if (hidden is not null)
+            decision = PolicyDecision.NeedsApproval;
 
         if (decision != PolicyDecision.AutoAllow)
         {
@@ -329,7 +336,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 policyNote: note,
                 commandLine: commandLine,
                 toolPath: toolPathForUi,
-                workingDirectory: null), verb: "authorize", auditSecretName: auditSecretName, purpose: "authorize");
+                workingDirectory: null) with { HiddenCommand = hidden }, verb: "authorize", auditSecretName: auditSecretName, purpose: "authorize");
             decisionLabel = gate.Decision;
             decisionReason = gate.Reason;
         }
@@ -778,6 +785,27 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             $"{PolicyReasonCodes.CanaryHit}: canary token {canaryName} used; launcher blocked."));
     }
 
+    /// <summary>
+    /// #31: the first PowerShell between the caller and the launcher (the launcher included) whose
+    /// command line holds code CmdWarden cannot read. Null when there is none.
+    /// </summary>
+    private static string? HiddenWrapper(LauncherResolution launcher)
+    {
+        foreach (var node in launcher.Chain)
+        {
+            if (PowerShellInspector.IsPowerShell(node.FileName)
+                && PowerShellInspector.ReadCommandLine(node.Pid) is { } line
+                && PowerShellInspector.SplitCommandLine(line) is { Count: > 0 } args
+                && PowerShellInspector.FindOpaquePart(args[0], args.Skip(1).ToList()) is { } why)
+            {
+                return $"{node.FileName} (pid {node.Pid}) - {why}";
+            }
+            if (ReferenceEquals(node, launcher.Selected))
+                break;
+        }
+        return null;
+    }
+
     private void ThrowIfAlarmed(LauncherResolution launcher, PolicyResolveResult resolved, string tool,
         string className, string levelName, string? secretName, string? purpose)
     {
@@ -954,14 +982,16 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         CommandClass commandClass,
         ApprovalRequest request)
     {
-        var transientKey = ApprovalMemory.TransientKey(request);
+        // #31: a hidden command always shows the popup; no remembered answer covers it.
+        var transientKey = request.HiddenCommand is null ? ApprovalMemory.TransientKey(request) : null;
         if (_memory.TryGetTransient(transientKey) is { } remembered)
         {
             return new GateResult(remembered, DecisionFor(remembered), PolicyReasonCodes.TransientReuse);
         }
 
         var selected = launcher.Selected;
-        if (_memory.TryUseSession(selected.Pid, request.Tool, request.SecretName, commandClass, request.Files) is not null)
+        var useSession = request.HiddenCommand is null;
+        if (useSession && _memory.TryUseSession(selected.Pid, request.Tool, request.SecretName, commandClass, request.Files) is not null)
             return new GateResult(ApprovalOutcome.AllowOnce, GateDecisions.SessionAllow, PolicyReasonCodes.SessionAllow);
 
         // #30: name what changed since the last approval, on the card and in the audit.
@@ -977,7 +1007,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 return new GateResult(ApprovalOutcome.Deny, GateDecisions.Deny, PolicyReasonCodes.DenyCooldown);
             if (_memory.TryGetTransient(transientKey) is { } decided)
                 return new GateResult(decided, DecisionFor(decided), PolicyReasonCodes.TransientReuse);
-            if (_memory.TryUseSession(selected.Pid, request.Tool, request.SecretName, commandClass, request.Files) is not null)
+            if (useSession && _memory.TryUseSession(selected.Pid, request.Tool, request.SecretName, commandClass, request.Files) is not null)
                 return new GateResult(ApprovalOutcome.AllowOnce, GateDecisions.SessionAllow, PolicyReasonCodes.SessionAllow);
 
             answer = _approvalGate.Prompt(request);
@@ -986,7 +1016,9 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         }
 
         var outcome = answer.Outcome;
-        var reason = changed.Count > 0 ? PolicyReasonCodes.ScriptChanged : answer.HelloReason;
+        var reason = request.HiddenCommand is not null ? PolicyReasonCodes.HiddenCommand
+            : changed.Count > 0 ? PolicyReasonCodes.ScriptChanged
+            : answer.HelloReason;
         if (outcome is not (ApprovalOutcome.AllowOnce or ApprovalOutcome.AllowForSession))
         {
             _memory.RememberTransient(transientKey, outcome, selected.PolicyKey, request.Tool);
@@ -998,7 +1030,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         // helper used to decide whether to show the button - otherwise the click covers this call
         // only. One shared check keeps the agent and the card from ever disagreeing.
         // Approve Once lasts the session too, but for this command class alone (#205).
-        var grant = ApprovalPresentation.IsSessionAllowOffered(request.EnrollmentKind, request.CommandClass)
+        var grant = useSession && ApprovalPresentation.IsSessionAllowOffered(request.EnrollmentKind, request.CommandClass)
             ? _memory.Grant(selected.Pid, selected.CreateTimeUtc, selected.PolicyKey, selected.Kind,
                 request.Tool, request.SecretName, commandClass,
                 exactClass: outcome == ApprovalOutcome.AllowOnce, files: request.Files)
@@ -1024,6 +1056,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         null => "",
         PolicyReasonCodes.HelloCanceled => " (Windows Hello was cancelled)",
         PolicyReasonCodes.ScriptChanged => $" ({BoundFiles.ChangedMessage})",
+        PolicyReasonCodes.HiddenCommand => $" ({ApprovalPresentation.HiddenCommandHeading})",
         _ => $" (reused decision: {reason})",
     };
 
