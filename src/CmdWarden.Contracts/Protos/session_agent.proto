@@ -91,6 +91,13 @@ message ReleaseSecretRequest {
   string command_class = 4;
   // Child command line for the Approval card and approval memory (#200). Display only.
   string command_line = 5;
+  // #30: the program and each script the command runs. The Agent hashes them and binds the approval.
+  repeated string bound_paths = 6;
+}
+
+message BoundFileEntry {
+  string path = 1;
+  string sha256 = 2;
 }
 
 message ReleaseSecretResponse {
@@ -104,6 +111,8 @@ message ReleaseSecretResponse {
   string policy_level = 8;
   string decision = 9; // auto-allow
   string enrollment_kind = 10;
+  // #30: the hashes the approval covers. The runner checks them just before the start.
+  repeated BoundFileEntry bound_files = 11;
 }
 
 message DeleteSecretRequest {

@@ -605,6 +605,11 @@ public static class CliApp
             var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             // Same display join as the shim argv card line (#200).
             var commandLine = string.Join(' ', arguments.Prepend(fileName));
+            // #30: the approval binds the program and its script. They stay locked until the child exits.
+            var program = InjectRunner.ResolveProgram(fileName);
+            var bound = BoundFiles.Find(program, arguments, Environment.CurrentDirectory);
+            using var locks = BoundFiles.Lock(bound);
+            IReadOnlyList<BoundFile> approved = [];
 
             foreach (var name in names)
             {
@@ -614,8 +619,10 @@ public static class CliApp
                         tool: options.Tool,
                         commandClass: options.CommandClass,
                         commandLine: commandLine,
-                        timeout: ApprovalGateTimeouts.Client)
+                        timeout: ApprovalGateTimeouts.Client,
+                        boundPaths: bound)
                     .ConfigureAwait(false);
+                approved = released.BoundFiles.Select(f => new BoundFile(f.Path, f.Sha256)).ToList();
                 var raw = released.Value.ToByteArray();
                 try
                 {
@@ -627,8 +634,14 @@ public static class CliApp
                 }
             }
 
+            if (BoundFiles.Mismatches(approved) is { Count: > 0 } changed)
+            {
+                Console.Error.WriteLine($"{BoundFiles.ChangedMessage}: {string.Join(", ", changed)}. The command did not run. Run it again to approve the new content.");
+                return 3;
+            }
+
             // Parent process environment is not modified - only the child ProcessStartInfo.Environment.
-            var exit = InjectRunner.Run(fileName, arguments, env);
+            var exit = InjectRunner.Run(program, arguments, env);
             // Clear local copies
             foreach (var key in env.Keys.ToList())
                 env[key] = string.Empty;

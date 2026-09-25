@@ -78,8 +78,12 @@ public static class ApprovalPresentation
             ToolPath: request.ToolPath,
             WorkingDirectory: request.WorkingDirectory,
             SecretNames: secretNames,
-            ReasonHeading: BuildReasonHeading(primarySecret),
-            ReasonLine: BuildReasonLine(request.Tool, primarySecret, request.Purpose),
+            ReasonHeading: request.ChangedFiles is { Count: > 0 }
+                ? BoundFiles.ChangedMessage
+                : BuildReasonHeading(primarySecret),
+            ReasonLine: request.ChangedFiles is { Count: > 0 } changed
+                ? "Changed since you approved it: " + string.Join(", ", changed.Select(Path.GetFileName))
+                : BuildReasonLine(request.Tool, primarySecret, request.Purpose),
             EnrollmentKind: string.IsNullOrWhiteSpace(request.EnrollmentKind) ? "unknown" : request.EnrollmentKind,
             IdentityKind: string.IsNullOrWhiteSpace(request.LauncherKind) ? "unknown" : request.LauncherKind,
             Publisher: string.IsNullOrWhiteSpace(request.LauncherPublisher)

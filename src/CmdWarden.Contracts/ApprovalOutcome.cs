@@ -48,7 +48,9 @@ public sealed record ApprovalRequest(
     string? LauncherPublisher = null,
     DateTimeOffset? RequestedAt = null,
     int? LauncherPid = null,
-    bool HelloRequired = false)
+    bool HelloRequired = false,
+    IReadOnlyList<BoundFile>? Files = null,
+    IReadOnlyList<string>? ChangedFiles = null)
 {
     /// <summary>Secret names only (never values). Defaults to single <see cref="SecretName"/> when set.</summary>
     public IReadOnlyList<string> SecretNames =>

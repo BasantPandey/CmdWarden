@@ -27,19 +27,20 @@ public static class AgentVaultClient
         string tool = "inject",
         string commandClass = "write",
         string? commandLine = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IEnumerable<string>? boundPaths = null)
     {
         using var call = AgentCall.Create(pipeName, timeout, cancellationToken);
-        return await call.Client.ReleaseSecretAsync(
-            new ReleaseSecretRequest
-            {
-                Name = name,
-                Purpose = purpose,
-                Tool = tool,
-                CommandClass = commandClass,
-                CommandLine = commandLine ?? "",
-            },
-            cancellationToken: call.Token).ConfigureAwait(false);
+        var request = new ReleaseSecretRequest
+        {
+            Name = name,
+            Purpose = purpose,
+            Tool = tool,
+            CommandClass = commandClass,
+            CommandLine = commandLine ?? "",
+        };
+        request.BoundPaths.AddRange(boundPaths ?? []);
+        return await call.Client.ReleaseSecretAsync(request, cancellationToken: call.Token).ConfigureAwait(false);
     }
 
     public static bool IsPermissionDenied(Exception ex) =>

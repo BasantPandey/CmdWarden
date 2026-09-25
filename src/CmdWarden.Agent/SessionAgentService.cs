@@ -156,6 +156,16 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var secretName = VaultNames.EnvVarName(request.Name);
 
         ThrowIfAlarmed(launcher, resolved, tool, className, levelName, secretName, request.Purpose);
+        IReadOnlyList<BoundFile> boundFiles;
+        try
+        {
+            // #30: hash at approval time; the caller holds the files locked against writes.
+            boundFiles = BoundFiles.Hash(request.BoundPaths.Select(p => Path.GetFullPath(p)).Distinct(StringComparer.OrdinalIgnoreCase));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "ReleaseSecret: cannot read a bound file: " + ex.Message));
+        }
         // #29: asking for a canary vault entry, or naming a canary value on the command line, is an attack.
         var canary = _canaries.Load().FirstOrDefault(e => e.Kind == CanaryStore.VaultKind
             && string.Equals(e.Location, secretName, StringComparison.OrdinalIgnoreCase))?.Tokens.FirstOrDefault()
@@ -175,8 +185,8 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 enrollmentKind: LauncherEnrollmentKindNames.Format(resolved.EnrollmentKind),
                 policyNote: resolved.ReasonCode,
                 commandLine: string.IsNullOrWhiteSpace(request.CommandLine) ? null : request.CommandLine,
-                toolPath: null,
-                workingDirectory: null), verb: "release", auditSecretName: secretName, purpose: request.Purpose);
+                toolPath: boundFiles.FirstOrDefault()?.Path,
+                workingDirectory: null) with { Files = boundFiles }, verb: "release", auditSecretName: secretName, purpose: request.Purpose);
             decisionLabel = gate.Decision;
             decisionReason = gate.Reason;
         }
@@ -201,6 +211,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 Decision = decisionLabel,
                 EnrollmentKind = LauncherEnrollmentKindNames.Format(resolved.EnrollmentKind),
             };
+            response.BoundFiles.AddRange(boundFiles.Select(f => new BoundFileEntry { Path = f.Path, Sha256 = f.Sha256 }));
             Array.Clear(bytes);
             return Task.FromResult(response);
         }
@@ -950,8 +961,13 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         }
 
         var selected = launcher.Selected;
-        if (_memory.TryUseSession(selected.Pid, request.Tool, request.SecretName, commandClass) is not null)
+        if (_memory.TryUseSession(selected.Pid, request.Tool, request.SecretName, commandClass, request.Files) is not null)
             return new GateResult(ApprovalOutcome.AllowOnce, GateDecisions.SessionAllow, PolicyReasonCodes.SessionAllow);
+
+        // #30: name what changed since the last approval, on the card and in the audit.
+        var changed = _memory.ChangedSinceApproval(request, selected.Pid);
+        if (changed.Count > 0)
+            request = request with { ChangedFiles = changed };
 
         ApprovalAnswer answer;
         // One popup at a time. A request that waits here sees the decision of the popup before it.
@@ -961,7 +977,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 return new GateResult(ApprovalOutcome.Deny, GateDecisions.Deny, PolicyReasonCodes.DenyCooldown);
             if (_memory.TryGetTransient(transientKey) is { } decided)
                 return new GateResult(decided, DecisionFor(decided), PolicyReasonCodes.TransientReuse);
-            if (_memory.TryUseSession(selected.Pid, request.Tool, request.SecretName, commandClass) is not null)
+            if (_memory.TryUseSession(selected.Pid, request.Tool, request.SecretName, commandClass, request.Files) is not null)
                 return new GateResult(ApprovalOutcome.AllowOnce, GateDecisions.SessionAllow, PolicyReasonCodes.SessionAllow);
 
             answer = _approvalGate.Prompt(request);
@@ -970,11 +986,13 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         }
 
         var outcome = answer.Outcome;
+        var reason = changed.Count > 0 ? PolicyReasonCodes.ScriptChanged : answer.HelloReason;
         if (outcome is not (ApprovalOutcome.AllowOnce or ApprovalOutcome.AllowForSession))
         {
             _memory.RememberTransient(transientKey, outcome, selected.PolicyKey, request.Tool);
-            return new GateResult(outcome, DecisionFor(outcome), answer.HelloReason);
+            return new GateResult(outcome, DecisionFor(outcome), reason);
         }
+        _memory.RememberApprovedFiles(request);
 
         // A session grant is honored only when the card would have offered one - same rule the
         // helper used to decide whether to show the button - otherwise the click covers this call
@@ -983,7 +1001,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var grant = ApprovalPresentation.IsSessionAllowOffered(request.EnrollmentKind, request.CommandClass)
             ? _memory.Grant(selected.Pid, selected.CreateTimeUtc, selected.PolicyKey, selected.Kind,
                 request.Tool, request.SecretName, commandClass,
-                exactClass: outcome == ApprovalOutcome.AllowOnce)
+                exactClass: outcome == ApprovalOutcome.AllowOnce, files: request.Files)
             : null;
         _memory.RememberTransient(transientKey, ApprovalOutcome.AllowOnce, selected.PolicyKey, request.Tool);
         return new GateResult(
@@ -991,7 +1009,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             grant is null || outcome == ApprovalOutcome.AllowOnce
                 ? GateDecisions.AllowOnce
                 : GateDecisions.SessionGrant,
-            answer.HelloReason);
+            reason);
     }
 
     private static string DecisionFor(ApprovalOutcome outcome) => outcome switch
@@ -1005,6 +1023,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     {
         null => "",
         PolicyReasonCodes.HelloCanceled => " (Windows Hello was cancelled)",
+        PolicyReasonCodes.ScriptChanged => $" ({BoundFiles.ChangedMessage})",
         _ => $" (reused decision: {reason})",
     };
 

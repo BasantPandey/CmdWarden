@@ -36,4 +36,6 @@ public static class PolicyReasonCodes
     public const string LeakRedacted = "LeakRedacted";
     /// <summary>A canary token was used or seen: an attack is in progress (#29).</summary>
     public const string CanaryHit = "CanaryHit";
+    /// <summary>A script or binary changed after its approval, so the Approval Gate asked again (#30).</summary>
+    public const string ScriptChanged = "ScriptChanged";
 }

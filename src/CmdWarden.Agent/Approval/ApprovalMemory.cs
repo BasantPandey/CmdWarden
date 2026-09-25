@@ -85,7 +85,41 @@ public sealed class ApprovalMemory
             return null;
         // ponytail: newline-joined string; pid + start time bound any field-boundary collision to one process.
         return string.Join('\n', launcherPid, start.Ticks, request.LauncherPolicyKey, request.Tool,
-            request.CommandClass, request.SecretName, request.CommandLine ?? "");
+            request.CommandClass, request.SecretName, request.CommandLine ?? "", BoundFiles.Key(request.Files ?? []));
+    }
+
+    // ---- bound files (#30): an approval covers the exact binary and scripts it saw ----
+
+    private readonly ConcurrentDictionary<string, IReadOnlyList<BoundFile>> _approvedFiles = new();
+
+    /// <summary>The transient key without the file hashes: the same command from the same launcher.</summary>
+    private static string? CommandKey(ApprovalRequest request) =>
+        TransientKey(request with { Files = null });
+
+    /// <summary>Remember the files a human approve covered, so a later change can be named.</summary>
+    public void RememberApprovedFiles(ApprovalRequest request)
+    {
+        if (request.Files is not { Count: > 0 } files || CommandKey(request) is not { } key)
+            return;
+        // ponytail: entries of dead launchers linger until this sweep; 256 bounds the map.
+        if (_approvedFiles.Count >= 256)
+            _approvedFiles.Clear();
+        _approvedFiles[key] = files;
+    }
+
+    /// <summary>Files of this request that changed since an approval of the same command or session.</summary>
+    public IReadOnlyList<string> ChangedSinceApproval(ApprovalRequest request, int launcherPid)
+    {
+        var now = request.Files ?? [];
+        if (now.Count == 0)
+            return [];
+        var approved = new List<BoundFile>();
+        if (CommandKey(request) is { } key && _approvedFiles.TryGetValue(key, out var files))
+            approved.AddRange(files);
+        if (ProcessStartUtc(launcherPid) is { } start
+            && _sessions.TryGetValue(SessionKey(launcherPid, start.Ticks, request.Tool, request.SecretName), out var grant))
+            approved.AddRange(grant.Files);
+        return BoundFiles.Changed(approved, now);
     }
 
     public ApprovalOutcome? TryGetTransient(string? key)
@@ -209,7 +243,8 @@ public sealed class ApprovalMemory
         string tool,
         string secretName,
         CommandClass grantedClass,
-        bool exactClass = false)
+        bool exactClass = false,
+        IReadOnlyList<BoundFile>? files = null)
     {
         if (ProcessStartUtc(launcherPid) is not { } liveStart)
             return null;
@@ -221,7 +256,13 @@ public sealed class ApprovalMemory
         var now = DateTime.UtcNow;
         var key = SessionKey(launcherPid, liveStart.Ticks, tool, secretName);
         var grant = _sessions.TryGetValue(key, out var live) && IsLive(live.LauncherPid, live.LauncherStartUtc)
-            ? live with { ClassMask = live.ClassMask | mask, LastUsedUtc = now }
+            ? live with
+            {
+                ClassMask = live.ClassMask | mask,
+                LastUsedUtc = now,
+                // A new hash for a path replaces the old one: only the content approved last runs.
+                Files = [.. live.Files.Where(f => files?.Any(n => string.Equals(n.Path, f.Path, StringComparison.OrdinalIgnoreCase)) != true), .. files ?? []],
+            }
             : new SessionGrant(
                 Id: Guid.NewGuid().ToString("N")[..8],
                 LauncherPid: launcherPid,
@@ -232,7 +273,10 @@ public sealed class ApprovalMemory
                 SecretName: secretName,
                 ClassMask: mask,
                 GrantedAtUtc: now,
-                LastUsedUtc: now);
+                LastUsedUtc: now)
+            {
+                Files = files ?? [],
+            };
         _sessions[key] = grant;
         return grant;
     }
@@ -241,7 +285,8 @@ public sealed class ApprovalMemory
     /// Live grant covering <paramref name="requested"/> for this launcher process, tool and secret.
     /// Touches last-used on a hit. Dead, restarted, or idle launchers drop the entry and miss.
     /// </summary>
-    public SessionGrant? TryUseSession(int launcherPid, string tool, string secretName, CommandClass requested)
+    public SessionGrant? TryUseSession(int launcherPid, string tool, string secretName, CommandClass requested,
+        IReadOnlyList<BoundFile>? files = null)
     {
         if (ProcessStartUtc(launcherPid) is not { } start)
             return null;
@@ -255,6 +300,9 @@ public sealed class ApprovalMemory
             return null;
         }
         if ((grant.ClassMask & ClassBit(requested)) == 0)
+            return null;
+        // #30: a session covers only the binaries and scripts, at the hashes, that a person approved.
+        if (files?.Any(f => !grant.Files.Contains(f)) == true)
             return null;
         var touched = grant with { LastUsedUtc = now };
         _sessions[key] = touched;
@@ -454,6 +502,9 @@ public sealed record SessionGrant(
     DateTime GrantedAtUtc,
     DateTime LastUsedUtc)
 {
+    /// <summary>Binaries and scripts the grant covers, at the hashes approved (#30).</summary>
+    public IReadOnlyList<BoundFile> Files { get; init; } = [];
+
     /// <summary>Highest class this grant covers, for display and audit.</summary>
     public CommandClass GrantedClass =>
         (ClassMask & ApprovalMemory.ClassBit(CommandClass.Unknown)) != 0 ? CommandClass.Unknown

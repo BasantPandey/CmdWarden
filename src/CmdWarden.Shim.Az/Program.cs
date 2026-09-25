@@ -47,6 +47,13 @@ public static class AzShimApp
                 return ExitDenied;
             }
 
+            // #30: the binary the Agent approved is the binary that starts.
+            using var locks = BoundFiles.LockVerified(grant.RealPath, grant.RealSha256);
+            if (locks is null)
+            {
+                Console.Error.WriteLine($"{ProductInfo.Name}: {BoundFiles.ChangedMessage}: {grant.RealPath}. The az command did not run.");
+                return ExitDenied;
+            }
             return SpawnReal(grant.RealPath, args, grant.Env);
         }
         catch (RpcException ex)

@@ -50,6 +50,13 @@ public static class GhShimApp
                 return ExitDenied;
             }
 
+            // #30: the binary the Agent approved is the binary that starts.
+            using var locks = BoundFiles.LockVerified(grant.RealPath, grant.RealSha256);
+            if (locks is null)
+            {
+                Console.Error.WriteLine($"{ProductInfo.Name}: {BoundFiles.ChangedMessage}: {grant.RealPath}. The gh command did not run.");
+                return ExitDenied;
+            }
             var exit = SpawnReal(grant.RealPath, args, grant.Env);
             if (exit == 0 && grant.MigrateAfterRun)
                 await MigrateStoreAsync(args, pipeName, timeout).ConfigureAwait(false);
