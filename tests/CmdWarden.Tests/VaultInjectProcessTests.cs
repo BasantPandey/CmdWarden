@@ -300,6 +300,8 @@ public class VaultInjectProcessTests
             };
             psi.Environment["CW_PIPE_NAME"] = pipeName;
             psi.Environment["CW_POLICY_PATH"] = policyPath;
+            // Keep the audit rows of the test out of the real product root.
+            psi.Environment[ProductPaths.EnvVar] = Path.GetDirectoryName(policyPath);
             psi.Environment[ApprovalGateFactory.EnvVar] = approvalMode;
 
             var process = Process.Start(psi)
