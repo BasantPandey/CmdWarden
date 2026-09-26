@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Numerics;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
@@ -8,18 +9,23 @@ namespace CmdWarden.Contracts.Proxy;
 /// <summary>
 /// The per-user CA of the placeholder proxy (#41). Its key stays in the CurrentUser\My store and
 /// cannot be exported. No admin right is needed. The CA signs a short-lived certificate for each
-/// host the proxy opens TLS for.
+/// host the proxy opens TLS for. The proxy serves an empty CRL of the CA: Schannel (Windows curl)
+/// refuses a certificate when it cannot check revocation.
 /// </summary>
 public sealed class ProxyCa : IDisposable
 {
     private readonly X509Certificate2 _ca;
     private readonly ECDsa _caKey;
     private readonly ConcurrentDictionary<string, X509Certificate2> _leaves = new(StringComparer.OrdinalIgnoreCase);
+    private readonly string? _crlUrl;
+    private readonly Lock _crlLock = new();
+    private (byte[] Der, DateTimeOffset NextUpdate)? _crl;
 
-    private ProxyCa(X509Certificate2 ca)
+    private ProxyCa(X509Certificate2 ca, string? crlUrl)
     {
         _ca = ca;
         _caKey = ca.GetECDsaPrivateKey() ?? throw new InvalidOperationException("The proxy CA has no private key.");
+        _crlUrl = crlUrl;
     }
 
     public X509Certificate2 Certificate => _ca;
@@ -42,15 +48,22 @@ public sealed class ProxyCa : IDisposable
         return ca;
     }
 
-    /// <summary>The CA with its key from the CurrentUser\My store, or null.</summary>
-    public static ProxyCa? Open(string? thumbprint)
+    /// <summary>The path of the CRL on the proxy. The thumbprint keeps a cached CRL of an old CA out.</summary>
+    public static string CrlPath(string thumbprint) => $"/cw-proxy/{thumbprint}.crl";
+
+    /// <summary>
+    /// The CA with its key from the CurrentUser\My store, or null. With <paramref name="crlPort"/>,
+    /// each leaf points to the CRL that the proxy on that port serves.
+    /// </summary>
+    public static ProxyCa? Open(string? thumbprint, int? crlPort = null)
     {
         if (string.IsNullOrWhiteSpace(thumbprint))
             return null;
         using var store = new X509Store(StoreName.My, StoreLocation.CurrentUser);
         store.Open(OpenFlags.ReadOnly);
         var found = store.Certificates.Find(X509FindType.FindByThumbprint, thumbprint, validOnly: false);
-        return found.Count == 0 || !found[0].HasPrivateKey ? null : new ProxyCa(found[0]);
+        return found.Count == 0 || !found[0].HasPrivateKey ? null : new ProxyCa(found[0],
+            crlPort is { } port ? $"http://127.0.0.1:{port}{CrlPath(found[0].Thumbprint)}" : null);
     }
 
     /// <summary>Remove the CA from the My store and from the Root store of the user.</summary>
@@ -99,6 +112,8 @@ public sealed class ProxyCa : IDisposable
         request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature, true));
         request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension([new Oid("1.3.6.1.5.5.7.3.1")], false));
         request.CertificateExtensions.Add(X509AuthorityKeyIdentifierExtension.CreateFromCertificate(_ca, true, false));
+        if (_crlUrl is not null)
+            request.CertificateExtensions.Add(CertificateRevocationListBuilder.BuildCrlDistributionPointExtension([_crlUrl]));
         var serial = RandomNumberGenerator.GetBytes(16);
         serial[0] &= 0x7F;
         var notAfter = DateTimeOffset.UtcNow.AddDays(30);
@@ -107,6 +122,24 @@ public sealed class ProxyCa : IDisposable
         using var withKey = signed.CopyWithPrivateKey(key);
         // SChannel needs a key it can find again: an ephemeral key fails the TLS handshake.
         return X509CertificateLoader.LoadPkcs12(withKey.Export(X509ContentType.Pfx), null, X509KeyStorageFlags.Exportable);
+    }
+
+    /// <summary>An empty CRL of the CA (DER), valid for 7 days. A new one comes a day before the end.</summary>
+    public byte[] Crl()
+    {
+        lock (_crlLock)
+        {
+            var now = DateTimeOffset.UtcNow;
+            if (_crl is not { } crl || crl.NextUpdate < now.AddDays(1))
+            {
+                var next = now.AddDays(7);
+                var der = new CertificateRevocationListBuilder().Build(_ca.SubjectName, X509SignatureGenerator.CreateForECDsa(_caKey),
+                    new BigInteger(now.UtcTicks), next, HashAlgorithmName.SHA256,
+                    X509AuthorityKeyIdentifierExtension.CreateFromCertificate(_ca, true, false), now.AddHours(-1));
+                _crl = crl = (der, next);
+            }
+            return crl.Der;
+        }
     }
 
     public void Dispose()

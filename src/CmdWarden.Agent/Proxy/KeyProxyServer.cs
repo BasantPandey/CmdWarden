@@ -15,7 +15,8 @@ namespace CmdWarden.Agent.Proxy;
 /// The placeholder proxy (#41) on 127.0.0.1. A CONNECT to a host that a key lists ends TLS here
 /// with a certificate from the per-user CA; each request with cw://NAME goes through the launcher
 /// policy and the Approval Gate, then gets the vault value. Other hosts pass through untouched, or
-/// get 403 in strict mode. A placeholder for a host its key does not list gets 403.
+/// get 403 in strict mode. A placeholder for a host its key does not list gets 403. A GET of the
+/// CRL path gets the empty CRL of the CA.
 /// ponytail: HTTP/1.1 only, and no pipelined requests; clients send the next request after the
 /// response ends. Placeholders are read in the request line and headers, not in bodies.
 /// </summary>
@@ -33,7 +34,7 @@ public sealed class KeyProxyServer(SessionAgentService gate, CredentialVault vau
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var config = KeyProxy.Load(runtime.ProductRoot);
-        using var ca = ProxyCa.Open(config?.CaThumbprint);
+        using var ca = ProxyCa.Open(config?.CaThumbprint, config?.Port);
         if (config is null || ca is null)
         {
             log.LogWarning("proxy off: no CA in the certificate store; run cw proxy setup");
@@ -80,7 +81,9 @@ public sealed class KeyProxyServer(SessionAgentService gate, CredentialVault vau
                 return;
             // The config can change while the agent runs; read it for each connection.
             var config = KeyProxy.Load(runtime.ProductRoot) ?? new KeyProxyConfig();
-            if (head.Method.Equals("CONNECT", StringComparison.OrdinalIgnoreCase))
+            if (head.Target == ProxyCa.CrlPath(ca.Certificate.Thumbprint))
+                await ReplyAsync(stream, 200, "application/pkix-crl", ca.Crl(), ct).ConfigureAwait(false);
+            else if (head.Method.Equals("CONNECT", StringComparison.OrdinalIgnoreCase))
                 await ConnectAsync(clientPid, head, reader, stream, config, ca, ct).ConfigureAwait(false);
             else
                 await PlainAsync(clientPid, head, reader, stream, config, ct).ConfigureAwait(false);
@@ -251,11 +254,13 @@ public sealed class KeyProxyServer(SessionAgentService gate, CredentialVault vau
             : (target.Trim('[', ']'), defaultPort);
     }
 
-    private static async Task ReplyAsync(Stream client, int status, string text, CancellationToken ct)
+    private static Task ReplyAsync(Stream client, int status, string text, CancellationToken ct) =>
+        ReplyAsync(client, status, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes(text + "\n"), ct);
+
+    private static async Task ReplyAsync(Stream client, int status, string contentType, byte[] body, CancellationToken ct)
     {
-        var body = Encoding.UTF8.GetBytes(text + "\n");
-        var reason = status switch { 403 => "Forbidden", 400 => "Bad Request", _ => "Error" };
-        var head = $"HTTP/1.1 {status} {reason}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n";
+        var reason = status switch { 200 => "OK", 403 => "Forbidden", 400 => "Bad Request", _ => "Error" };
+        var head = $"HTTP/1.1 {status} {reason}\r\nContent-Type: {contentType}\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n";
         await client.WriteAsync(Encoding.ASCII.GetBytes(head), ct).ConfigureAwait(false);
         await client.WriteAsync(body, ct).ConfigureAwait(false);
         await client.FlushAsync(ct).ConfigureAwait(false);

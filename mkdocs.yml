@@ -60,6 +60,7 @@ nav:
       - UC12 Gate kubectl: use-cases/gate-kubectl.md
       - UC13 Gate ssh key use: use-cases/gate-ssh-keys.md
       - UC14 Short-lived GitHub tokens: use-cases/short-lived-github-tokens.md
+      - UC15 Keep API keys out of the agent: use-cases/api-keys-through-proxy.md
   - Guide:
       - user-guide.md
       - How it works: concepts.md

@@ -23,5 +23,6 @@ Each guide states when to use it, the commands to type, and what to expect. Want
 | **UC12** | [Gate kubectl](gate-kubectl.md) | Secret objects, raw kubeconfig, exec, and deletes ask |
 | **UC13** | [Gate ssh key use](gate-ssh-keys.md) | A push over ssh from the agent asks; your terminal pushes freely |
 | **UC14** | [Short-lived GitHub tokens for one repo](short-lived-github-tokens.md) | gh gets a GitHub App token for the current repo that ends in one hour |
+| **UC15** | [Keep API keys out of the agent](api-keys-through-proxy.md) | The agent sends `cw://NAME`; the proxy puts the real key in place for listed hosts only |
 
 New here? Start with **UC1**, then read **UC2**. Terms you meet along the way are in the [Glossary](../glossary.md).

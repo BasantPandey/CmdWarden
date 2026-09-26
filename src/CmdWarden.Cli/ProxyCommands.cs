@@ -75,7 +75,7 @@ public static class ProxyCommands
             Ui.Kv("proxy", $"http://127.0.0.1:{config.Port}");
             Ui.Kv("CA", $"{ca.Subject} ({ca.Thumbprint}), key in the CurrentUser\\My store");
             Ui.Kv("CA files", $"{KeyProxy.CaPemPath()} and {KeyProxy.BundlePath()}");
-            Ui.Kv("Windows trust", ProxyCa.IsTrusted(ca.Thumbprint) ? "yes (CurrentUser root store)" : "no; cw launch gives the harness the CA files (cw proxy setup --trust for all apps)");
+            Ui.Kv("Windows trust", ProxyCa.IsTrusted(ca.Thumbprint) ? "yes (CurrentUser root store)" : "no; cw launch gives the harness the CA files. Windows curl.exe ignores them: run cw proxy setup --trust");
             await restartAgent("proxy", "the proxy").ConfigureAwait(false);
             Ui.Line(Ui.Dim("Next: cw save OPENAI_API_KEY, then cw proxy add OPENAI_API_KEY --host api.openai.com"));
             Ui.Line(Ui.Dim("Then: cw launch <harness>; the harness uses cw://OPENAI_API_KEY as its key."));

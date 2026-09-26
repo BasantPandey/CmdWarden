@@ -27,11 +27,11 @@ public class KeyProxyProcessTests
             return;
 
         var root = Path.Combine(Path.GetTempPath(), "cw-prod-" + Guid.NewGuid().ToString("N"));
+        var port = FreePort();
         using var caCert = ProxyCa.Create();
-        using var ca = ProxyCa.Open(caCert.Thumbprint)!;
+        using var ca = ProxyCa.Open(caCert.Thumbprint, port)!;
         try
         {
-            var port = FreePort();
             var config = new KeyProxyConfig { Port = port, CaThumbprint = caCert.Thumbprint };
             config.Keys["TEST_API_KEY"] = new ProxyKey { Hosts = ["localhost"] };
             config.Keys["OTHER_KEY"] = new ProxyKey { Hosts = ["api.other.test"] };
@@ -109,13 +109,15 @@ public class KeyProxyProcessTests
         PooledConnectionLifetime = TimeSpan.Zero,
         SslOptions = new SslClientAuthenticationOptions
         {
-            // The test trusts the CA itself, as NODE_EXTRA_CA_CERTS does for Node.
+            // The test trusts the CA itself, as NODE_EXTRA_CA_CERTS does for Node. It checks
+            // revocation online, as Schannel does for Windows curl: the proxy serves the CRL.
             RemoteCertificateValidationCallback = (_, cert, _, _) =>
             {
                 using var chain = new X509Chain();
                 chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
                 chain.ChainPolicy.CustomTrustStore.Add(ca);
-                chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+                chain.ChainPolicy.RevocationMode = X509RevocationMode.Online;
+                chain.ChainPolicy.RevocationFlag = X509RevocationFlag.EntireChain;
                 return cert is not null && chain.Build(X509CertificateLoader.LoadCertificate(cert.GetRawCertData()));
             },
         },
