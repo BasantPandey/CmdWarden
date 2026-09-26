@@ -18,11 +18,12 @@ public static class LauncherImage
     {
         try
         {
-#pragma warning disable SYSLIB0057 // CreateFromSignedFile still the practical PE Authenticode loader
-            using var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(path));
-#pragma warning restore SYSLIB0057
-            if (!string.IsNullOrEmpty(cert.Thumbprint))
+            // A signature counts only when it matches the file. A copied signature block falls back to the hash.
+            if (Authenticode.VerifiedSigner(path) is not null)
             {
+#pragma warning disable SYSLIB0057 // CreateFromSignedFile still the practical PE Authenticode loader
+                using var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(path));
+#pragma warning restore SYSLIB0057
                 return new LauncherImageIdentity(
                     LauncherKinds.Authenticode,
                     LauncherKinds.PolicyKeyAuthenticode(cert.Thumbprint),

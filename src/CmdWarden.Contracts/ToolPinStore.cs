@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 
 namespace CmdWarden.Contracts;
@@ -160,21 +159,8 @@ public sealed class ToolPinStore
     private string PinFile(string toolId) =>
         Path.Combine(_pinsDir, toolId.Trim().ToLowerInvariant() + ".json");
 
-    /// <summary>Authenticode thumbprint of the pinned binary, or null when unsigned.</summary>
-    public static string? TryReadSignerThumbprint(string path)
-    {
-        try
-        {
-#pragma warning disable SYSLIB0057 // CreateFromSignedFile still the practical PE Authenticode loader
-            using var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(path));
-#pragma warning restore SYSLIB0057
-            return string.IsNullOrEmpty(cert.Thumbprint) ? null : cert.Thumbprint;
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
+    /// <summary>Authenticode thumbprint of the pinned binary, or null when unsigned or the signature does not match the file.</summary>
+    public static string? TryReadSignerThumbprint(string path) => Authenticode.VerifiedSigner(path);
 
     private sealed class ToolPinDocument
     {
