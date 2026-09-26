@@ -183,11 +183,14 @@ jobs:
           See the repository README and user guide for ``cw agent start``, policy enroll, ``cw harden``, and ``cw scan``.
           Install is binaries only; harden is opt-in for PATH shims.
 
-          ### Update (tool)
+          ### Update
 
           ``````powershell
-          dotnet tool update -g CmdWarden --add-source C:\packages --version <new-version>
+          cw update
           ``````
+
+          ``cw update`` downloads ``CmdWarden.<version>-setup.zip``, checks its sha256, and runs its installer.
+          To remove CmdWarden, run ``cw uninstall``.
           "@
           $notes = ($notes -split "`n" | ForEach-Object { $_ -replace '^          ', '' }) -join "`n"
           $notesPath = Join-Path $env:RUNNER_TEMP "release-notes.md"

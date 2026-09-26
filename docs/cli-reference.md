@@ -5,6 +5,8 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | Command | Role |
 |---------|------|
 | `cw version` | Product / CLI version |
+| `cw update [--check]` | Install the newest release. The setup zip must match the sha256 digest of the release |
+| `cw uninstall` | Run the uninstaller of Settings > Apps > CmdWarden |
 | `cw doctor` | Session Agent health (lazy-start) |
 | `cw agent start\|stop\|status` | Explicit agent control |
 | `cw whoami` | Current launcher identity |

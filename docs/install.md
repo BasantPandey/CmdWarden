@@ -223,7 +223,18 @@ Templates for Chocolatey, winget, and Scoop live under [packaging/](https://gith
 
 ## 7. Update
 
-The installer script updates in place:
+Run `cw update`:
+
+```powershell
+cw update --check   # only say if a newer release is available
+cw update           # install the newest release
+```
+
+`cw update` reads the newest GitHub Release and downloads its setup zip. It compares the sha256 of the zip with the digest that GitHub shows for the asset. A wrong or missing digest stops the update. Then the installer of the zip runs in a new window with `-Force -Yes`, and `cw` stops. The installer stops the Session Agent and replaces the tool.
+
+`cw update` installs the dotnet tool. For a portable zip install, download the new zip.
+
+From a clone, the installer script updates in place:
 
 ```powershell
 cd path\to\CmdWarden
@@ -251,6 +262,7 @@ Run `cw shortcut install` after every reinstall. The shortcuts point at the exe 
 
 Use one of these:
 
+- Run `cw uninstall`. It runs the same uninstaller as Settings > Apps, in a new window.
 - Open Windows **Settings > Apps**, select **CmdWarden**, and click **Uninstall**.
 - Double-click **`uninstall.cmd`** from the setup zip or from `scripts\`.
 - Run the script:

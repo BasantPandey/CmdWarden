@@ -60,6 +60,8 @@ public static class CliApp
             "canary" => CmdWarden.Cli.Hooks.LeakGuardCommands.Canary(args.AsSpan(1).ToArray()),
             "launch" => LaunchHarness(args.AsSpan(1).ToArray()),
             "github" => await GitHubAppCommands.RunAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
+            "update" => await UpdateCommands.UpdateAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
+            "uninstall" => UpdateCommands.Uninstall(args.AsSpan(1).ToArray()),
             _ => Unknown(args[0]),
         };
     }
@@ -1917,6 +1919,8 @@ public static class CliApp
         Row("mcp [serve] | mcp install|uninstall claude|cursor", "MCP server: run_with_secret, list_allowed, why_denied");
         Row("canary install [--env F]|remove|status", "Fake tokens that show an attack when used");
         Row("shortcut install [--desktop]|remove|status", "Start Menu (and Desktop) entry for CmdWarden Vault");
+        Row("update [--check]", "Install the newest release (checks the sha256 of the setup zip)");
+        Row("uninstall", "Run the uninstaller of Settings > Apps > CmdWarden");
         AnsiConsole.Write(table);
         Console.WriteLine();
         Ui.Line(Ui.Dim("Session Agent: cw agent start  (or CW_AGENT_PATH / bundled agent/ layout)"));
