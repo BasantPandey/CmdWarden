@@ -115,11 +115,15 @@ The card appears on your desktop when policy does not auto-allow a secret releas
 
 ![Approval Gate card](images/approval-gate.png)
 
+### Tray icon
+
+The CmdWarden tray icon lists live session allows, revokes them, and tells you when CmdWarden blocks a retry or a canary use. See [Tray icon](vault.md#tray-icon).
+
 ### CmdWarden Vault
 
-Open **CmdWarden Vault** from the Start Menu or the Desktop icon. Six pages. Every page is read-only except Secrets. The app never shows a secret value.
+Open **CmdWarden Vault** from the Start Menu or the Desktop icon. Six pages. Every page is read-only except Secrets and Secret Gates. The app never shows a secret value.
 
-**Secret Gates** - defaults per launcher kind, one card per enrolled launcher, and active session allows.
+**Secret Gates** - defaults per launcher kind, one card per enrolled launcher, and active session allows. Enroll with **Ctrl+E**, click a level to change it, and unenroll with **Del**.
 
 ![Secret Gates page](images/vault-secret-gates.png)
 

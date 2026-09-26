@@ -387,8 +387,9 @@ public static class CliApp
         {
             Console.WriteLine("Usage: cw shortcut install [--desktop]|remove|status");
             Console.WriteLine("  install  Create/update Start Menu 'CmdWarden Vault' -> secrets-manager exe");
+            Console.WriteLine("           and a Startup entry for the tray icon; start the tray icon now");
             Console.WriteLine("           --desktop  Also create/update the Desktop shortcut");
-            Console.WriteLine("  remove   Delete the Start Menu and Desktop shortcuts");
+            Console.WriteLine("  remove   Delete the Start Menu, Desktop, and Startup shortcuts");
             Console.WriteLine("  status   Show shortcut paths and whether they exist");
             return args.Length > 0 && IsHelp(args[0]) ? 0 : 1;
         }
@@ -473,6 +474,8 @@ public static class CliApp
         Console.WriteLine($"  present: {(SecretsManagerStartMenu.ShortcutExists() ? "yes" : "no")}");
         Console.WriteLine($"desktop shortcut: {SecretsManagerStartMenu.DesktopShortcutPath}");
         Console.WriteLine($"  present: {(SecretsManagerStartMenu.DesktopShortcutExists() ? "yes" : "no (cw shortcut install --desktop)")}");
+        Console.WriteLine($"tray icon at logon: {SecretsManagerStartMenu.TrayShortcutPath}");
+        Console.WriteLine($"  present: {(File.Exists(SecretsManagerStartMenu.TrayShortcutPath) ? "yes" : "no (cw shortcut install)")}");
         foreach (var (install, lnk) in HarnessShortcuts())
             Console.WriteLine($"{install.Harness.Id} launch shortcut: {lnk}\n  present: {(File.Exists(lnk) ? "yes" : "no (cw shortcut install)")}");
         return 0;
@@ -500,6 +503,15 @@ public static class CliApp
                 Console.WriteLine($"Installed Desktop shortcut:");
                 Console.WriteLine($"  {desktopLnk}");
             }
+            // #43: the tray icon starts at logon, and now. A second start exits: one tray per user.
+            var trayLnk = SecretsManagerStartMenu.InstallTray(exe);
+            Console.WriteLine("Installed the tray icon at logon:");
+            Console.WriteLine($"  {trayLnk}");
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe, SecretsManagerStartMenu.TrayArgument)
+            {
+                UseShellExecute = false,
+                WorkingDirectory = Path.GetDirectoryName(exe)!,
+            })?.Dispose();
             // #25: one "cw launch" entry per harness on this PC.
             var cw = CmdWarden.Cli.Hooks.HookInstaller.SelfCommand("").Trim();
             var (target, prefix) = SplitCommand(cw);
@@ -556,6 +568,8 @@ public static class CliApp
                 Console.WriteLine($"Shortcut not present: {SecretsManagerStartMenu.ShortcutPath}");
             if (SecretsManagerStartMenu.RemoveDesktop())
                 Console.WriteLine($"Removed {SecretsManagerStartMenu.DesktopShortcutPath}");
+            if (SecretsManagerStartMenu.RemoveTray())
+                Console.WriteLine($"Removed {SecretsManagerStartMenu.TrayShortcutPath}");
             foreach (var h in CmdWarden.Cli.Launch.HarnessLauncher.Catalog)
             {
                 var lnk = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), $"{h.DisplayName} (CmdWarden).lnk");

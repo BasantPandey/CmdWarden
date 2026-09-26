@@ -4,12 +4,32 @@ CmdWarden Vault is a Windows desktop window. It reads the same policy file, vaul
 
 ```powershell
 cw shortcut status              # where each shortcut is, and if it exists
-cw shortcut install             # create the Start Menu entry
-cw shortcut install --desktop   # create the Start Menu entry and the Desktop icon
-cw shortcut remove              # delete both
+cw shortcut install             # create the Start Menu entry and start the tray icon at logon
+cw shortcut install --desktop   # also create the Desktop icon
+cw shortcut remove              # delete the Start Menu, Desktop, and logon entries
 ```
 
 Run `cw shortcut install` again after every reinstall of the tool. The shortcuts point at the exe inside the tool folder.
+
+## Tray icon
+
+The CmdWarden tray icon runs from logon. `cw shortcut install` adds it to the Startup folder and starts it. Click the icon to open its menu:
+
+- One row per live session allow: tool, secret name, class, launcher process, and when it ends. Point at a row and click **Revoke** to end that grant.
+- **Revoke all** ends every session allow, the same as `cw policy sessions --revoke-all`.
+- **Open CmdWarden Vault** opens the window.
+- **Exit tray icon** closes the icon until the next logon.
+
+![Tray icon menu](images/tray-menu.png)
+
+The icon also shows a notification when CmdWarden blocks a launcher with no popup:
+
+- A launcher runs a tool again after you denied it, and the deny cooldown blocks the retry.
+- A launcher uses a canary token.
+
+![Tray notification for a blocked retry](images/tray-toast.png)
+
+The tray icon shows one notification per launcher and tool each minute, so a retry loop does not fill the screen.
 
 ## Window layout
 
@@ -28,9 +48,12 @@ Each button shows its key next to its label.
 | **Down** / **Up** | Secrets | Select the next or the previous card. |
 | **Del** | Secrets | Delete the selected card. A dialog asks you first. |
 | **Esc** | Secrets | Clear the selection. |
+| **Ctrl+E** | Secret Gates | Open **Enroll launcher**. |
+| **Del** | Secret Gates | Unenroll the selected launcher. A dialog asks you first. |
+| **Esc** | Secret Gates | Clear the selection. |
 | **[** / **]** | Every page | Collapse or expand the nav. |
-| **Enter** | Add secret, Delete secret | **Save** or **Delete**. |
-| **Esc** | Add secret, Delete secret | **Cancel**. Nothing changes. |
+| **Enter** | Add secret, Delete secret, Enroll launcher, Set level, Unenroll launcher | **Save**, **Delete**, **Enroll**, **Set level**, or **Unenroll**. |
+| **Esc** | Every dialog | **Cancel**. Nothing changes. |
 
 ## Pages
 

@@ -27,6 +27,25 @@ public static class SecretsManagerStartMenu
 
     public static bool DesktopShortcutExists() => File.Exists(DesktopShortcutPath);
 
+    /// <summary>#43: the Startup folder entry that starts the tray icon at logon.</summary>
+    public static string TrayShortcutPath =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "CmdWarden tray icon.lnk");
+
+    public const string TrayArgument = "--tray";
+
+    /// <summary>Create or overwrite the Startup entry of the tray icon. Returns the .lnk path.</summary>
+    public static string InstallTray(string targetExe)
+    {
+        if (string.IsNullOrWhiteSpace(targetExe) || !File.Exists(targetExe))
+            throw new FileNotFoundException("Secrets manager exe not found.", targetExe);
+        var exe = Path.GetFullPath(targetExe);
+        return WriteLink(TrayShortcutPath, exe, TrayArgument, Path.GetDirectoryName(exe)!,
+            "CmdWarden tray icon - live session allows and blocked retries", null);
+    }
+
+    /// <summary>Remove the Startup entry of the tray icon. Returns true if a file was deleted.</summary>
+    public static bool RemoveTray() => Delete(TrayShortcutPath);
+
     /// <summary>
     /// Create or overwrite the Start Menu shortcut pointing at <paramref name="targetExe"/>.
     /// Returns the .lnk path.

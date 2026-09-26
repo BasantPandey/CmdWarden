@@ -36,7 +36,7 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw mcp` | Run the MCP server on stdio. The harness starts it |
 | `cw canary install [--env <file>]...\|remove\|status` | Fake tokens that block the launcher and show an alarm when used |
 | `cw audit [-n N]` | Recent gate decisions |
-| `cw shortcut install [--desktop]\|remove\|status` | Start Menu (and Desktop) entry for CmdWarden Vault, plus a `cw launch` entry per harness on this PC |
+| `cw shortcut install [--desktop]\|remove\|status` | Start Menu (and Desktop) entry for CmdWarden Vault, a `cw launch` entry per harness on this PC, and the tray icon at logon |
 
 ## Screens
 
