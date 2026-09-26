@@ -179,6 +179,7 @@ message SessionAllowRow {
   string granted_at_utc = 8;     // ISO 8601 round-trip
   string last_used_utc = 9;      // ISO 8601 round-trip
   string idle_expires_utc = 10;  // ISO 8601 round-trip
+  string ends_utc = 11;          // ISO 8601 round-trip; empty when the grant lasts until the launcher exits (#46)
 }
 
 message ListSessionAllowsResponse {

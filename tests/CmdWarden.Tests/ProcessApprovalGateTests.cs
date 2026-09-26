@@ -144,6 +144,12 @@ public class ProcessApprovalGateTests
     [InlineData(0x40, ApprovalOutcome.Unavailable, HelloCheck.NotAsked)]
     [InlineData(0x30, ApprovalOutcome.Unavailable, HelloCheck.NotAsked)]
     [InlineData(0x12, ApprovalOutcome.Unavailable, HelloCheck.NotAsked)]
+    // #46: a length rides only on Allow for session.
+    [InlineData(0x103, ApprovalOutcome.AllowForSession, HelloCheck.NotAsked)]
+    [InlineData(0x213, ApprovalOutcome.AllowForSession, HelloCheck.Verified)]
+    [InlineData(0x100, ApprovalOutcome.Unavailable, HelloCheck.NotAsked)]
+    [InlineData(0x101, ApprovalOutcome.Unavailable, HelloCheck.NotAsked)]
+    [InlineData(0x303, ApprovalOutcome.Unavailable, HelloCheck.NotAsked)]
     public void Exit_code_helper_mapping(int exitCode, ApprovalOutcome outcome, HelloCheck hello)
     {
         var answer = ApprovalHelperExitCodes.ToAnswer(exitCode);
@@ -158,6 +164,19 @@ public class ProcessApprovalGateTests
     [InlineData(ApprovalHelperExitCodes.AllowOnce, HelloCheck.NotAsked)]
     public void Exit_code_round_trips(int baseCode, HelloCheck hello) =>
         Assert.Equal(hello, ApprovalHelperExitCodes.ToAnswer(ApprovalHelperExitCodes.FromAnswer(baseCode, hello)).Hello);
+
+    [Theory]
+    [InlineData(SessionLength.UntilExit)]
+    [InlineData(SessionLength.TenMinutes)]
+    [InlineData(SessionLength.OneHour)]
+    public void Session_length_round_trips(SessionLength length)
+    {
+        var answer = ApprovalHelperExitCodes.ToAnswer(
+            ApprovalHelperExitCodes.FromAnswer(ApprovalHelperExitCodes.ForSession(length), HelloCheck.Verified));
+        Assert.Equal(ApprovalOutcome.AllowForSession, answer.Outcome);
+        Assert.Equal(HelloCheck.Verified, answer.Hello);
+        Assert.Equal(length, answer.Length);
+    }
 
     /// <summary>Process that has already exited with the given code (no real child).</summary>
     private static Process CreateExitedProcess(int exitCode)

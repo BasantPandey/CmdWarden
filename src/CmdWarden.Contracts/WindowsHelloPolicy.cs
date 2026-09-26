@@ -43,6 +43,9 @@ public enum HelloCheck
 /// <summary>The human answer from the Approval Gate, with the Hello step (#24).</summary>
 public readonly record struct ApprovalAnswer(ApprovalOutcome Outcome, HelloCheck Hello = HelloCheck.NotAsked)
 {
+    /// <summary>How long an Allow for session lasts (#46). Other outcomes keep the default.</summary>
+    public SessionLength Length { get; init; }
+
     public static implicit operator ApprovalAnswer(ApprovalOutcome outcome) => new(outcome);
 
     /// <summary>Audit reason for the Hello step, or null when the popup did not ask.</summary>

@@ -1283,7 +1283,7 @@ public static class CliApp
             Ui.Line($"  [bold]{Ui.E(r.Id)}[/]  {Ui.E(r.LauncherPolicyKey)} {Ui.Dim($"({r.LauncherKind})  pid={r.Pid}")}");
             Ui.Line($"      {Ui.Ok($"{r.Tool} / {r.SecretName}")}  {Ui.Dim("class=")}{Ui.E(r.CommandClass)}");
             Ui.Line(Ui.Dim($"      granted {LocalTime(r.GrantedAtUtc)}  last used {LocalTime(r.LastUsedUtc)}  " +
-                           $"idle expires {LocalTime(r.IdleExpiresUtc)}"));
+                           $"idle expires {LocalTime(r.IdleExpiresUtc)}  {SessionAllowDisplay.Ends(r.EndsUtc)}"));
         }
         Console.WriteLine();
         Console.WriteLine("Revoke: cw policy sessions --revoke <id>   (or --revoke-all)");

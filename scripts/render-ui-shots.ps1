@@ -168,7 +168,7 @@ $payload = Join-Path $root "gate.json"
     enrollmentKind = "AiHarness"; identityKind = "Authenticode"; launcherPath = $claudePath
     policyLevel = "Read"; commandClass = "write"; policyKey = $claude
     requestedAt = $now.ToString("o"); tool = "gh"; sessionAllowOffered = $true
-    sessionScopeLine = "Both answers last until Claude Code (pid 15188) exits. Approve Once covers write commands only."
+    sessionScopeLine = "Approve Once covers write commands until Claude Code (pid 15188) exits. Allow for session ends at the time you choose, or when the launcher exits."
 } | ConvertTo-Json | Set-Content -Encoding utf8 $payload
 
 $gate = Start-Process $gateExe "--payload `"$payload`"" -PassThru

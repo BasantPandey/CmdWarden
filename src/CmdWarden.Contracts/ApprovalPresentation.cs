@@ -129,8 +129,8 @@ public static class ApprovalPresentation
         && !string.Equals(commandClass, CommandClassNames.SecretReveal, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Says how long each answer lasts, e.g. "Both answers last until Claude Code (pid 1234) exits.
-    /// Approve Once covers write commands only." Shown only when a session grant is offered (#205).
+    /// Says how long each answer lasts, e.g. "Approve Once covers write commands until Claude Code
+    /// (pid 1234) exits. ..." Shown only when a session grant is offered (#205, #46).
     /// </summary>
     public static string BuildSessionScopeLine(string launcherDisplayName, int? launcherPid, string? commandClass = null)
     {
@@ -138,7 +138,8 @@ public static class ApprovalPresentation
             ? $"{launcherDisplayName} (pid {launcherPid})"
             : launcherDisplayName;
         var klass = string.IsNullOrWhiteSpace(commandClass) ? "these" : commandClass.Trim();
-        return $"Both answers last until {until} exits. Approve Once covers {klass} commands only.";
+        return $"Approve Once covers {klass} commands until {until} exits. " +
+               "Allow for session ends at the time you choose, or when the launcher exits.";
     }
 
     /// <summary>

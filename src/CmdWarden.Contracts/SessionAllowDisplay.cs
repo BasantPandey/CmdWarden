@@ -13,4 +13,8 @@ public static class SessionAllowDisplay
         DateTimeOffset.TryParse(isoUtc, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var t)
             ? t.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
             : isoUtc;
+
+    /// <summary>#46: "ends 2026-09-26 14:10:00" for a timed grant, else "until the launcher exits".</summary>
+    public static string Ends(string endsUtc) =>
+        string.IsNullOrEmpty(endsUtc) ? "until the launcher exits" : "ends " + LocalTime(endsUtc);
 }

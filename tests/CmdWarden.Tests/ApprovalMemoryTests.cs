@@ -86,6 +86,45 @@ public class ApprovalMemoryTests
     }
 
     [Fact]
+    public void Timed_grant_ends_at_its_time()
+    {
+        var memory = new ApprovalMemory();
+        var pid = Environment.ProcessId;
+        var grant = memory.Grant(pid, null, "key", "kind", "gh", "GH_TOKEN", CommandClass.Write,
+            duration: TimeSpan.FromMilliseconds(200))!;
+
+        Assert.NotNull(grant.EndsUtc);
+        Assert.NotNull(memory.TryUseSession(pid, "gh", "GH_TOKEN", CommandClass.Read));
+        Thread.Sleep(400);
+
+        Assert.Null(memory.TryUseSession(pid, "gh", "GH_TOKEN", CommandClass.Read));
+        Assert.Empty(memory.ListSessions());
+    }
+
+    [Fact]
+    public void A_later_answer_keeps_the_earlier_end_time()
+    {
+        var memory = new ApprovalMemory();
+        var pid = Environment.ProcessId;
+        var timed = memory.Grant(pid, null, "key", "kind", "gh", "GH_TOKEN", CommandClass.Read,
+            duration: TimeSpan.FromMinutes(10))!;
+
+        var once = memory.Grant(pid, null, "key", "kind", "gh", "GH_TOKEN", CommandClass.Write, exactClass: true)!;
+        Assert.Equal(timed.EndsUtc, once.EndsUtc);
+
+        var hour = memory.Grant(pid, null, "key", "kind", "gh", "GH_TOKEN", CommandClass.Write,
+            duration: TimeSpan.FromHours(1))!;
+        Assert.Equal(timed.EndsUtc, hour.EndsUtc);
+
+        memory.RevokeAllSessions();
+        var untilExit = memory.Grant(pid, null, "key", "kind", "gh", "GH_TOKEN", CommandClass.Write)!;
+        Assert.Null(untilExit.EndsUtc);
+        var shorter = memory.Grant(pid, null, "key", "kind", "gh", "GH_TOKEN", CommandClass.Write,
+            duration: TimeSpan.FromMinutes(10))!;
+        Assert.NotNull(shorter.EndsUtc);
+    }
+
+    [Fact]
     public void ListSessions_returns_the_live_grant_with_its_fields()
     {
         var memory = new ApprovalMemory();
@@ -156,10 +195,12 @@ public class ApprovalMemoryTests
     public void Session_scope_line_names_launcher_pid_and_class()
     {
         Assert.Equal(
-            "Both answers last until Claude Code (pid 1234) exits. Approve Once covers write commands only.",
+            "Approve Once covers write commands until Claude Code (pid 1234) exits. "
+            + "Allow for session ends at the time you choose, or when the launcher exits.",
             ApprovalPresentation.BuildSessionScopeLine("Claude Code", 1234, "write"));
         Assert.Equal(
-            "Both answers last until Cursor exits. Approve Once covers these commands only.",
+            "Approve Once covers these commands until Cursor exits. "
+            + "Allow for session ends at the time you choose, or when the launcher exits.",
             ApprovalPresentation.BuildSessionScopeLine("Cursor", null, null));
     }
 

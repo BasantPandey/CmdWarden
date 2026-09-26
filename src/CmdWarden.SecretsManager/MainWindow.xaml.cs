@@ -760,7 +760,8 @@ public partial class MainWindow : Window
                 $"{r.LauncherPolicyKey} ({r.LauncherKind})  ·  pid {r.Pid}  ·  {r.Tool} / {r.SecretName}  ·  {r.CommandClass}",
                 $"granted {SessionAllowDisplay.LocalTime(r.GrantedAtUtc)}   ·   "
                     + $"last used {SessionAllowDisplay.LocalTime(r.LastUsedUtc)}   ·   "
-                    + $"expires {SessionAllowDisplay.LocalTime(r.IdleExpiresUtc)}")).ToList();
+                    + $"expires {SessionAllowDisplay.LocalTime(r.IdleExpiresUtc)}   ·   "
+                    + SessionAllowDisplay.Ends(r.EndsUtc))).ToList();
             GatesSessions.ItemsSource = cards;
             GatesSessionsStatus.Text = "No active session allows";
             GatesSessionsStatus.Visibility = cards.Count == 0 ? Visibility.Visible : Visibility.Collapsed;

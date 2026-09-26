@@ -24,6 +24,32 @@ public enum ApprovalOutcome
     AllowForSession = 3,
 }
 
+/// <summary>How long an "Allow for session" answer lasts (#46). The launcher exit ends each one.</summary>
+public enum SessionLength
+{
+    UntilExit = 0,
+    TenMinutes = 1,
+    OneHour = 2,
+}
+
+public static class SessionLengths
+{
+    public static TimeSpan? Duration(SessionLength length) => length switch
+    {
+        SessionLength.TenMinutes => TimeSpan.FromMinutes(10),
+        SessionLength.OneHour => TimeSpan.FromHours(1),
+        _ => null,
+    };
+
+    /// <summary>The audit and list name: "10m", "1h", or "until-exit".</summary>
+    public static string Name(SessionLength length) => length switch
+    {
+        SessionLength.TenMinutes => "10m",
+        SessionLength.OneHour => "1h",
+        _ => "until-exit",
+    };
+}
+
 /// <summary>
 /// Inputs for the Approval Gate (MessageBox transitional + WinUI helper).
 /// Never carry secret values — <see cref="SecretName"/> is a name only.
