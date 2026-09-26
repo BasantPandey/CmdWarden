@@ -8,6 +8,7 @@ using CmdWarden.Agent.Identity;
 using CmdWarden.Contracts;
 using CmdWarden.Contracts.GitHub;
 using CmdWarden.Contracts.Grpc;
+using CmdWarden.Contracts.Proxy;
 using CmdWarden.Contracts.Ssh;
 
 namespace CmdWarden.Agent;
@@ -868,6 +869,70 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         catch (RpcException)
         {
             // Deny, no popup, or no audit row: the deny path wrote its own row.
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// One request with cw://NAME through the placeholder proxy (#41). The launcher comes from the
+    /// process that owns the TCP connection, past that process when it is not enrolled itself (curl,
+    /// python, node). GET, HEAD and OPTIONS read; other methods write. The app never gets the value,
+    /// so no request is secret-reveal. True when the vault value may go to the host.
+    /// </summary>
+    public bool AuthorizeProxyUse(int clientPid, IReadOnlyList<string> names, string method, string url)
+    {
+        const string tool = KeyProxy.Tool;
+        const string purpose = "proxy";
+        ApplyPolicyChanges(_policy.Load());
+        var launcher = LauncherIdentityResolver.PreferHarnessAncestor(
+            _identity.ResolveVerifiedPid(clientPid, node => node.Pid == clientPid && !_policy.Launchers.ContainsKey(node.PolicyKey)),
+            IsHarnessKey);
+        var commandClass = method.ToUpperInvariant() is "GET" or "HEAD" or "OPTIONS" ? CommandClass.Read : CommandClass.Write;
+        var className = CommandClassNames.Format(commandClass);
+        var resolved = _policy.ResolveLevel(tool, launcher.Selected.PolicyKey, launcher.AutoApproveEligible);
+        var levelName = PolicyLevelNames.Format(resolved.Level);
+        var secretName = string.Join(",", names);
+        var host = Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : url;
+        try
+        {
+            ThrowIfAlarmed(launcher, resolved, tool, className, levelName, secretName, purpose);
+            // #29: a canary entry asked for by name is an attack.
+            var canary = _canaries.Load().FirstOrDefault(e => e.Kind == CanaryStore.VaultKind
+                && names.Contains(e.Location, StringComparer.OrdinalIgnoreCase))?.Tokens.FirstOrDefault();
+            if (canary is not null)
+                throw CanaryAlarm(launcher, resolved, tool, className, levelName, canary.Name, purpose);
+            var decisionLabel = GateDecisions.AutoAllow;
+            string? grantLength = null;
+            string? decisionReason = null;
+            var hidden = HiddenWrapper(launcher);
+            if (hidden is not null || PolicyEvaluator.Decide(resolved.Level, commandClass) != PolicyDecision.AutoAllow)
+            {
+                var gate = GateOrThrow(launcher, resolved, commandClass, BuildApprovalRequest(
+                    tool: tool,
+                    className: className,
+                    levelName: levelName,
+                    launcher: launcher,
+                    secretName: secretName,
+                    purpose: purpose,
+                    enrollmentKind: LauncherEnrollmentKindNames.Format(resolved.EnrollmentKind),
+                    policyNote: resolved.ReasonCode,
+                    commandLine: $"{method} {(url.Length > 300 ? url[..300] + "..." : url)}",
+                    toolPath: launcher.Chain.FirstOrDefault()?.Path,
+                    workingDirectory: null) with
+                    {
+                        HiddenCommand = hidden,
+                        Impact = $"Sends {secretName} to {host}. The app sees only the placeholder.",
+                    },
+                    verb: purpose, auditSecretName: secretName, purpose: purpose);
+                decisionLabel = gate.Decision;
+                grantLength = gate.GrantLength;
+                decisionReason = gate.Reason;
+            }
+            AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName, launcher, resolved, secretName, purpose, grantLength: grantLength));
+            return true;
+        }
+        catch (RpcException)
+        {
             return false;
         }
     }

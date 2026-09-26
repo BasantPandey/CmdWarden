@@ -4,8 +4,10 @@ using System.Security.AccessControl;
 using System.Security.Principal;
 using CmdWarden.Agent.Approval;
 using CmdWarden.Agent.Identity;
+using CmdWarden.Agent.Proxy;
 using CmdWarden.Agent.Ssh;
 using CmdWarden.Contracts;
+using CmdWarden.Contracts.Proxy;
 using CmdWarden.Contracts.Ssh;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
@@ -91,6 +93,9 @@ public static class AgentHost
         builder.Services.AddSingleton<LauncherIdentityResolver>();
         // One service for every call, so the popup lock and the caches hold across calls; the ssh gate uses it too.
         builder.Services.AddSingleton<SessionAgentService>();
+        // #41: the placeholder proxy runs when cw proxy setup wrote its config.
+        if (File.Exists(KeyProxy.ConfigPath(productRoot)))
+            builder.Services.AddHostedService<KeyProxyServer>();
         if (LoadSshGate(productRoot) is { } ssh)
         {
             builder.Services.AddSingleton(ssh);
