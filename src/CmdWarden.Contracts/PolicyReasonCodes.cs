@@ -44,4 +44,6 @@ public static class PolicyReasonCodes
     public const string LowRisk = "LowRisk";
     /// <summary>The risk check marked this command high risk, so the Approval Gate asks below Full (#35).</summary>
     public const string HighRisk = "HighRisk";
+    /// <summary>#40: no GitHub App token for the repo, so the personal token serves.</summary>
+    public const string AppTokenFallback = "AppTokenFallback";
 }

@@ -17,9 +17,15 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw policy hello off\|secret-reveal\|write-and-up` | When the Approval Gate asks for Windows Hello after Approve (default `secret-reveal`) |
 | `cw policy low-risk ask\|allow` | `allow`: a low-risk write of an enrolled launcher, like a push to a feature branch, runs with no popup (default `ask`) |
 | `cw harden gh\|git\|az\|docker` | Pin + PATH shim (+ gh token import) |
-| `cw harden --list` | One row per catalog tool, same probe as `cw doctor` |
+| `cw harden npm\|aws\|kubectl\|<pack tool>` | Pin + PATH shim from a [tool pack](tool-packs.md) |
+| `cw harden ssh [--upstream <pipe>]` | Ask before a sign with an ssh key; see [Gate ssh key use](use-cases/gate-ssh-keys.md) |
+| `cw github app setup\|status\|remove` | gh gets a [GitHub App token](use-cases/short-lived-github-tokens.md) for one repo that ends in one hour |
+| `cw proxy setup [--port N] [--trust]` | Make the per-user CA and turn on the [placeholder proxy](use-cases/api-keys-through-proxy.md) on 127.0.0.1 |
+| `cw proxy add <NAME> --host <host>` / `remove <NAME>` | Put the vault entry NAME in place of `cw://NAME` for these hosts |
+| `cw proxy list\|strict on\|off\|uninstall` | Show the proxy; `strict on` gives 403 to a host that no key lists; remove the CA and config |
+| `cw harden --list` | One row per catalog tool and tool pack, same probe as `cw doctor` |
 | `cw harden gh\|git\|docker\|az --strong` | Also move the tool's stock credentials into the Vault |
-| `cw unharden gh\|git\|docker\|az` | Restore the stock store, remove pin and shim |
+| `cw unharden gh\|git\|docker\|az\|ssh\|<pack tool>` | Restore the stock store, remove pin and shim |
 | `cw doctor --fix-path` | Put the shims dir first on the machine PATH (one UAC prompt) |
 | `cw save <NAME>` / `cw delete <NAME>` | Named vault secret |
 | `cw inject +NAME -- <cmd>` | Run cmd with secret in child env only |

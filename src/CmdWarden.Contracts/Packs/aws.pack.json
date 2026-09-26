@@ -1,0 +1,58 @@
+{
+  "tool": "aws",
+  "displayName": "AWS CLI",
+  "logo": { "path": "M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z", "color": "#FF9900" },
+  "binaries": ["aws.exe", "aws.cmd"],
+  "secretEnv": ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"],
+  "flagsWithValue": ["--profile", "--region", "--output", "--query", "--endpoint-url", "--ca-bundle", "--color", "--cli-read-timeout", "--cli-connect-timeout", "--cli-binary-format", "--cli-input-json", "--cli-input-yaml"],
+  "default": "unknown",
+  "rules": [
+    // Commands that print a key, a token or a secret value.
+    { "match": "sts get-session-token|get-federation-token|assume-role|assume-role-with-saml|assume-role-with-web-identity", "class": "secret-reveal" },
+    { "match": "configure get|export-credentials", "class": "secret-reveal" },
+    { "match": "sso get-role-credentials", "class": "secret-reveal" },
+    { "match": "secretsmanager get-secret-value|batch-get-secret-value", "class": "secret-reveal" },
+    { "match": "ssm get-parameter|get-parameters|get-parameters-by-path|get-parameter-history --with-decryption", "class": "secret-reveal" },
+    { "match": "iam create-access-key|create-login-profile|create-service-specific-credential|reset-service-specific-credential", "class": "secret-reveal" },
+    { "match": "ecr|ecr-public get-login-password|get-authorization-token", "class": "secret-reveal" },
+    { "match": "codeartifact get-authorization-token", "class": "secret-reveal" },
+    { "match": "kms decrypt|generate-data-key|generate-data-key-pair", "class": "secret-reveal" },
+    { "match": "rds generate-db-auth-token", "class": "secret-reveal" },
+    { "match": "eks get-token", "class": "secret-reveal" },
+    { "match": "s3 presign", "class": "secret-reveal" },
+    { "match": "configure list|list-profiles", "class": "read" },
+    { "match": "configure|sso", "class": "write" },
+    { "match": "s3 ls", "class": "read" },
+    { "match": "s3 rb", "class": "write", "risk": "high" },
+    { "match": "s3 rm|sync --recursive", "class": "write", "risk": "high" },
+    { "match": "s3 rm|sync --delete", "class": "write", "risk": "high" },
+    { "match": "s3", "class": "write" },
+    { "match": "* delete-*|terminate-*|deregister-*|purge-*|remove-*", "class": "write", "risk": "high" },
+    { "match": "* list-*|describe-*|get-*|head-*|lookup-*|search-*|batch-get-*|filter-*|validate-*|scan|query|wait", "class": "read" },
+    { "match": "* *", "class": "write" }
+  ],
+  "secretFiles": [
+    {
+      "path": "~/.aws/credentials",
+      "pattern": "^\\s*aws_secret_access_key\\s*=\\s*\\S",
+      "title": "Plain AWS secret key in ~/.aws/credentials",
+      "remediation": "Move the keys to the vault (cw save AWS_ACCESS_KEY_ID, cw save AWS_SECRET_ACCESS_KEY), then delete them from the file. Or use aws sso login."
+    }
+  ],
+  "samples": [
+    { "argv": "sts get-session-token", "class": "secret-reveal" },
+    { "argv": "sts get-caller-identity", "class": "read" },
+    { "argv": "--profile prod secretsmanager get-secret-value --secret-id db", "class": "secret-reveal" },
+    { "argv": "ssm get-parameter --name /app/key --with-decryption", "class": "secret-reveal" },
+    { "argv": "ssm get-parameter --name /app/region", "class": "read" },
+    { "argv": "configure get aws_secret_access_key", "class": "secret-reveal" },
+    { "argv": "configure list", "class": "read" },
+    { "argv": "s3 ls s3://bucket", "class": "read" },
+    { "argv": "s3 cp a.txt s3://bucket/a.txt", "class": "write" },
+    { "argv": "ec2 describe-instances --region us-east-1", "class": "read" },
+    { "argv": "ec2 terminate-instances --instance-ids i-1", "class": "write" },
+    { "argv": "lambda invoke --function-name f out.json", "class": "write" },
+    { "argv": "--version", "class": "read" },
+    { "argv": "help", "class": "read" }
+  ]
+}

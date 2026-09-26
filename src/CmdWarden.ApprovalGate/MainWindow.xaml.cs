@@ -120,6 +120,10 @@ public partial class MainWindow : Window
         };
         Closed += (_, _) => _hooks?.Dispose();
         ContentRendered += (_, _) => _shownFor.Start();
+        // CenterScreen uses the DPI of sign-in, and Details grows the card. Center again in physical
+        // pixels on each size change, so the buttons never go below the screen.
+        SourceInitialized += (_, _) => ScreenPlacement.Center(this);
+        SizeChanged += (_, _) => ScreenPlacement.Center(this);
 
         Closing += (_, _) =>
         {

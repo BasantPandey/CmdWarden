@@ -59,6 +59,9 @@ public static class GhShimApp
                 Console.Error.WriteLine($"{ProductInfo.Name}: {BoundFiles.ChangedMessage}: {grant.RealPath}. The gh command did not run.");
                 return ExitDenied;
             }
+            // An allowed run can carry a note, for example why the GitHub App token was not used (#40).
+            if (!string.IsNullOrWhiteSpace(grant.Message))
+                Console.Error.WriteLine($"{ProductInfo.Name}: {grant.Message}");
             var exit = SpawnReal(grant.RealPath, args, grant.Env);
             if (exit == 0 && grant.MigrateAfterRun)
                 await MigrateStoreAsync(args, pipeName, timeout).ConfigureAwait(false);

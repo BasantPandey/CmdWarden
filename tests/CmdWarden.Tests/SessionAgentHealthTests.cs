@@ -65,6 +65,10 @@ public class SessionAgentHealthTests
                 CreateNoWindow = true,
             };
             psi.Environment["CW_PIPE_NAME"] = pipeName;
+            // Keep the policy and audit files of the test out of the real product root.
+            var productRoot = Path.Combine(Path.GetTempPath(), "cw-prod-" + Guid.NewGuid().ToString("N"));
+            psi.Environment[ProductPaths.EnvVar] = productRoot;
+            psi.Environment["CW_POLICY_PATH"] = Path.Combine(productRoot, "policy.json");
             // Never show Approval Gate UI in automated tests.
             psi.Environment["CW_APPROVAL_MODE"] = "off";
 

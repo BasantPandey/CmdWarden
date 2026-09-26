@@ -133,14 +133,17 @@ public static class AzShimApp
             return ExitSpawnFailed;
         }
 
-        var psi = new ProcessStartInfo
+        ProcessStartInfo psi;
+        try
         {
-            FileName = full,
-            UseShellExecute = false,
-        };
-
-        foreach (var arg in arguments)
-            psi.ArgumentList.Add(arg);
+            // az.cmd runs through cmd.exe: an argument must not become a second command.
+            psi = ToolProcess.StartInfo(full, arguments);
+        }
+        catch (ArgumentException ex)
+        {
+            Console.Error.WriteLine($"{ProductInfo.Name} az shim: {ex.Message}");
+            return ExitDenied;
+        }
 
         foreach (var (key, value) in childEnv)
             psi.Environment[key] = value;

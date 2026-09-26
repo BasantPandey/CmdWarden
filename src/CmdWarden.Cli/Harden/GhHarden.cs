@@ -57,7 +57,7 @@ public static class GhHarden
         var pin = pins.TryGet(ToolId) ?? throw new InvalidOperationException("Failed to read pin after save.");
 
         var shimSource = ResolveShimSource(options.ShimSourceDir);
-        InstallShimPayload(shimSource, shimsDir);
+        ShimPayload.Install(shimSource, shimsDir, "gh.exe");
 
         var shimExe = Path.Combine(shimsDir, "gh.exe");
         if (!File.Exists(shimExe))
@@ -153,16 +153,6 @@ public static class GhHarden
             "Could not locate gh shim payload. Build CmdWarden.Shim.Gh or set CW_SHIM_SOURCE.");
     }
 
-    public static void InstallShimPayload(string sourceDir, string shimsDir)
-    {
-        Directory.CreateDirectory(shimsDir);
-        foreach (var file in Directory.GetFiles(sourceDir))
-        {
-            var name = Path.GetFileName(file);
-            // Copy runtime assets for the .NET shim apphost.
-            File.Copy(file, Path.Combine(shimsDir, name), overwrite: true);
-        }
-    }
 
     public static async Task<string> ReadTokenFromRealGhAsync(string realGhPath, CancellationToken cancellationToken = default)
     {

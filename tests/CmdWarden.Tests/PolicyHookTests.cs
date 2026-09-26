@@ -15,7 +15,8 @@ public class PolicyHookTests
     [InlineData("C:\\tools\\git.exe status | findstr main", "git|status")]
     [InlineData("docker ps\naz account show", "docker|ps;az|account show")]
     [InlineData("echo 'gh pr create; git push' && ls", "")]
-    [InlineData("npm test || echo gh", "")]
+    [InlineData("make test || echo gh", "")]
+    [InlineData("cd web && npm publish --access public", "npm|publish --access public")]
     [InlineData("github-cli pr list; gitk", "")]
     [InlineData("gh pr list &", "gh|pr list")]
     public void Finds_the_gated_tool_calls(string command, string expected)

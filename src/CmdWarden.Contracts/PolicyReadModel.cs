@@ -19,13 +19,14 @@ public sealed record PolicyReadModel(
         var store = new PolicyStore(path ?? PolicyStore.DefaultPath());
         store.Load();
 
+        var catalog = ToolCatalog.All();
         var launchers = store.Launchers
             .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
             .Select(kv =>
             {
                 LauncherEnrollmentKindNames.TryParse(kv.Value.Kind, out var kind);
                 var levels = kv.Value.Levels;
-                var tools = ToolCatalog.Tools.Select(t =>
+                var tools = catalog.Select(t =>
                 {
                     // ponytail: level comes from the evaluator's own resolver so the tab can never disagree with the agent.
                     var level = store.ResolveLevel(t.Id, kv.Key, autoApproveEligible: true).Level;

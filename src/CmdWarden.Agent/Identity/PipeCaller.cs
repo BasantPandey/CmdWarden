@@ -36,6 +36,9 @@ public static class PipeCaller
         return sid;
     }
 
+    /// <summary>True when the process runs as the owner of this agent (#41: a proxy client).</summary>
+    public static bool IsOwnerProcess(int pid) => ProcessUser((uint)pid) is { } sid && sid.Equals(Owner);
+
     /// <summary>True when a pipe caller runs under another account than the owner of this agent.</summary>
     public static bool IsForeign(HttpContext? http) => Account(http) is { } sid && !sid.Equals(Owner);
 

@@ -27,6 +27,19 @@ public sealed class LauncherIdentityResolver
     public LauncherResolution Resolve(HttpContext? httpContext, int? claimedPid = null)
     {
         var (clientPid, fromPipe, notes) = ResolveClientPid(httpContext, claimedPid);
+        return Resolve(clientPid, fromPipe, notes, null);
+    }
+
+    /// <summary>
+    /// A caller whose pid the OS gave: the client of the ssh gate pipe (#39) or of the proxy (#41).
+    /// <paramref name="isTool"/> names more nodes at the start of the chain that are the tool, not
+    /// the launcher, for example ssh.exe and git.exe.
+    /// </summary>
+    public LauncherResolution ResolveVerifiedPid(int pid, Func<ProcessNode, bool> isTool) =>
+        Resolve(pid, fromPipe: true, "", isTool);
+
+    private LauncherResolution Resolve(int clientPid, bool fromPipe, string notes, Func<ProcessNode, bool>? isTool)
+    {
         var chain = _walker.Walk(clientPid).ToList();
 
         foreach (var node in chain)
@@ -44,7 +57,8 @@ public sealed class LauncherIdentityResolver
         // Select policy launcher: skip our own agent; prefer first non-unknown after client;
         // if client is cw/shim, look at parent chain for harness/terminal.
         // ponytail: _pins.All() reads every pin file per RPC; cache on ToolPinStore if probes get slow.
-        var selected = SelectLauncher(chain, IsProductOwned(_pins.All(), ProductPaths.ShimsDir()));
+        var productOwned = IsProductOwned(_pins.All(), ProductPaths.ShimsDir());
+        var selected = SelectLauncher(chain, isTool is null ? productOwned : (node, parent) => productOwned(node, parent) || isTool(node));
         var eligible = selected.Kind is LauncherKinds.Authenticode or LauncherKinds.PathHash
             && !selected.PidReuseSuspected
             && selected.PolicyKey != LauncherKinds.PolicyKeyUnknown;

@@ -1,0 +1,60 @@
+{
+  "tool": "npm",
+  "displayName": "npm",
+  "logo": { "path": "M1.763 0C.786 0 0 .786 0 1.763v20.474C0 23.214.786 24 1.763 24h20.474c.977 0 1.763-.786 1.763-1.763V1.763C24 .786 23.214 0 22.237 0zM5.13 5.323l13.837.019-.009 13.836h-3.464l.01-10.382h-3.456L12.04 19.17H5.113z", "color": "#CB3837" },
+  "binaries": ["npm.cmd", "npm.exe"],
+  "secretEnv": ["NPM_TOKEN"],
+  "flagsWithValue": ["--registry", "-w", "--workspace", "--prefix", "--userconfig", "--otp", "--tag", "--access", "--scope", "--loglevel", "--cache", "-C"],
+  "default": "unknown",
+  "rules": [
+    // A token that npm prints is a secret.
+    { "match": "token create", "class": "secret-reveal" },
+    { "match": "token list|ls", "class": "read" },
+    { "match": "token", "class": "write" },
+    { "match": "config|c get *_auth*|*password*", "class": "secret-reveal" },
+    { "match": "config|c list|ls|get", "class": "read" },
+    { "match": "config|c", "class": "write" },
+    { "match": "unpublish", "class": "write", "risk": "high" },
+    { "match": "publish|deprecate|undeprecate", "class": "write" },
+    { "match": "dist-tag|dist-tags|owner|author ls|list", "class": "read" },
+    { "match": "dist-tag|dist-tags|owner|author", "class": "write" },
+    { "match": "access get|list|ls", "class": "read" },
+    { "match": "team|org|hook ls", "class": "read" },
+    { "match": "access|team|org|hook|adduser|add-user|login|logout|star|unstar", "class": "write" },
+    { "match": "audit fix", "class": "write", "secrets": false },
+    // The install scripts of every package run with the env. They get NPM_TOKEN only with --ignore-scripts.
+    { "match": "install|i|in|ins|add|ci|clean-install|ic|install-clean|update|up|upgrade|rebuild|rb --ignore-scripts", "class": "write" },
+    { "match": "install|i|in|ins|add|ci|clean-install|ic|install-clean|install-test|it|update|up|upgrade|uninstall|un|remove|rm|r|link|ln|unlink|dedupe|ddp|prune|rebuild|rb|pkg|version|init|create|pack|shrinkwrap|cache|edit|set", "class": "write", "secrets": false },
+    { "match": "run|run-script|test|tst|t|start|stop|restart|exec|x|explore", "class": "write", "secrets": false },
+    { "match": "whoami|view|v|info|show|search|s|find|ls|list|ll|la|outdated|audit|doctor|ping|explain|why|query|fund|docs|home|bugs|repo|prefix|root|bin|sbom|completion", "class": "read" }
+  ],
+  "secretFiles": [
+    {
+      "path": "~/.npmrc",
+      "pattern": "_(authToken|auth|password)\\s*=\\s*(?!\\$\\{)\\S",
+      "title": "Plain npm token in ~/.npmrc",
+      "remediation": "Run cw save NPM_TOKEN, then write the line as //registry.npmjs.org/:_authToken=${NPM_TOKEN}."
+    },
+    {
+      "path": ".npmrc",
+      "pattern": "_(authToken|auth|password)\\s*=\\s*(?!\\$\\{)\\S",
+      "title": "Plain npm token in the project .npmrc",
+      "remediation": "Run cw save NPM_TOKEN, then write the line as //registry.npmjs.org/:_authToken=${NPM_TOKEN}."
+    }
+  ],
+  "samples": [
+    { "argv": "publish --access public", "class": "write" },
+    { "argv": "unpublish my-pkg@1.0.0", "class": "write" },
+    { "argv": "token create --read-only", "class": "secret-reveal" },
+    { "argv": "token list", "class": "read" },
+    { "argv": "config get //registry.npmjs.org/:_authToken", "class": "secret-reveal" },
+    { "argv": "config get registry", "class": "read" },
+    { "argv": "install", "class": "write" },
+    { "argv": "ci --ignore-scripts", "class": "write" },
+    { "argv": "run build", "class": "write" },
+    { "argv": "whoami", "class": "read" },
+    { "argv": "--registry https://r.example view left-pad", "class": "read" },
+    { "argv": "publish --help", "class": "read" },
+    { "argv": "frobnicate", "class": "unknown" }
+  ]
+}

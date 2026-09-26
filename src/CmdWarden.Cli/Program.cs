@@ -5,6 +5,7 @@ using CmdWarden.Cli.Scan;
 using CmdWarden.Contracts.Scan;
 using CmdWarden.Contracts;
 using CmdWarden.Contracts.Grpc;
+using CmdWarden.Contracts.Ssh;
 using Spectre.Console;
 
 return await CliApp.RunAsync(args);
@@ -58,6 +59,8 @@ public static class CliApp
             "mcp" => await CmdWarden.Cli.Mcp.McpCommands.McpAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "canary" => CmdWarden.Cli.Hooks.LeakGuardCommands.Canary(args.AsSpan(1).ToArray()),
             "launch" => LaunchHarness(args.AsSpan(1).ToArray()),
+            "github" => await GitHubAppCommands.RunAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
+            "proxy" => await ProxyCommands.RunAsync(args.AsSpan(1).ToArray(), RestartAgentAsync).ConfigureAwait(false),
             _ => Unknown(args[0]),
         };
     }
@@ -69,18 +72,24 @@ public static class CliApp
     {
         if (args.Length == 0 || IsHelp(args[0]))
         {
-            Console.WriteLine("Usage: cw unharden docker|git|gh|az");
+            Console.WriteLine("Usage: cw unharden docker|git|gh|az|ssh|<pack tool>");
             Console.WriteLine("  docker  Strong mode: restore credsStore, write registry credentials back, delete CmdWarden/docker/*.");
             Console.WriteLine("  git     Strong mode: restore credential.helper lines and gh blocks, write GCM entries back, delete CmdWarden/git/*.");
             Console.WriteLine("  gh      Strong mode: write gh:<host>:<user> entries back, delete CmdWarden/gh/*; the compat GH_TOKEN stays.");
             Console.WriteLine("  az      Strong mode: write the az login back to the az config dir, delete the CmdWarden az store.");
+            Console.WriteLine("  ssh     Put SSH_AUTH_SOCK and git core.sshCommand back, and stop the ssh gate.");
+            Console.WriteLine("  <pack tool>  Remove the pin and the shim, for example cw unharden npm.");
             Console.WriteLine("  Then remove the pin, shim, and credential helper.");
             return args.Length > 0 && IsHelp(args[0]) ? 0 : 1;
         }
         var tool = args[0].ToLowerInvariant();
-        if (tool is not ("docker" or "git" or "gh" or "az") || !OperatingSystem.IsWindows())
+        if (tool == SshGate.Tool)
+            return UnhardenSsh();
+        if (!ToolCatalog.IsBuiltIn(tool) && ToolPacks.IsValidToolName(tool))
+            return UnhardenPack(tool);
+        if (!ToolCatalog.IsBuiltIn(tool) || !OperatingSystem.IsWindows())
         {
-            Console.Error.WriteLine($"Unharden for '{args[0]}' is not implemented yet (docker, git, gh, az).");
+            Console.Error.WriteLine($"Unharden for '{args[0]}' is not implemented yet (docker, git, gh, az, or a pack tool).");
             return 1;
         }
         if (tool == "git")
@@ -108,6 +117,43 @@ public static class CliApp
         catch (Exception ex)
         {
             Console.Error.WriteLine($"unharden docker failed: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static int UnhardenSsh()
+    {
+        try
+        {
+            var removed = SshHarden.Unharden();
+            Ui.Title($"{ProductInfo.Name} unharden ssh");
+            Ui.Kv("ssh gate", removed ? "removed; SSH_AUTH_SOCK and core.sshCommand are back" : "none");
+            if (removed)
+                RestartAgentAsync("Session Agent", "no ssh gate").GetAwaiter().GetResult();
+            Ui.Line(Ui.Dim("next: open a new terminal"));
+            return 0;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"unharden ssh failed: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static int UnhardenPack(string tool)
+    {
+        try
+        {
+            var (pinRemoved, shimRemoved) = PackHarden.Unharden(tool);
+            Ui.Title($"{ProductInfo.Name} unharden {tool}");
+            Ui.Kv("pin", pinRemoved ? "removed" : "none");
+            Ui.Kv("shim", shimRemoved ? "removed" : "none");
+            Ui.Line(Ui.Dim("next: run cw doctor"));
+            return 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"unharden {tool} failed: {ex.Message}");
             return 1;
         }
     }
@@ -390,6 +436,14 @@ public static class CliApp
             ? $"{ProductInfo.Name}: no token variables to remove."
             : $"{ProductInfo.Name}: removed from the environment of {harness.DisplayName}: {string.Join(", ", removed)}");
 
+        // #41: with the proxy on, the harness sends HTTPS through it and trusts its CA.
+        if (CmdWarden.Contracts.Proxy.KeyProxy.Load() is { } proxy)
+        {
+            foreach (var (name, value) in CmdWarden.Contracts.Proxy.KeyProxy.LaunchEnv(proxy))
+                clean[name] = value;
+            Console.WriteLine($"{ProductInfo.Name}: {harness.DisplayName} sends HTTPS through the proxy on 127.0.0.1:{proxy.Port}; use cw://NAME as the key.");
+        }
+
         var (key, enrolled) = CmdWarden.Cli.Launch.HarnessLauncher.EnsureEnrolled(install, LoadPolicyStore());
         if (key is null)
             Console.WriteLine($"{ProductInfo.Name}: {harness.Image} not found, so it is not enrolled. Enroll it later with cw policy enroll --kind ai-harness --key <key>.");
@@ -604,12 +658,15 @@ public static class CliApp
         return 2;
     }
 
-    /// <summary>One row per catalog tool, same probe as the Hardened Tools tab (#204).</summary>
+    /// <summary>One row per catalog tool and tool pack, same probe as the Hardened Tools tab (#204, #37).</summary>
     private static void PrintHardenedTools()
     {
-        var table = Ui.Table("tool", "state", "detail");
-        foreach (var tool in ToolCatalog.Tools)
+        var table = Ui.Table("tool", "source", "state", "detail");
+        var (packs, errors) = ToolPacks.Load();
+        foreach (var tool in ToolCatalog.All())
         {
+            var pack = packs.FirstOrDefault(p => p.Tool == tool.Id);
+            var source = pack is null ? "built-in" : pack.Source == ToolPacks.BuiltInSource ? "pack" : "user pack";
             var status = HardenedToolStatus.Probe(tool.Id);
             var (state, detail) = status.State switch
             {
@@ -617,9 +674,11 @@ public static class CliApp
                 HardenState.Degraded => (Ui.Warn("Degraded"), status.Reason ?? ""),
                 _ => (Ui.Dim("not hardened"), ""),
             };
-            table.AddRow(Ui.E(tool.Id), state, Ui.E(detail));
+            table.AddRow(Ui.E(tool.Id), Ui.Dim(source), state, Ui.E(detail));
         }
         AnsiConsole.Write(table);
+        foreach (var error in errors)
+            Ui.Line($"{Ui.Warn("pack not loaded:")} {Ui.E(error.Message)}");
     }
 
     /// <summary>After harden: same shim-first reason as doctor when the new pin is not first (#201).</summary>
@@ -1082,17 +1141,20 @@ public static class CliApp
     }
 
     /// <summary>#36: the agent reads the enrolled accounts for its pipe access at start, so a running agent restarts.</summary>
-    private static async Task RestartAgentForPipeAccessAsync()
+    private static Task RestartAgentForPipeAccessAsync() => RestartAgentAsync("pipe access", "the new account access");
+
+    /// <summary>A setting that the Session Agent reads at start applies after a restart of a running agent.</summary>
+    private static async Task RestartAgentAsync(string key, string what)
     {
         if (!(await AgentLifecycle.StatusAsync().ConfigureAwait(false)).Up)
         {
-            Ui.Kv("pipe access", "the new account access applies when the Session Agent starts");
+            Ui.Kv(key, $"{what} applies when the Session Agent starts");
             return;
         }
         await AgentLifecycle.StopAsync().ConfigureAwait(false);
         var started = await AgentLifecycle.StartAsync().ConfigureAwait(false);
-        Ui.Kv("pipe access", started.Up
-            ? "Session Agent restarted with the new account access"
+        Ui.Kv(key, started.Up
+            ? $"Session Agent restarted with {what}"
             : $"Session Agent did not restart: {started.Detail}. Run: cw agent start");
     }
 
@@ -1481,6 +1543,10 @@ public static class CliApp
             Console.WriteLine("  cw harden git     Discover real git, pin, install PATH shim (compat; leave GCM).");
             Console.WriteLine("  cw harden az      Discover real az, pin, install PATH shim (compat; leave MSAL).");
             Console.WriteLine("  cw harden docker  Discover real docker, pin, install PATH shim (compat; leave Desktop store).");
+            Console.WriteLine("  cw harden ssh     Gate each ssh key sign: SSH_AUTH_SOCK points to the CmdWarden ssh-agent pipe.");
+            Console.WriteLine("                    --upstream <pipe> names the real agent (default \\.\\pipe\\openssh-ssh-agent).");
+            Console.WriteLine("  cw harden <pack>  Pin a tool from its tool pack and install the pack shim, for example npm, aws, kubectl.");
+            Console.WriteLine($"                    Add your own packs as JSON files in {ToolPacks.UserDir()}.");
             Console.WriteLine("Options:");
             Console.WriteLine("  --path <exe>       Absolute path to real tool (skip discovery)");
             Console.WriteLine("  --skip-path        Do not modify user PATH");
@@ -1493,11 +1559,10 @@ public static class CliApp
         }
 
         var tool = args[0].ToLowerInvariant();
-        if (tool is not ("gh" or "git" or "az" or "docker"))
-        {
-            Console.Error.WriteLine($"Harden for '{tool}' is not implemented yet (catalog: gh, git, az, docker).");
-            return 1;
-        }
+        if (tool == SshGate.Tool)
+            return await HardenSshAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false);
+        if (!ToolCatalog.IsBuiltIn(tool))
+            return HardenPack(tool, args.AsSpan(1).ToArray());
 
         string? realPath = null;
         string? tokenOverride = null;
@@ -1588,6 +1653,94 @@ public static class CliApp
         catch (Exception ex)
         {
             Console.Error.WriteLine($"harden gh failed: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> HardenSshAsync(string[] args)
+    {
+        string? upstream = null;
+        for (var i = 0; i < args.Length; i++)
+        {
+            if (args[i] is "--upstream" && i + 1 < args.Length)
+                upstream = args[++i];
+            else
+            {
+                Console.Error.WriteLine($"Unknown harden option for ssh: {args[i]}");
+                return 1;
+            }
+        }
+        try
+        {
+            var result = SshHarden.Run(upstream);
+            Ui.Title($"{ProductInfo.Name} harden ssh");
+            Ui.Kv("real agent", result.Upstream);
+            Ui.Kv("gate pipe", result.PipePath);
+            Ui.Kv("SSH_AUTH_SOCK", "set for your user to the gate pipe");
+            Ui.Kv("git ssh", result.GitSshCommandSet
+                ? $"core.sshCommand = {result.GitSshCommand} (the Windows OpenSSH client reads the pipe)"
+                : result.GitSshCommand is null ? "git not found; nothing changed" : $"core.sshCommand stays {result.GitSshCommand}");
+            await RestartAgentAsync("ssh gate", "the ssh gate").ConfigureAwait(false);
+            Console.WriteLine();
+            Ui.Line(Ui.Dim("Next: open a new terminal and restart your AI harness, so they read the new SSH_AUTH_SOCK."));
+            Ui.Line(Ui.Dim("Then: cw policy set <launcher> ssh <level> sets who signs with no popup (read = git fetch, write = push or shell)."));
+            Ui.Line(Ui.Dim($"Note: a process that talks to {result.Upstream} directly skips the gate (compat residual)."));
+            return 0;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"harden ssh failed: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static int HardenPack(string tool, string[] args)
+    {
+        var (packs, errors) = ToolPacks.Load();
+        var pack = packs.FirstOrDefault(p => p.Tool == tool);
+        if (pack is null)
+        {
+            foreach (var error in errors)
+                Console.Error.WriteLine($"pack not loaded: {error.Message}");
+            Console.Error.WriteLine($"No tool pack for '{tool}'. Tools: {string.Join(", ", ToolCatalog.All().Select(t => t.Id))}.");
+            return 1;
+        }
+        string? realPath = null;
+        var skipPath = false;
+        for (var i = 0; i < args.Length; i++)
+        {
+            if (args[i] is "--path" && i + 1 < args.Length)
+                realPath = args[++i];
+            else if (args[i] is "--skip-path")
+                skipPath = true;
+            else
+            {
+                Console.Error.WriteLine($"Unknown harden option for a pack tool: {args[i]}");
+                return 1;
+            }
+        }
+        try
+        {
+            var result = Ui.Status($"Pinning {tool} and installing the shim...", () => PackHarden.Run(pack, realPath, skipPath));
+            Ui.Title($"{ProductInfo.Name} harden {tool} (tool pack)");
+            Ui.Kv($"real {tool}", result.RealPath);
+            Ui.Kv("pin sha256", result.PinSha256);
+            Ui.Kv("shim", result.ShimExePath);
+            Ui.Kv("pack", pack.Source);
+            Ui.Kv("user PATH", result.UserPathUpdated ? "updated (prepended shims dir)" : "unchanged / skipped");
+            Ui.Kv("secrets", pack.SecretEnv.Count == 0
+                ? "none; the shim gates the run only"
+                : $"{string.Join(", ", pack.SecretEnv)} from the vault when present (cw save <NAME>)");
+            Console.WriteLine();
+            Ui.Line(Ui.Dim("Next: cw policy enroll --kind terminal"));
+            Ui.Line(Ui.Dim($"Then: open a new shell (PATH refresh) and run {tool} via PATH."));
+            Ui.Line(Ui.Dim($"Note: absolute-path to real {tool} bypasses the shim (compat residual)."));
+            PrintShimOrderHint(tool);
+            return 0;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"harden {tool} failed: {ex.Message}");
             return 1;
         }
     }
@@ -1760,8 +1913,12 @@ public static class CliApp
         Row("policy ...", "List/enroll/set tool x launcher policy levels");
         Row("harden gh|git|az|docker", "Pin real tool, install PATH shim (gh also imports token)");
         Row("harden docker|git|gh|az --strong", "Also move the tool's credentials into the vault (vault-only)");
-        Row("harden --list", "One status row per catalog tool");
-        Row("unharden docker|git|gh|az", "Restore the stock store and config, remove pin and shim");
+        Row("harden ssh", "Ask before an AI harness signs with an ssh key (git push over ssh)");
+        Row("harden <pack tool>", "Gate a tool from its tool pack: npm, aws, kubectl, or your own JSON pack");
+        Row("harden --list", "One status row per catalog tool and tool pack");
+        Row("unharden docker|git|gh|az|ssh|<pack tool>", "Restore the stock store and config, remove pin and shim");
+        Row("proxy setup|add|remove|list|strict|uninstall", "Put a vault key in place of cw://NAME for listed hosts (API keys)");
+        Row("github app setup|status|remove", "gh gets a GitHub App token for one repo that ends in one hour");
         Row("audit [-n N]", "Show recent gate decisions (local audit trail)");
         Row("scan", "First-catalog residual risk detectors (read-only)");
         Row("launch claude|codex|cursor [-- args]", "Start an AI harness without token variables; enroll it if needed");

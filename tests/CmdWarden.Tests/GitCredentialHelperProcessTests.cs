@@ -31,8 +31,8 @@ public class GitCredentialHelperProcessTests
     private static string InstallHelperIntoShims(string productRoot)
     {
         var shims = Path.Combine(productRoot, "shims");
-        GitHarden.InstallShimPayload(TestPaths.FindGitShimOutputDir(), shims);
-        GitHarden.InstallShimPayload(TestPaths.FindGitHelperOutputDir(), shims);
+        ShimPayload.Install(TestPaths.FindGitShimOutputDir(), shims, "git.exe");
+        ShimPayload.Install(TestPaths.FindGitHelperOutputDir(), shims, HelperTools.GitHelperExe);
         var helper = Path.Combine(shims, HelperTools.GitHelperExe);
         Assert.True(File.Exists(helper));
         return helper;
