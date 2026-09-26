@@ -60,6 +60,7 @@ public static class CliApp
             "canary" => CmdWarden.Cli.Hooks.LeakGuardCommands.Canary(args.AsSpan(1).ToArray()),
             "launch" => LaunchHarness(args.AsSpan(1).ToArray()),
             "github" => await GitHubAppCommands.RunAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
+            "proxy" => await ProxyCommands.RunAsync(args.AsSpan(1).ToArray(), RestartAgentAsync).ConfigureAwait(false),
             _ => Unknown(args[0]),
         };
     }
@@ -434,6 +435,14 @@ public static class CliApp
         Console.WriteLine(removed.Count == 0
             ? $"{ProductInfo.Name}: no token variables to remove."
             : $"{ProductInfo.Name}: removed from the environment of {harness.DisplayName}: {string.Join(", ", removed)}");
+
+        // #41: with the proxy on, the harness sends HTTPS through it and trusts its CA.
+        if (CmdWarden.Contracts.Proxy.KeyProxy.Load() is { } proxy)
+        {
+            foreach (var (name, value) in CmdWarden.Contracts.Proxy.KeyProxy.LaunchEnv(proxy))
+                clean[name] = value;
+            Console.WriteLine($"{ProductInfo.Name}: {harness.DisplayName} sends HTTPS through the proxy on 127.0.0.1:{proxy.Port}; use cw://NAME as the key.");
+        }
 
         var (key, enrolled) = CmdWarden.Cli.Launch.HarnessLauncher.EnsureEnrolled(install, LoadPolicyStore());
         if (key is null)
@@ -1908,6 +1917,7 @@ public static class CliApp
         Row("harden <pack tool>", "Gate a tool from its tool pack: npm, aws, kubectl, or your own JSON pack");
         Row("harden --list", "One status row per catalog tool and tool pack");
         Row("unharden docker|git|gh|az|ssh|<pack tool>", "Restore the stock store and config, remove pin and shim");
+        Row("proxy setup|add|remove|list|strict|uninstall", "Put a vault key in place of cw://NAME for listed hosts (API keys)");
         Row("github app setup|status|remove", "gh gets a GitHub App token for one repo that ends in one hour");
         Row("audit [-n N]", "Show recent gate decisions (local audit trail)");
         Row("scan", "First-catalog residual risk detectors (read-only)");
