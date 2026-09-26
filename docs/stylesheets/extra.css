@@ -18,8 +18,12 @@
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
 }
 
-.md-typeset img.hero {
+.md-typeset video.promo {
   display: block;
-  margin: 0 auto;
-  max-width: 480px;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
+  background: #0a1017;
 }
