@@ -14,7 +14,7 @@ CLI: **`cw`** (alias `cmdwarden`). Desktop app: **CmdWarden Vault**. Stack: C# /
 
 [![CmdWarden demo: the agent asks, you press Deny or Approve Once](docs/images/cmdwarden-promo.gif)](docs/images/cmdwarden-promo.mp4)
 
-Watch the [30 second video](docs/images/cmdwarden-promo.mp4).
+Get the [video in high quality (MP4)](docs/images/cmdwarden-promo.mp4).
 
 ## What it does
 

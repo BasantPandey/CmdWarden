@@ -7,7 +7,7 @@ description: CmdWarden gates gh, git, az, and docker secret use on Windows by to
 
 **Gate CLI secret use on Windows by tool and launcher.** Your terminal keeps working. An AI harness (Cursor, Claude Code, Codex) gets a policy and an approval card.
 
-![Approval Gate card: an AI harness asks for GH_TOKEN, you click Deny, Allow for session, or Approve Once](images/approval-gate.png){ .hero }
+<video class="promo" src="images/cmdwarden-promo.mp4" poster="images/cmdwarden-promo-poster.jpg" autoplay muted loop playsinline controls aria-label="CmdWarden in 30 seconds: an AI agent asks for a GitHub token, and you press Deny or Approve Once on the Approval Gate card"></video>
 
 <div class="grid cards" markdown>
 
