@@ -4,7 +4,9 @@ using System.Security.AccessControl;
 using System.Security.Principal;
 using CmdWarden.Agent.Approval;
 using CmdWarden.Agent.Identity;
+using CmdWarden.Agent.Ssh;
 using CmdWarden.Contracts;
+using CmdWarden.Contracts.Ssh;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 namespace CmdWarden.Agent;
@@ -87,11 +89,32 @@ public static class AgentHost
         builder.Services.AddSingleton(new AlarmNotifier(approvalGate is ProcessApprovalGate));
         builder.Services.AddSingleton<CredentialVault>();
         builder.Services.AddSingleton<LauncherIdentityResolver>();
+        // One service for every call, so the popup lock and the caches hold across calls; the ssh gate uses it too.
+        builder.Services.AddSingleton<SessionAgentService>();
+        if (LoadSshGate(productRoot) is { } ssh)
+        {
+            builder.Services.AddSingleton(ssh);
+            builder.Services.AddHostedService<SshAgentProxy>();
+        }
 
         var app = builder.Build();
         app.MapGrpcService<SessionAgentService>();
         app.MapGet("/", () => $"{ProductInfo.Name} Session Agent - use gRPC on named pipe '{pipeName}'.");
         return app;
+    }
+
+    /// <summary>The ssh gate runs when cw harden ssh wrote ssh.json (#39). A bad file must not stop the agent.</summary>
+    private static SshGateState? LoadSshGate(string productRoot)
+    {
+        try
+        {
+            return SshGate.Load(productRoot);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            Console.Error.WriteLine($"ssh gate off: cannot read {SshGate.StatePath(productRoot)}: {ex.Message}");
+            return null;
+        }
     }
 }
 

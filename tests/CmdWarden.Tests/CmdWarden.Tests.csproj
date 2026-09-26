@@ -28,6 +28,7 @@
     <ProjectReference Include="..\..\src\CmdWarden.Shim.Az\CmdWarden.Shim.Az.csproj" />
     <ProjectReference Include="..\..\src\CmdWarden.Shim.Docker\CmdWarden.Shim.Docker.csproj" />
     <ProjectReference Include="..\..\src\CmdWarden.Helper.Docker\CmdWarden.Helper.Docker.csproj" />
+    <ProjectReference Include="..\..\src\CmdWarden.Shim.Pack\CmdWarden.Shim.Pack.csproj" />
   </ItemGroup>
 
 </Project>

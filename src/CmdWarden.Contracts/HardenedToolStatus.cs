@@ -1,6 +1,6 @@
 namespace CmdWarden.Contracts;
 
-/// <summary>First Catalog tools, in display order (CONTEXT.md: First Catalog).</summary>
+/// <summary>First Catalog tools and the ssh gate, in display order (CONTEXT.md: First Catalog).</summary>
 public static class ToolCatalog
 {
     public sealed record Entry(string Id, string DisplayName);
@@ -11,7 +11,16 @@ public static class ToolCatalog
         new("git", "Git"),
         new("az", "Azure CLI"),
         new("docker", "Docker CLI"),
+        new(Ssh.SshGate.Tool, "SSH keys"),
     ];
+
+    /// <summary>True for gh, git, az and docker: they run on their own code, not a pack.</summary>
+    public static bool IsBuiltIn(string tool) =>
+        Tools.Any(t => t.Id.Equals(tool.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The built-in tools, then one entry per tool pack (#37).</summary>
+    public static IReadOnlyList<Entry> All(string? productRoot = null) =>
+        [.. Tools, .. ToolPacks.Load(productRoot).Packs.Select(p => new Entry(p.Tool, p.Name))];
 }
 
 public enum HardenState
@@ -50,6 +59,9 @@ public sealed record HardenedToolStatus(string Tool, HardenState State, string? 
         string? gitGlobalConfigPath = null)
     {
         var root = productRoot ?? ProductPaths.Root();
+        // ssh has no shim and no pin: the gate is an ssh-agent pipe in the Session Agent (#39).
+        if (toolId.Equals(Ssh.SshGate.Tool, StringComparison.OrdinalIgnoreCase))
+            return Ssh.SshGate.Probe(root);
         var shimsDir = Path.Combine(root, "shims");
         var pin = new ToolPinStore(root).Check(toolId);
         var shimPresent = File.Exists(Path.Combine(shimsDir, toolId.Trim().ToLowerInvariant() + ".exe"));

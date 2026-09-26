@@ -50,6 +50,11 @@
       <Private>false</Private>
       <ExcludeAssets>all</ExcludeAssets>
     </ProjectReference>
+    <ProjectReference Include="..\CmdWarden.Shim.Pack\CmdWarden.Shim.Pack.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+      <ExcludeAssets>all</ExcludeAssets>
+    </ProjectReference>
     <ProjectReference Include="..\CmdWarden.Helper.Docker\CmdWarden.Helper.Docker.csproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <Private>false</Private>
@@ -131,6 +136,15 @@
     </ItemGroup>
     <Copy SourceFiles="@(_DockerHelperFiles)" DestinationFiles="@(_DockerHelperFiles->'$(TargetDir)shim-payload\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="'@(_DockerHelperFiles)' != ''" />
   </Target>
+  <Target Name="CopyPackShimPayload" AfterTargets="Build">
+    <PropertyGroup>
+      <_PackShimOut>$(MSBuildThisFileDirectory)..\CmdWarden.Shim.Pack\bin\$(Configuration)\$(TargetFramework)\</_PackShimOut>
+    </PropertyGroup>
+    <ItemGroup>
+      <_PackShimFiles Include="$(_PackShimOut)**\*.*" Exclude="$(_PackShimOut)**\*.pdb;$(_PackShimOut)**\*.xml" Condition="Exists('$(_PackShimOut)cw-pack-shim.exe')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_PackShimFiles)" DestinationFiles="@(_PackShimFiles->'$(TargetDir)shim-payload\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="'@(_PackShimFiles)' != ''" />
+  </Target>
   <!-- Bundle Session Agent under agent/ for cw agent start and tool package (#36/#37). -->
   <Target Name="CopyAgentPayload" AfterTargets="Build">
     <PropertyGroup>
@@ -173,10 +187,10 @@
     Inject agent/, shim-payload/, secrets-manager/, and cmdwarden.exe so tool install is self-contained
     (AgentLocator + cw harden gh without a source tree). Issue #37 / #96.
   -->
-  <Target Name="IncludePayloadsInPublish" AfterTargets="ComputeFilesToPublish" DependsOnTargets="BuildAgentForBundle;CopyAgentPayload;BuildApprovalGateForBundle;CopyApprovalGatePayload;BuildSecretsManagerForBundle;CopySecretsManagerPayload;CopyGhShimPayload;CopyGitShimPayload;CopyGitHelperPayload;CopyAzShimPayload;CopyDockerShimPayload;CopyCmdwardenAlias">
+  <Target Name="IncludePayloadsInPublish" AfterTargets="ComputeFilesToPublish" DependsOnTargets="BuildAgentForBundle;CopyAgentPayload;BuildApprovalGateForBundle;CopyApprovalGatePayload;BuildSecretsManagerForBundle;CopySecretsManagerPayload;CopyGhShimPayload;CopyGitShimPayload;CopyGitHelperPayload;CopyAzShimPayload;CopyDockerShimPayload;CopyDockerHelperPayload;CopyPackShimPayload;CopyCmdwardenAlias">
     <!-- Drop accidental root-level tool shim apphosts if any residual files remain from older builds. -->
     <ItemGroup>
-      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'gh.exe'&#xA;                                        or '%(Filename)%(Extension)' == 'gh.dll'&#xA;                                        or '%(Filename)%(Extension)' == 'gh.deps.json'&#xA;                                        or '%(Filename)%(Extension)' == 'gh.runtimeconfig.json'&#xA;                                        or '%(Filename)%(Extension)' == 'gh.pdb'&#xA;                                        or '%(Filename)%(Extension)' == 'git.exe'&#xA;                                        or '%(Filename)%(Extension)' == 'git.dll'&#xA;                                        or '%(Filename)%(Extension)' == 'git.deps.json'&#xA;                                        or '%(Filename)%(Extension)' == 'git.runtimeconfig.json'&#xA;                                        or '%(Filename)%(Extension)' == 'git.pdb'&#xA;                                        or '%(Filename)%(Extension)' == 'git-credential-cmdwarden.exe'&#xA;                                        or '%(Filename)%(Extension)' == 'git-credential-cmdwarden.dll'&#xA;                                        or '%(Filename)%(Extension)' == 'git-credential-cmdwarden.deps.json'&#xA;                                        or '%(Filename)%(Extension)' == 'git-credential-cmdwarden.runtimeconfig.json'&#xA;                                        or '%(Filename)%(Extension)' == 'git-credential-cmdwarden.pdb'&#xA;                                        or '%(Filename)%(Extension)' == 'az.exe'&#xA;                                        or '%(Filename)%(Extension)' == 'az.dll'&#xA;                                        or '%(Filename)%(Extension)' == 'az.deps.json'&#xA;                                        or '%(Filename)%(Extension)' == 'az.runtimeconfig.json'&#xA;                                        or '%(Filename)%(Extension)' == 'az.pdb'&#xA;                                        or '%(Filename)%(Extension)' == 'docker.exe'&#xA;                                        or '%(Filename)%(Extension)' == 'docker.dll'&#xA;                                        or '%(Filename)%(Extension)' == 'docker.deps.json'&#xA;                                        or '%(Filename)%(Extension)' == 'docker.runtimeconfig.json'&#xA;                                        or '%(Filename)%(Extension)' == 'docker.pdb'" />
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'gh.exe'&#xA;                                        or '%(Filename)%(Extension)' == 'gh.dll'&#xA;                                        or '%(Filename)%(Extension)' == 'gh.deps.json'&#xA;                                        or '%(Filename)%(Extension)' == 'gh.runtimeconfig.json'&#xA;                                        or '%(Filename)%(Extension)' == 'gh.pdb'&#xA;                                        or '%(Filename)%(Extension)' == 'git.exe'&#xA;                                        or '%(Filename)%(Extension)' == 'git.dll'&#xA;                                        or '%(Filename)%(Extension)' == 'git.deps.json'&#xA;                                        or '%(Filename)%(Extension)' == 'git.runtimeconfig.json'&#xA;                                        or '%(Filename)%(Extension)' == 'git.pdb'&#xA;                                        or '%(Filename)%(Extension)' == 'git-credential-cmdwarden.exe'&#xA;                                        or '%(Filename)%(Extension)' == 'git-credential-cmdwarden.dll'&#xA;                                        or '%(Filename)%(Extension)' == 'git-credential-cmdwarden.deps.json'&#xA;                                        or '%(Filename)%(Extension)' == 'git-credential-cmdwarden.runtimeconfig.json'&#xA;                                        or '%(Filename)%(Extension)' == 'git-credential-cmdwarden.pdb'&#xA;                                        or '%(Filename)%(Extension)' == 'az.exe'&#xA;                                        or '%(Filename)%(Extension)' == 'az.dll'&#xA;                                        or '%(Filename)%(Extension)' == 'az.deps.json'&#xA;                                        or '%(Filename)%(Extension)' == 'az.runtimeconfig.json'&#xA;                                        or '%(Filename)%(Extension)' == 'az.pdb'&#xA;                                        or '%(Filename)%(Extension)' == 'docker.exe'&#xA;                                        or '%(Filename)%(Extension)' == 'docker.dll'&#xA;                                        or '%(Filename)%(Extension)' == 'docker.deps.json'&#xA;                                        or '%(Filename)%(Extension)' == 'docker.runtimeconfig.json'&#xA;                                        or '%(Filename)%(Extension)' == 'docker.pdb'&#xA;                                        or '%(Filename)%(Extension)' == 'cw-pack-shim.exe'&#xA;                                        or '%(Filename)%(Extension)' == 'cw-pack-shim.dll'&#xA;                                        or '%(Filename)%(Extension)' == 'cw-pack-shim.deps.json'&#xA;                                        or '%(Filename)%(Extension)' == 'cw-pack-shim.runtimeconfig.json'&#xA;                                        or '%(Filename)%(Extension)' == 'cw-pack-shim.pdb'" />
     </ItemGroup>
     <ItemGroup Condition="Exists('$(TargetDir)agent')">
       <_AgentPublish Include="$(TargetDir)agent\**\*.*" />

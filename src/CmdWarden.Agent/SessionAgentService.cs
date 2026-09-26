@@ -6,7 +6,9 @@ using Grpc.Core;
 using CmdWarden.Agent.Approval;
 using CmdWarden.Agent.Identity;
 using CmdWarden.Contracts;
+using CmdWarden.Contracts.GitHub;
 using CmdWarden.Contracts.Grpc;
+using CmdWarden.Contracts.Ssh;
 
 namespace CmdWarden.Agent;
 
@@ -32,6 +34,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     private readonly string _productRoot;
     private readonly AlarmNotifier _alarm;
     private readonly SeenCommands _seen;
+    private readonly GitHubAppTokens _githubApp;
 
     public SessionAgentService(
         AgentRuntimeInfo runtime,
@@ -56,6 +59,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         _productRoot = runtime.ProductRoot;
         _alarm = alarm;
         _seen = new SeenCommands(runtime.ProductRoot);
+        _githubApp = new GitHubAppTokens(vault);
     }
 
     public override Task<HealthResponse> GetHealth(HealthRequest request, ServerCallContext context)
@@ -277,8 +281,10 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     public override Task<AuthorizeResponse> Authorize(AuthorizeRequest request, ServerCallContext context)
     {
         var tool = string.IsNullOrWhiteSpace(request.Tool) ? "gh" : request.Tool.Trim().ToLowerInvariant();
+        var pack = ToolPacks.Find(tool, _productRoot);
         // git/az never inject vault secrets (#40 / #41). docker optionally injects DOCKER_AUTH_CONFIG (#42).
-        var neverInjectVault = tool is "git" or "az";
+        // A pack tool gets the vault entries its pack names (#37).
+        var neverInjectVault = tool is "git" or "az" || pack is not null;
         var secretName = string.IsNullOrWhiteSpace(request.SecretName)
             ? tool switch
             {
@@ -290,8 +296,17 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var agentReason = AgentReason.Clean(request.AgentReason);
         // gh auth login/refresh/logout/switch refuse GH_TOKEN; the grant carries none (#198).
         var ghKeyringAuth = tool == "gh" && GhCommandClassifier.IsKeyringAuthMutation(argv);
+        // #40: a gh command on one github.com repo gets a GitHub App token for that repo only.
+        var appConfig = tool == "gh" && !ghKeyringAuth && !GhCommandClassifier.IsHelpOnly(argv) ? GitHubApp.Load(_productRoot) : null;
+        var appRepo = appConfig is null ? null
+            : GitHubApp.RepoFor(argv, request.CallerEnv.TryGetValue("GH_REPO", out var ghRepo) ? ghRepo : null, NullIfEmpty(request.WorkingDirectory));
+        var packSecrets = pack is not null && pack.ReleasesSecrets(argv)
+            ? pack.SecretEnv.Intersect(_vault.ListNames(), StringComparer.OrdinalIgnoreCase).ToList()
+            : [];
         // Audit secret id only when a vault value may be released (gh always; docker when present).
-        var auditSecretName = neverInjectVault || ghKeyringAuth ? null : secretName;
+        var auditSecretName = appRepo is not null ? GitHubApp.TokenLabel(appRepo)
+            : packSecrets.Count > 0 ? string.Join(",", packSecrets)
+            : neverInjectVault || ghKeyringAuth ? null : secretName;
 
         var launcher = ResolveSafe(context);
         ApplyPolicyChanges(_policy.Load());
@@ -299,7 +314,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             _memory.ClearForTool(tool);
 
         var strongPin = _pins.TryGet(tool)?.IsStrong == true;
-        var commandClass = Classify(tool, argv);
+        var commandClass = Classify(tool, argv, pack);
         // Strong git: a credential.* key in GIT_CONFIG_KEY_<n> reads like -c credential.* (#207).
         if (tool == "git" && strongPin && GitCommandClassifier.HasSecretAdjacentConfigEnv(request.CallerEnv))
             commandClass = CommandClass.SecretReveal;
@@ -307,7 +322,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
 
         var resolved = _policy.ResolveLevel(tool, launcher.Selected.PolicyKey, launcher.AutoApproveEligible);
         var levelName = PolicyLevelNames.Format(resolved.Level);
-        var (decision, decisionReason, risk) = DecideWithRisk(tool, argv, commandClass, resolved, request.WorkingDirectory, auditSecretName);
+        var (decision, decisionReason, risk) = DecideWithRisk(tool, argv, commandClass, resolved, request.WorkingDirectory, auditSecretName, pack);
         var decisionLabel = GateDecisions.AutoAllow;
 
         ThrowIfAlarmed(launcher, resolved, tool, className, levelName, auditSecretName, "authorize");
@@ -372,7 +387,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             "git" => GitCommandClassifier.IsHelpOnly(argv),
             "az" => AzCommandClassifier.IsHelpOnly(argv),
             "docker" => DockerCommandClassifier.IsHelpOnly(argv),
-            _ => false,
+            _ => pack?.IsHelpOnly(argv) ?? false,
         };
         // gh requires vault token (except help); docker optionally injects DOCKER_AUTH_CONFIG when present.
         // Strong docker serves registry credentials through the helper, so the overlay stops (#204).
@@ -389,12 +404,27 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         // Strong az (#26): the run gets a copy of the az login from the store.
         var strongAz = tool == "az" && pinCheck.Pin.IsStrong && !helpOnly;
         var auditedSecretName = strongAz ? AzStrongStore.AuditName
+            : packSecrets.Count > 0 || appRepo is not null ? auditSecretName
             : requireVaultSecret
             || (optionalDockerAuth && _vault.ListNames().Contains(secretName, StringComparer.OrdinalIgnoreCase))
             ? secretName
             : null;
         AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName,
             launcher, resolved, auditedSecretName, helpOnly ? "authorize-help" : "authorize", agentReason));
+        // #40: the app token first. Without one, the personal token serves, and its own row comes first.
+        GitHubAppToken? appToken = null;
+        string? appNote = null;
+        if (appRepo is not null && !helpOnly)
+        {
+            appToken = _githubApp.TryGet(appConfig!, appRepo, out var why);
+            if (appToken is null)
+                appNote = $"no GitHub App token for {appRepo} ({why}); gh uses your personal token.";
+            if (appToken is not null)
+                ghReleases = ghReleases.Where(r => r.EnvName != "GH_TOKEN").ToList();
+            else if (requireVaultSecret)
+                AppendOrThrow(GateRecord(decisionLabel, PolicyReasonCodes.AppTokenFallback, tool, className, levelName,
+                    launcher, resolved, secretName, "authorize", agentReason));
+        }
         // One row per released strong-gh entry, vault name only (#208).
         foreach (var (_, target) in ghReleases)
             AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName,
@@ -421,7 +451,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 EnrollmentKind = LauncherEnrollmentKindNames.Format(resolved.EnrollmentKind),
                 Tool = tool,
                 ReasonCode = decisionReason ?? "",
-                Message = "",
+                Message = appNote ?? "",
             };
 
             // Child-only: point nested tooling at the real binary, not the PATH shim (#39).
@@ -453,7 +483,17 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 Array.Clear(bytes);
             }
 
-            if (requireVaultSecret)
+            foreach (var name in packSecrets)
+            {
+                var bytes = _vault.Read(name);
+                response.Env[name] = System.Text.Encoding.UTF8.GetString(bytes);
+                Array.Clear(bytes);
+            }
+
+            if (appToken is not null)
+                response.Env["GH_TOKEN"] = appToken.Token;
+
+            if (requireVaultSecret && appToken is null)
             {
                 var bytes = _vault.Read(secretName);
                 var token = System.Text.Encoding.UTF8.GetString(bytes);
@@ -769,6 +809,67 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     }
 
     /// <summary>
+    /// One sign request through the ssh gate (#39). The launcher comes from the pipe client pid,
+    /// past ssh.exe and git. The class comes from the ssh command line: a git fetch reads, a push or
+    /// a shell writes. True when the sign may go to the real agent; the audit row is written first.
+    /// </summary>
+    /// <param name="keyLabel">The key comment, or the fingerprint when the key has none. The card and the audit name the key by it.</param>
+    public bool AuthorizeSshSign(int clientPid, SshClientCommand command, string keyLabel, string fingerprint, string? clientPath)
+    {
+        const string tool = SshGate.Tool;
+        const string purpose = "sign";
+        // Load first: the harness check below reads the enrolled launchers.
+        ApplyPolicyChanges(_policy.Load());
+        var launcher = LauncherIdentityResolver.PreferHarnessAncestor(
+            _identity.ResolveVerifiedPid(clientPid, IsSshTool), IsHarnessKey);
+        var resolved = _policy.ResolveLevel(tool, launcher.Selected.PolicyKey, launcher.AutoApproveEligible);
+        var className = CommandClassNames.Format(command.Class);
+        var levelName = PolicyLevelNames.Format(resolved.Level);
+        var target = command.Host is null ? null : (command.User is null ? "" : command.User + "@") + command.Host;
+        var key = keyLabel == fingerprint ? keyLabel : $"{keyLabel} ({fingerprint})";
+        var impact = target is null
+            ? $"Signs with the ssh key {key} for {command.Program}."
+            : $"Signs in to {target} with the ssh key {key}.{(command.Repo is { } repo ? $" Repo {repo}." : "")}";
+        try
+        {
+            ThrowIfAlarmed(launcher, resolved, tool, className, levelName, keyLabel, purpose);
+            var decisionLabel = GateDecisions.AutoAllow;
+            string? decisionReason = null;
+            var hidden = HiddenWrapper(launcher);
+            if (hidden is not null || PolicyEvaluator.Decide(resolved.Level, command.Class) != PolicyDecision.AutoAllow)
+            {
+                var gate = GateOrThrow(launcher, resolved, command.Class, BuildApprovalRequest(
+                    tool: tool,
+                    className: className,
+                    levelName: levelName,
+                    launcher: launcher,
+                    secretName: keyLabel,
+                    purpose: purpose,
+                    enrollmentKind: LauncherEnrollmentKindNames.Format(resolved.EnrollmentKind),
+                    policyNote: resolved.ReasonCode,
+                    commandLine: target is null ? command.Program : $"ssh {target} {command.RemoteCommand}".TrimEnd(),
+                    toolPath: clientPath,
+                    workingDirectory: null) with { HiddenCommand = hidden, Impact = impact },
+                    verb: purpose, auditSecretName: keyLabel, purpose: purpose);
+                decisionLabel = gate.Decision;
+                decisionReason = gate.Reason;
+            }
+            AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName, launcher, resolved, keyLabel, purpose));
+            return true;
+        }
+        catch (RpcException)
+        {
+            // Deny, no popup, or no audit row: the deny path wrote its own row.
+            return false;
+        }
+    }
+
+    /// <summary>ssh.exe, ssh-keygen, git and the sh that git runs ssh through are the tool, not the launcher.</summary>
+    private static bool IsSshTool(ProcessNode node) =>
+        (node.FileName ?? "").ToLowerInvariant() is "ssh.exe" or "ssh-keygen.exe" or "git.exe" or "sh.exe"
+        || (node.FileName ?? "").StartsWith("git-", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Leak guard (#27). Each vaulted value in the texts becomes [CmdWarden: NAME]; the values stay
     /// here. Each match writes an audit row with the name and the launcher. A canary match raises
     /// the alarm for the launcher (#29) and still redacts.
@@ -812,9 +913,9 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     /// write of an enrolled launcher runs when policy auto-allows low-risk writes.
     /// </summary>
     private (PolicyDecision Decision, string? Reason, RiskAssessment Risk) DecideWithRisk(string tool, IReadOnlyList<string> argv,
-        CommandClass commandClass, PolicyResolveResult resolved, string? workingDirectory, string? secretName)
+        CommandClass commandClass, PolicyResolveResult resolved, string? workingDirectory, string? secretName, ToolPack? pack)
     {
-        var risk = RiskAssessor.Assess(tool, argv, commandClass, NullIfEmpty(workingDirectory), secretName);
+        var risk = RiskAssessor.Assess(tool, argv, commandClass, NullIfEmpty(workingDirectory), secretName, pack);
         var decision = PolicyEvaluator.Decide(resolved.Level, commandClass);
         if (risk.Level == RiskLevel.High && resolved.Level != PolicyLevel.Full)
             return (PolicyDecision.NeedsApproval, PolicyReasonCodes.HighRisk, risk);
@@ -836,13 +937,13 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
 
     private static string? NullIfEmpty(string? text) => string.IsNullOrWhiteSpace(text) ? null : text;
 
-    private static CommandClass Classify(string tool, IReadOnlyList<string> argv) => tool switch
+    private static CommandClass Classify(string tool, IReadOnlyList<string> argv, ToolPack? pack) => tool switch
     {
         "gh" => GhCommandClassifier.Classify(argv),
         "git" => GitCommandClassifier.Classify(argv),
         "az" => AzCommandClassifier.Classify(argv),
         "docker" => DockerCommandClassifier.Classify(argv),
-        _ => CommandClass.Unknown,
+        _ => pack?.Classify(argv) ?? CommandClass.Unknown,
     };
 
     /// <summary>
@@ -856,7 +957,8 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var argv = request.Argv.ToList();
         var launcher = ResolveSafe(context);
         var resolved = _policy.ResolveLevel(tool, launcher.Selected.PolicyKey, launcher.AutoApproveEligible);
-        var commandClass = Classify(tool, argv);
+        var pack = ToolPacks.Find(tool, _productRoot);
+        var commandClass = Classify(tool, argv, pack);
         var response = new CheckPolicyResponse
         {
             Decision = PolicyCheckDecisions.Allow,
@@ -885,7 +987,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         if (!pin.IsOk)
             return Deny(PolicyReasonCodes.PinMismatch, $"The {tool} binary changed since cw harden {tool}: {pin.Error}");
 
-        var (decision, reason, _) = DecideWithRisk(tool, argv, commandClass, resolved, request.WorkingDirectory, null);
+        var (decision, reason, _) = DecideWithRisk(tool, argv, commandClass, resolved, request.WorkingDirectory, null, pack);
         if (HiddenWrapper(launcher) is null && decision == PolicyDecision.AutoAllow)
         {
             response.ReasonCode = reason ?? "";

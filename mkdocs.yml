@@ -55,10 +55,16 @@ nav:
       - UC7 Audit and scan: use-cases/audit-and-scan.md
       - UC8 Undo or uninstall: use-cases/undo-and-uninstall.md
       - UC9 Secrets in the Vault app: use-cases/vault-add-remove-secrets.md
+      - UC10 Gate npm: use-cases/gate-npm.md
+      - UC11 Gate the AWS CLI: use-cases/gate-aws.md
+      - UC12 Gate kubectl: use-cases/gate-kubectl.md
+      - UC13 Gate ssh key use: use-cases/gate-ssh-keys.md
+      - UC14 Short-lived GitHub tokens: use-cases/short-lived-github-tokens.md
   - Guide:
       - user-guide.md
       - How it works: concepts.md
       - CmdWarden Vault app: vault.md
+      - Tool packs: tool-packs.md
       - Troubleshooting: troubleshooting.md
       - CLI reference: cli-reference.md
       - Glossary: glossary.md

@@ -45,7 +45,7 @@ public class PolicyReadModelTests : IDisposable
         Assert.Equal("pathhash:sha256:abc", l.PolicyKey);
         Assert.Equal(LauncherEnrollmentKind.AiHarness, l.Kind);
         Assert.Equal(@"C:\Tools\cursor.exe", l.DisplayPath);
-        Assert.Equal(ToolCatalog.Tools.Select(t => t.Id), l.Tools.Select(t => t.Tool));
+        Assert.Equal(ToolCatalog.All().Select(t => t.Id), l.Tools.Select(t => t.Tool));
         Assert.All(l.Tools, t => Assert.Equal(PolicyLevel.Read, t.Level));
         Assert.All(l.Tools, t => Assert.False(t.IsOverride));
     }

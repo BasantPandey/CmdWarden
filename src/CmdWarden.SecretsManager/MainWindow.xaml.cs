@@ -456,14 +456,15 @@ public partial class MainWindow : Window
         _toolsBusy = true;
         if (_currentPage == "tools")
             PagePrimaryButton.IsEnabled = false;
-        ToolsList.ItemsSource = ToolCatalog.Tools
+        var catalog = ToolCatalog.All();
+        ToolsList.ItemsSource = catalog
             .Select(t => MakeToolCard(t, "", "Checking...", PillKind.Muted, ""))
             .ToList();
         try
         {
             var statuses = await Task.Run(() =>
-                ToolCatalog.Tools.Select(t => HardenedToolStatus.Probe(t.Id)).ToList()).ConfigureAwait(true);
-            ToolsList.ItemsSource = ToolCatalog.Tools.Zip(statuses, (t, s) => s.State switch
+                catalog.Select(t => HardenedToolStatus.Probe(t.Id)).ToList()).ConfigureAwait(true);
+            ToolsList.ItemsSource = catalog.Zip(statuses, (t, s) => s.State switch
             {
                 HardenState.Hardened => MakeToolCard(t, s.PinnedPath ?? "", "Hardened", PillKind.Ok, s.Note ?? ""),
                 HardenState.Degraded => MakeToolCard(t, s.PinnedPath ?? "", "Degraded", PillKind.Warn, s.Reason ?? ""),
@@ -802,7 +803,7 @@ public partial class MainWindow : Window
             _ => ("Unknown", PillKind.Muted),
         };
         var (kbg, kfg) = PillBrushes(kindPill);
-        var names = ToolCatalog.Tools.ToDictionary(t => t.Id, t => t.DisplayName);
+        var names = ToolCatalog.All().ToDictionary(t => t.Id, t => t.DisplayName);
         var rows = l.Tools
             .Select(t => MakeLevelRow(names.GetValueOrDefault(t.Tool, t.Tool), t.Level, t.IsOverride ? "" : "(kind default)", t.Tool))
             .ToList();

@@ -167,12 +167,11 @@ public static class McpTools
 
     public static async Task<McpToolResult> ListAllowedAsync(string? pipeName, string? productRoot, CancellationToken ct)
     {
-        var pins = new ToolPinStore(productRoot);
         var sb = new StringBuilder();
         string? launcher = null;
-        foreach (var tool in ToolCatalog.Tools)
+        foreach (var tool in ToolCatalog.All(productRoot))
         {
-            if (pins.TryGet(tool.Id) is null)
+            if (HardenedToolStatus.Probe(tool.Id, productRoot).State == HardenState.NotHardened)
             {
                 sb.AppendLine($"{tool.Id}: not hardened. CmdWarden does not gate it.");
                 continue;

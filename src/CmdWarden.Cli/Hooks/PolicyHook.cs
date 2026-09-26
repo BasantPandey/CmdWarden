@@ -67,6 +67,7 @@ public static class PolicyHook
     public static IReadOnlyList<ToolCall> FindToolCalls(string command)
     {
         var calls = new List<ToolCall>();
+        var known = ToolCatalog.All();
         foreach (var words in Segments(command))
         {
             var i = 0;
@@ -75,7 +76,7 @@ public static class PolicyHook
             if (i >= words.Count)
                 continue;
             var name = Path.GetFileNameWithoutExtension(words[i].Replace('\\', '/').Split('/')[^1]).ToLowerInvariant();
-            if (ToolCatalog.Tools.Any(t => t.Id == name))
+            if (known.Any(t => t.Id == name))
                 calls.Add(new ToolCall(name, words.Skip(i + 1).ToList()));
         }
         return calls;

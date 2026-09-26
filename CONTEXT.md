@@ -64,5 +64,8 @@ The first end-to-end proof path: Shim → Session Agent → identity → Vault �
 ### First Catalog
 The tools the implementation roadmap designs for scan + harden in depth: **`gh`**, **`git`**, **`az`**, **`docker`**. Only **`gh`** is required for the Spike Vertical in this map.
 
+### Tool Pack
+One JSON file that describes a tool for **Harden**: the real binary names, the **Command Class** rules, the **Vault** names that go into the child env, and the config files **Scan** reads. One generic **Shim** serves every pack tool. The **First Catalog** tools keep their own code.
+
 ### Inspired Twin
 A Windows product with the same *job* as Automic Vault on macOS, without requiring shared codebase, CLI parity, or upstream alignment.

@@ -139,9 +139,9 @@ public class HardenedToolStatusTests : IDisposable
     }
 
     [Fact]
-    public void Catalog_is_fixed_four_in_order()
+    public void Catalog_is_the_first_four_then_ssh_in_order()
     {
-        Assert.Equal(["gh", "git", "az", "docker"], ToolCatalog.Tools.Select(t => t.Id));
+        Assert.Equal(["gh", "git", "az", "docker", "ssh"], ToolCatalog.Tools.Select(t => t.Id));
     }
 
     public void Dispose()

@@ -17,21 +17,21 @@ public sealed record RiskAssessment(RiskLevel Level, string? Impact)
 /// <summary>
 /// Risk signals for one command (#35): a push to the default branch, a force push, a delete, and a
 /// secret-reveal. The repo and branch come from the .git folder of the working folder.
-/// ponytail: git push, gh and az deletes, and gh pr merge only. Other commands are Normal.
+/// ponytail: git push, gh and az deletes, gh pr merge, and the risk of a pack rule only. Other commands are Normal.
 /// </summary>
 public static class RiskAssessor
 {
     public const string CannotUndo = "You cannot undo this.";
 
     public static RiskAssessment Assess(string tool, IReadOnlyList<string> argv, CommandClass commandClass,
-        string? workingDirectory, string? secretName = null)
+        string? workingDirectory, string? secretName = null, ToolPack? pack = null)
     {
         var risk = tool switch
         {
             "git" => Git(argv, workingDirectory),
             "gh" => Gh(argv, workingDirectory),
             "az" => Az(argv),
-            _ => RiskAssessment.Plain,
+            _ => pack?.Assess(argv) ?? RiskAssessment.Plain,
         };
         if (risk.Impact is null && commandClass == CommandClass.SecretReveal)
             return risk with { Impact = $"Shows the {(string.IsNullOrEmpty(secretName) ? "secret" : secretName)} value to the app that runs this." };

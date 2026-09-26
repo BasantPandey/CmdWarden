@@ -15,8 +15,20 @@ internal static class BrandImages
 {
     private static readonly Dictionary<string, ImageSource?> Cache = new(StringComparer.OrdinalIgnoreCase);
 
-    public static ImageSource? ForTool(string? tool) =>
-        BrandMarks.ForTool(tool) is { } mark ? FromMark(mark) : null;
+    public static ImageSource? ForTool(string? tool)
+    {
+        if (BrandMarks.ForTool(tool) is not { } mark)
+            return null;
+        try
+        {
+            return FromMark(mark);
+        }
+        catch (Exception ex) when (ex is FormatException or InvalidOperationException)
+        {
+            // A user tool pack can carry a bad logo. The card then shows no logo.
+            return null;
+        }
+    }
 
     /// <summary>Known harness logo first, then the exe icon from <paramref name="path"/>, else null.</summary>
     public static ImageSource? ForLauncher(string? displayName, string? path)

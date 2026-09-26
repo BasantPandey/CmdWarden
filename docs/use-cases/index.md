@@ -1,6 +1,6 @@
 ---
 title: Use cases
-description: Nine short guides for CmdWarden, from gating your GitHub token from an AI agent to undoing everything.
+description: Fourteen short guides for CmdWarden, from gating your GitHub token from an AI agent to undoing everything.
 ---
 
 # Use cases
@@ -18,5 +18,10 @@ Each guide states when to use it, the commands to type, and what to expect. Want
 | **UC7** | [Audit and scan when something feels wrong](audit-and-scan.md) | `doctor`, `whoami`, `scan`, `audit` |
 | **UC8** | [Undo or uninstall](undo-and-uninstall.md) | Unenroll, uninstall |
 | **UC9** | [Add and remove secrets in CmdWarden Vault](vault-add-remove-secrets.md) | No CLI, desktop app only |
+| **UC10** | [Gate npm and your npm token](gate-npm.md) | Publish and token commands ask; install scripts never see the token |
+| **UC11** | [Gate the AWS CLI](gate-aws.md) | Key-printing and delete commands ask; keys in the vault |
+| **UC12** | [Gate kubectl](gate-kubectl.md) | Secret objects, raw kubeconfig, exec, and deletes ask |
+| **UC13** | [Gate ssh key use](gate-ssh-keys.md) | A push over ssh from the agent asks; your terminal pushes freely |
+| **UC14** | [Short-lived GitHub tokens for one repo](short-lived-github-tokens.md) | gh gets a GitHub App token for the current repo that ends in one hour |
 
 New here? Start with **UC1**, then read **UC2**. Terms you meet along the way are in the [Glossary](../glossary.md).
