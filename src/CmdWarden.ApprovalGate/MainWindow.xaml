@@ -6,6 +6,7 @@
         Width="600"
         SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
+        Topmost="True"
         ResizeMode="NoResize"
         Background="#202020"
         FontFamily="Segoe UI Variable, Segoe UI"
@@ -102,7 +103,7 @@
         </StackPanel>
       </Border>
 
-      <TextBlock x:Name="ReasonHeading" FontSize="15" FontWeight="SemiBold" Foreground="White" Margin="0,0,0,6" />
+      <TextBlock x:Name="ReasonHeading" FontSize="15" FontWeight="SemiBold" Foreground="White" Margin="0,0,0,6" TextWrapping="Wrap" />
       <TextBlock x:Name="ReasonLine" FontSize="13" Foreground="#B8FFFFFF" TextWrapping="Wrap" Margin="0,0,0,12" />
 
       <Expander Header="Details" IsExpanded="False" Margin="0,0,0,16" Foreground="#60CDFF">
