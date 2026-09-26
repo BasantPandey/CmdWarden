@@ -1,4 +1,9 @@
 <Project>
+  <!-- #42: the release signs every file with this company name, and no third-party file. -->
+  <PropertyGroup>
+    <Company>CmdWarden</Company>
+    <Product>CmdWarden</Product>
+  </PropertyGroup>
   <!-- CmdWarden runs on Windows only. Say so for the plain net10.0 projects, so CA1416 checks Windows calls correctly. -->
   <ItemGroup Condition="'$(TargetPlatformIdentifier)' != 'Windows'">
     <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">

@@ -13,6 +13,10 @@ jobs:
     permissions:
       contents: write
       packages: write
+    # #42: signing runs when one signing way is configured. Secrets cannot go in an if, so env carries them.
+    env:
+      ARTIFACT_SIGNING_ENDPOINT: ${{ secrets.ARTIFACT_SIGNING_ENDPOINT }}
+      CODE_SIGNING_PFX: ${{ secrets.CODE_SIGNING_PFX }}
 
     steps:
       - name: Checkout
@@ -58,13 +62,6 @@ jobs:
           -p:Version=${{ env.VERSION }}
           -p:PackageVersion=${{ env.VERSION }}
 
-      - name: Push nupkg to GitHub Packages
-        run: >
-          dotnet nuget push ${{ github.workspace }}/artifacts/nupkg/CmdWarden.${{ env.VERSION }}.nupkg
-          --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
-          --api-key ${{ secrets.GITHUB_TOKEN }}
-          --skip-duplicate
-
       - name: Publish Windows exes
         shell: pwsh
         run: |
@@ -100,6 +97,73 @@ jobs:
             }
           }
 
+      - name: Stage the files to sign
+        shell: pwsh
+        run: >
+          ./scripts/Release-Signing.ps1 -Stage
+          -Bin artifacts/bin
+          -Nupkg artifacts/nupkg/CmdWarden.${{ env.VERSION }}.nupkg
+          -Script scripts/Install-CmdWarden.ps1,scripts/Uninstall-CmdWarden.ps1
+          -Out artifacts/to-sign
+
+      - name: Sign with Azure Artifact Signing
+        if: env.ARTIFACT_SIGNING_ENDPOINT != ''
+        uses: azure/artifact-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.ARTIFACT_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}/artifacts/to-sign/files
+          files-folder-filter: exe,dll,ps1
+          files-folder-recurse: true
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Sign with a code signing certificate
+        if: env.ARTIFACT_SIGNING_ENDPOINT == '' && env.CODE_SIGNING_PFX != ''
+        shell: pwsh
+        env:
+          CODE_SIGNING_PASSWORD: ${{ secrets.CODE_SIGNING_PASSWORD }}
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP "cmdwarden-signing.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CODE_SIGNING_PFX))
+          try {
+            $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+              Sort-Object FullName | Select-Object -Last 1 -ExpandProperty FullName
+            $files = Get-ChildItem artifacts/to-sign/files -Recurse -File | Select-Object -ExpandProperty FullName
+            & $signtool sign /fd SHA256 /f $pfx /p $env:CODE_SIGNING_PASSWORD /tr http://timestamp.digicert.com /td SHA256 $files
+            if ($LASTEXITCODE -ne 0) { throw "signtool failed with exit code $LASTEXITCODE" }
+          }
+          finally {
+            Remove-Item -Force $pfx -ErrorAction SilentlyContinue
+          }
+
+      - name: Put the signed files back and check them
+        shell: pwsh
+        run: |
+          if (-not $env:ARTIFACT_SIGNING_ENDPOINT -and -not $env:CODE_SIGNING_PFX) {
+            if ("${{ vars.REQUIRE_SIGNING }}" -eq "true") { throw "REQUIRE_SIGNING is true, but no signing secret is set." }
+            Write-Host "::warning::No signing secret is set. The release binaries are not signed."
+            exit 0
+          }
+          ./scripts/Release-Signing.ps1 -Apply -Out artifacts/to-sign
+          ./scripts/Release-Signing.ps1 -Verify -Out artifacts/to-sign
+
+      - name: Push nupkg to GitHub Packages
+        run: >
+          dotnet nuget push ${{ github.workspace }}/artifacts/nupkg/CmdWarden.${{ env.VERSION }}.nupkg
+          --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+          --api-key ${{ secrets.GITHUB_TOKEN }}
+          --skip-duplicate
+
+      - name: Zip Windows exes
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:GITHUB_WORKSPACE "artifacts/bin"
           $zip = Join-Path $env:GITHUB_WORKSPACE "artifacts/CmdWarden.$($env:VERSION)-win-x64.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
           Compress-Archive -Path (Join-Path $out '*') -DestinationPath $zip -Force
@@ -177,6 +241,15 @@ jobs:
           1. Download and extract ``CmdWarden.$v-win-x64.zip``.
           2. Run ``cw.exe`` / ``cmdwarden.exe`` from the extract folder (or add it to PATH).
           3. Session Agent is under ``agent\CmdWarden.Agent.exe``; harden payloads under ``shim-payload\``.
+
+          ### Signature
+
+          Every CmdWarden exe and dll carries a signature when the release was signed. Check them:
+
+          ``````powershell
+          Get-ChildItem "$env:USERPROFILE\.dotnet\tools\.store\cmdwarden" -Recurse -Include cw.dll, CmdWarden.*.exe |
+            Get-AuthenticodeSignature | Format-Table Status, Path
+          ``````
 
           ### After install
 

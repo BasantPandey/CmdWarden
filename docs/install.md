@@ -95,6 +95,15 @@ CmdWarden doctor
 
 `cw doctor` starts the Session Agent when it is not running. State lives under `%LOCALAPPDATA%\CmdWarden\`.
 
+Check the signatures of the installed files. A signed release shows `Valid` on each row:
+
+```powershell
+Get-ChildItem "$env:USERPROFILE\.dotnet\tools\.store\cmdwarden" -Recurse -Include cw.dll, CmdWarden.*.exe |
+  Get-AuthenticodeSignature | Format-Table Status, Path
+```
+
+`~\.dotnet\tools\cw.exe` is a launcher that dotnet makes at install. It has no CmdWarden signature.
+
 The package holds these parts:
 
 | Part | Role |
