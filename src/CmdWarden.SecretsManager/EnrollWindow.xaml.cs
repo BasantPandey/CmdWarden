@@ -10,7 +10,7 @@ namespace CmdWarden.SecretsManager;
 /// <summary>#44: enroll a launcher by key, or pick one the audit saw. Enroll is the confirmation.</summary>
 public partial class EnrollWindow : Window
 {
-    private sealed record SeenRow(string PolicyKey, string Name, string Detail, string? Path, ImageSource? Icon);
+    private sealed record SeenRow(string PolicyKey, string Name, string Seen, string Detail, string? Path, ImageSource? Icon);
 
     private readonly IReadOnlyList<SeenRow> _seen;
     private readonly PolicyLevel _harnessDefault;
@@ -24,7 +24,8 @@ public partial class EnrollWindow : Window
         _seen = seen.Select(s => new SeenRow(
             s.PolicyKey,
             s.Path is { } p ? Path.GetFileName(p) : s.PolicyKey,
-            (s.Path ?? s.PolicyKey) + (s.LastSeen is { } t ? "  ·  last seen " + t.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : ""),
+            s.LastSeen is { } t ? "last seen " + t.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "",
+            s.Path ?? s.PolicyKey,
             s.Path,
             BrandImages.ForLauncher(null, s.Path))).ToList();
         SeenList.ItemsSource = _seen;

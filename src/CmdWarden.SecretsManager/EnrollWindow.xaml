@@ -23,14 +23,18 @@
           <ItemsControl x:Name="SeenList" Margin="4">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
-                <RadioButton GroupName="Seen" Style="{StaticResource SegmentStyle}" HorizontalContentAlignment="Left"
+                <RadioButton GroupName="Seen" Style="{StaticResource SegmentStyle}" HorizontalContentAlignment="Stretch"
                              Checked="Seen_Checked" Tag="{Binding PolicyKey}" HorizontalAlignment="Stretch"
                              AutomationProperties.Name="{Binding PolicyKey}">
                   <DockPanel>
                     <Image DockPanel.Dock="Left" Source="{Binding Icon}" Width="20" Height="20" Margin="0,0,10,0"
                            VerticalAlignment="Center" Style="{StaticResource BrandIconStyle}" />
                     <StackPanel>
-                      <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                      <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding Seen}" FontSize="11" FontWeight="Normal" Margin="12,0,0,0"
+                                   VerticalAlignment="Center" Foreground="{StaticResource TextTertiaryBrush}" />
+                        <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                      </DockPanel>
                       <TextBlock Text="{Binding Detail}" FontSize="11" FontWeight="Normal" TextTrimming="CharacterEllipsis"
                                  Foreground="{StaticResource TextTertiaryBrush}" />
                     </StackPanel>

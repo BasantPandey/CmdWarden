@@ -15,6 +15,7 @@ public partial class SetLevelWindow : Window
         _current = current;
         TitleText.Text = $"Set the {toolName} level";
         LauncherText.Text = policyKey;
+        LauncherText.ToolTip = policyKey;
         Button(current).IsChecked = true;
     }
 

@@ -38,7 +38,8 @@ public static class Shot {
     [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr h, int a, out R r, int size);
     [DllImport("user32.dll")] public static extern void keybd_event(byte k, byte s, int f, int e);
     // Windows lets a process take the focus only after a key press. An Alt tap counts.
-    public static void Focus(IntPtr h) { keybd_event(0x12, 0, 0, 0); SetForegroundWindow(h); keybd_event(0x12, 0, 2, 0); }
+    // The wait lets the window read the Alt release before a posted key, which it reads first otherwise.
+    public static void Focus(IntPtr h) { keybd_event(0x12, 0, 0, 0); SetForegroundWindow(h); keybd_event(0x12, 0, 2, 0); System.Threading.Thread.Sleep(300); }
 }
 "@
 # Physical pixels, so window sizes and captures match the screen.
@@ -94,7 +95,13 @@ function Wait-Window([int]$processId, [string]$title, $owner = $null) {
 
 function Find-Id($parent, [string]$id) {
     $cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
-    $parent.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cond)
+    # The UI Automation tree lags behind a page change; look again for up to 5 seconds.
+    for ($i = 0; $i -lt 50; $i++) {
+        $el = $parent.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cond)
+        if ($el) { return $el }
+        Start-Sleep -Milliseconds 100
+    }
+    $null
 }
 
 function Invoke-Id($parent, [string]$id) {
