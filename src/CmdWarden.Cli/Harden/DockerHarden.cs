@@ -52,10 +52,10 @@ public static class DockerHarden
         var pin = pins.TryGet(ToolId) ?? throw new InvalidOperationException("Failed to read pin after save.");
 
         var shimSource = ResolveShimSource(options.ShimSourceDir);
-        InstallShimPayload(shimSource, shimsDir);
+        ShimPayload.Install(shimSource, shimsDir, "docker.exe", HelperTools.DockerHelperExe);
         var helperSource = ResolveHelperSource(options.ShimSourceDir);
         if (!string.Equals(helperSource, shimSource, StringComparison.OrdinalIgnoreCase))
-            InstallShimPayload(helperSource, shimsDir);
+            ShimPayload.Install(helperSource, shimsDir, HelperTools.DockerHelperExe);
 
         var shimExe = Path.Combine(shimsDir, "docker.exe");
         if (!File.Exists(shimExe))
@@ -131,13 +131,4 @@ public static class DockerHarden
             $"Could not locate {baseName} payload. Build {projectFolder} or set CW_DOCKER_SHIM_SOURCE.");
     }
 
-    public static void InstallShimPayload(string sourceDir, string shimsDir)
-    {
-        Directory.CreateDirectory(shimsDir);
-        foreach (var file in Directory.GetFiles(sourceDir))
-        {
-            var name = Path.GetFileName(file);
-            File.Copy(file, Path.Combine(shimsDir, name), overwrite: true);
-        }
-    }
 }

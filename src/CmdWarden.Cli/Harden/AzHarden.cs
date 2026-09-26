@@ -51,7 +51,7 @@ public static class AzHarden
         var pin = pins.TryGet(ToolId) ?? throw new InvalidOperationException("Failed to read pin after save.");
 
         var shimSource = ResolveShimSource(options.ShimSourceDir);
-        InstallShimPayload(shimSource, shimsDir);
+        ShimPayload.Install(shimSource, shimsDir, "az.exe");
 
         var shimExe = Path.Combine(shimsDir, "az.exe");
         if (!File.Exists(shimExe))
@@ -110,13 +110,4 @@ public static class AzHarden
             "Could not locate az shim payload. Build CmdWarden.Shim.Az or set CW_AZ_SHIM_SOURCE.");
     }
 
-    public static void InstallShimPayload(string sourceDir, string shimsDir)
-    {
-        Directory.CreateDirectory(shimsDir);
-        foreach (var file in Directory.GetFiles(sourceDir))
-        {
-            var name = Path.GetFileName(file);
-            File.Copy(file, Path.Combine(shimsDir, name), overwrite: true);
-        }
-    }
 }

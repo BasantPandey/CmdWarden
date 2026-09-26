@@ -53,7 +53,7 @@ public static class GitHarden
         var pin = pins.TryGet(ToolId) ?? throw new InvalidOperationException("Failed to read pin after save.");
 
         var shimSource = ResolveShimSource(options.ShimSourceDir);
-        InstallShimPayload(shimSource, shimsDir);
+        ShimPayload.Install(shimSource, shimsDir, "git.exe", HelperTools.GitHelperExe);
 
         var shimExe = Path.Combine(shimsDir, "git.exe");
         if (!File.Exists(shimExe))
@@ -61,7 +61,7 @@ public static class GitHarden
 
         var helperSource = TryResolveHelperSource(options.HelperSourceDir);
         if (helperSource is not null)
-            InstallShimPayload(helperSource, shimsDir);
+            ShimPayload.Install(helperSource, shimsDir, HelperTools.GitHelperExe);
         var helperExe = Path.Combine(shimsDir, HelperTools.GitHelperExe);
         if (!File.Exists(helperExe))
             helperExe = null;
@@ -164,15 +164,4 @@ public static class GitHarden
         return null;
     }
 
-    public static void InstallShimPayload(string sourceDir, string shimsDir)
-    {
-        Directory.CreateDirectory(shimsDir);
-        foreach (var file in Directory.GetFiles(sourceDir))
-        {
-            var name = Path.GetFileName(file);
-            // Do not clobber a co-installed gh shim when installing from a git-only bin dir is fine;
-            // from a combined payload, overwrite shared runtime deps with same build.
-            File.Copy(file, Path.Combine(shimsDir, name), overwrite: true);
-        }
-    }
 }
