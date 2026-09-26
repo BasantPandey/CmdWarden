@@ -95,6 +95,15 @@ CmdWarden doctor
 
 `cw doctor` starts the Session Agent when it is not running. State lives under `%LOCALAPPDATA%\CmdWarden\`.
 
+Check the signatures of the installed files. A signed release shows `Valid` on each row:
+
+```powershell
+Get-ChildItem "$env:USERPROFILE\.dotnet\tools\.store\cmdwarden" -Recurse -Include cw.dll, CmdWarden.*.exe |
+  Get-AuthenticodeSignature | Format-Table Status, Path
+```
+
+`~\.dotnet\tools\cw.exe` is a launcher that dotnet makes at install. It has no CmdWarden signature.
+
 The package holds these parts:
 
 | Part | Role |
@@ -115,11 +124,15 @@ The card appears on your desktop when policy does not auto-allow a secret releas
 
 ![Approval Gate card](images/approval-gate.png)
 
+### Tray icon
+
+The CmdWarden tray icon lists live session allows, revokes them, and tells you when CmdWarden blocks a retry or a canary use. See [Tray icon](vault.md#tray-icon).
+
 ### CmdWarden Vault
 
-Open **CmdWarden Vault** from the Start Menu or the Desktop icon. Six pages. Every page is read-only except Secrets. The app never shows a secret value.
+Open **CmdWarden Vault** from the Start Menu or the Desktop icon. Six pages. Every page is read-only except Secrets and Secret Gates. The app never shows a secret value.
 
-**Secret Gates** - defaults per launcher kind, one card per enrolled launcher, and active session allows.
+**Secret Gates** - defaults per launcher kind, one card per enrolled launcher, and active session allows. Enroll with **Ctrl+E**, click a level to change it, and unenroll with **Del**.
 
 ![Secret Gates page](images/vault-secret-gates.png)
 
@@ -223,7 +236,18 @@ Templates for Chocolatey, winget, and Scoop live under [packaging/](https://gith
 
 ## 7. Update
 
-The installer script updates in place:
+Run `cw update`:
+
+```powershell
+cw update --check   # only say if a newer release is available
+cw update           # install the newest release
+```
+
+`cw update` reads the newest GitHub Release and downloads its setup zip. It compares the sha256 of the zip with the digest that GitHub shows for the asset. A wrong or missing digest stops the update. Then the installer of the zip runs in a new window with `-Force -Yes`, and `cw` stops. The installer stops the Session Agent and replaces the tool.
+
+`cw update` installs the dotnet tool. For a portable zip install, download the new zip.
+
+From a clone, the installer script updates in place:
 
 ```powershell
 cd path\to\CmdWarden
@@ -251,6 +275,7 @@ Run `cw shortcut install` after every reinstall. The shortcuts point at the exe 
 
 Use one of these:
 
+- Run `cw uninstall`. It runs the same uninstaller as Settings > Apps, in a new window.
 - Open Windows **Settings > Apps**, select **CmdWarden**, and click **Uninstall**.
 - Double-click **`uninstall.cmd`** from the setup zip or from `scripts\`.
 - Run the script:

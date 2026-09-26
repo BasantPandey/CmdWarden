@@ -205,7 +205,8 @@ Stop-CmdWardenProcesses
 Write-Step "Remove shortcuts"
 $links = @(
     (Join-Path ([Environment]::GetFolderPath("Programs")) "CmdWarden Vault.lnk"),
-    (Join-Path ([Environment]::GetFolderPath("DesktopDirectory")) "CmdWarden Vault.lnk")
+    (Join-Path ([Environment]::GetFolderPath("DesktopDirectory")) "CmdWarden Vault.lnk"),
+    (Join-Path ([Environment]::GetFolderPath("Startup")) "CmdWarden tray icon.lnk")
 )
 foreach ($lnk in $links) {
     if (Test-Path $lnk) {

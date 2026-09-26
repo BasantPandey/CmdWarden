@@ -121,6 +121,21 @@
         </StackPanel>
       </Expander>
 
+      <DockPanel x:Name="LengthRow" Margin="0,0,0,12">
+        <TextBlock Text="Allow for session lasts" FontSize="12" Foreground="#8CFFFFFF" VerticalAlignment="Center" />
+        <Border HorizontalAlignment="Right" Background="#1A1A1A" BorderBrush="#18FFFFFF" BorderThickness="1" CornerRadius="8"
+                AutomationProperties.Name="Allow for session lasts">
+          <StackPanel Orientation="Horizontal">
+            <RadioButton x:Name="LengthUntilExit" Style="{StaticResource SegmentStyle}" IsChecked="True"
+                         Content="Until exit" AutomationProperties.Name="Until the launcher exits" />
+            <RadioButton x:Name="LengthTenMinutes" Style="{StaticResource SegmentStyle}"
+                         Content="10 minutes" AutomationProperties.Name="10 minutes" />
+            <RadioButton x:Name="LengthOneHour" Style="{StaticResource SegmentStyle}"
+                         Content="1 hour" AutomationProperties.Name="1 hour" />
+          </StackPanel>
+        </Border>
+      </DockPanel>
+
       <Grid>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*" />

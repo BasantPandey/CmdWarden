@@ -179,6 +179,8 @@ public sealed class AuditGateRecord
     public string? AgentAccount { get; init; }
     /// <summary>#32: what the AI agent said the command is for. A statement, never proof.</summary>
     public string? AgentReason { get; init; }
+    /// <summary>#46: on a session-grant row, how long the grant lasts: "10m", "1h", or "until-exit".</summary>
+    public string? GrantLength { get; init; }
 
     private static readonly JsonSerializerOptions ParseOptions = new() { PropertyNameCaseInsensitive = true };
 

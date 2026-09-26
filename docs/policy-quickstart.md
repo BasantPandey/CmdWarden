@@ -91,7 +91,7 @@ Every command gets one **command class**: **read**, **write**, **secret-reveal**
 | **Trusted** | read, write | secret-reveal, unknown |
 | **Full** | everything | nothing |
 
-The Approval Gate is a desktop card with **Deny**, **Allow for session**, and **Approve Once**. Both allow buttons last until the launcher exits or 60 idle minutes pass. **Approve Once** covers the one command class you saw. **Allow for session** covers that class and every lower one. Neither covers secret-reveal. If no desktop is available, the request **fails closed**.
+The Approval Gate is a desktop card with **Deny**, **Allow for session**, and **Approve Once**. Both allow buttons last until the launcher exits or 60 idle minutes pass. **Approve Once** covers the one command class you saw. **Allow for session** covers that class and every lower one. Neither covers secret-reveal. Above the buttons, choose how long **Allow for session** lasts: **Until exit**, **10 minutes**, or **1 hour**. If no desktop is available, the request **fails closed**.
 
 ### Risk: fewer popups, and the impact first
 

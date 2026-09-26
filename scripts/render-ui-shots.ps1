@@ -4,7 +4,7 @@ Render the Approval Gate and CmdWarden Vault screenshots for the docs.
 
 .DESCRIPTION
 Run: pwsh scripts/render-ui-shots.ps1
-Writes docs/images/approval-gate.png and docs/images/vault-*.png.
+Writes docs/images/approval-gate.png and docs/images/vault-*.png, including the Enroll and Set level dialogs.
 
 The script uses demo data in %LOCALAPPDATA%\CmdWarden-docs and a private pipe.
 Your real policy, audit trail, and agent stay as they are.
@@ -38,7 +38,8 @@ public static class Shot {
     [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr h, int a, out R r, int size);
     [DllImport("user32.dll")] public static extern void keybd_event(byte k, byte s, int f, int e);
     // Windows lets a process take the focus only after a key press. An Alt tap counts.
-    public static void Focus(IntPtr h) { keybd_event(0x12, 0, 0, 0); SetForegroundWindow(h); keybd_event(0x12, 0, 2, 0); }
+    // The wait lets the window read the Alt release before a posted key, which it reads first otherwise.
+    public static void Focus(IntPtr h) { keybd_event(0x12, 0, 0, 0); SetForegroundWindow(h); keybd_event(0x12, 0, 2, 0); System.Threading.Thread.Sleep(300); }
 }
 "@
 # Physical pixels, so window sizes and captures match the screen.
@@ -94,7 +95,13 @@ function Wait-Window([int]$processId, [string]$title, $owner = $null) {
 
 function Find-Id($parent, [string]$id) {
     $cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
-    $parent.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cond)
+    # The UI Automation tree lags behind a page change; look again for up to 5 seconds.
+    for ($i = 0; $i -lt 50; $i++) {
+        $el = $parent.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cond)
+        if ($el) { return $el }
+        Start-Sleep -Milliseconds 100
+    }
+    $null
 }
 
 function Invoke-Id($parent, [string]$id) {
@@ -168,7 +175,7 @@ $payload = Join-Path $root "gate.json"
     enrollmentKind = "AiHarness"; identityKind = "Authenticode"; launcherPath = $claudePath
     policyLevel = "Read"; commandClass = "write"; policyKey = $claude
     requestedAt = $now.ToString("o"); tool = "gh"; sessionAllowOffered = $true
-    sessionScopeLine = "Both answers last until Claude Code (pid 15188) exits. Approve Once covers write commands only."
+    sessionScopeLine = "Approve Once covers write commands until Claude Code (pid 15188) exits. Allow for session ends at the time you choose, or when the launcher exits."
 } | ConvertTo-Json | Set-Content -Encoding utf8 $payload
 
 $gate = Start-Process $gateExe "--payload `"$payload`"" -PassThru
@@ -215,6 +222,27 @@ try {
         Start-Sleep -Seconds 3
         Save-Window $hwnd $pages[$nav]
     }
+
+    # Enroll and Set level dialogs. Both close unsaved: the demo policy stays as it is.
+    Invoke-Id $w "NavGates"
+    Start-Sleep -Seconds 2
+    Invoke-Id $w "PagePrimaryButton"
+    $enroll = Wait-Window $vault.Id "Enroll launcher" $w
+    $seen = $enroll.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::RadioButton)))
+    $seen.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Start-Sleep -Milliseconds 400
+    Save-Window (Hwnd $enroll) "vault-enroll-launcher.png"
+    $enroll.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close()
+    Start-Sleep -Milliseconds 400
+    $pill = $w.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "Set the GitHub CLI level")))
+    $pill.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $set = Wait-Window $vault.Id "Set level" $w
+    Start-Sleep -Milliseconds 400
+    Save-Window (Hwnd $set) "vault-set-level.png"
+    $set.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close()
+    Start-Sleep -Milliseconds 400
 
     Invoke-Id $w "NavSecrets"
     Start-Sleep -Seconds 2

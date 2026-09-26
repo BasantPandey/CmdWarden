@@ -232,6 +232,8 @@ public sealed class ApprovalMemory
     /// Record a human decision that lasts the launcher session. "Allow for session" covers the
     /// granted class and every class below it; "Approve Once" covers that one class (#205).
     /// A later decision adds to the grant it finds, so a narrow answer never takes coverage away.
+    /// A <paramref name="duration"/> ends the grant at that time (#46). Of two end times the
+    /// earlier one stays, so a later answer never makes a grant last longer than a person chose.
     /// Null when the launcher process cannot be bound (dead, or the chain reported a different
     /// start time than the live process) or when nothing is left to cover (secret-reveal).
     /// </summary>
@@ -244,7 +246,8 @@ public sealed class ApprovalMemory
         string secretName,
         CommandClass grantedClass,
         bool exactClass = false,
-        IReadOnlyList<BoundFile>? files = null)
+        IReadOnlyList<BoundFile>? files = null,
+        TimeSpan? duration = null)
     {
         if (ProcessStartUtc(launcherPid) is not { } liveStart)
             return null;
@@ -254,14 +257,16 @@ public sealed class ApprovalMemory
         if (mask == 0)
             return null;
         var now = DateTime.UtcNow;
+        DateTime? ends = duration is { } d ? now + d : null;
         var key = SessionKey(launcherPid, liveStart.Ticks, tool, secretName);
-        var grant = _sessions.TryGetValue(key, out var live) && IsLive(live.LauncherPid, live.LauncherStartUtc)
+        var grant = _sessions.TryGetValue(key, out var live) && IsLive(live.LauncherPid, live.LauncherStartUtc) && !HasEnded(live, now)
             ? live with
             {
                 ClassMask = live.ClassMask | mask,
                 LastUsedUtc = now,
                 // A new hash for a path replaces the old one: only the content approved last runs.
                 Files = [.. live.Files.Where(f => files?.Any(n => string.Equals(n.Path, f.Path, StringComparison.OrdinalIgnoreCase)) != true), .. files ?? []],
+                EndsUtc = live.EndsUtc is { } old && (ends is null || old < ends) ? old : ends,
             }
             : new SessionGrant(
                 Id: Guid.NewGuid().ToString("N")[..8],
@@ -276,6 +281,7 @@ public sealed class ApprovalMemory
                 LastUsedUtc: now)
             {
                 Files = files ?? [],
+                EndsUtc = ends,
             };
         _sessions[key] = grant;
         return grant;
@@ -294,7 +300,7 @@ public sealed class ApprovalMemory
         if (!_sessions.TryGetValue(key, out var grant))
             return null;
         var now = DateTime.UtcNow;
-        if (grant.LastUsedUtc + _sessionIdle <= now)
+        if (grant.LastUsedUtc + _sessionIdle <= now || HasEnded(grant, now))
         {
             _sessions.TryRemove(key, out _);
             return null;
@@ -360,7 +366,7 @@ public sealed class ApprovalMemory
         var live = new List<SessionGrant>();
         foreach (var (key, grant) in _sessions)
         {
-            if (grant.LastUsedUtc + _sessionIdle <= now || !IsLive(grant.LauncherPid, grant.LauncherStartUtc))
+            if (grant.LastUsedUtc + _sessionIdle <= now || HasEnded(grant, now) || !IsLive(grant.LauncherPid, grant.LauncherStartUtc))
             {
                 _sessions.TryRemove(key, out _);
                 continue;
@@ -369,6 +375,8 @@ public sealed class ApprovalMemory
         }
         return live;
     }
+
+    private static bool HasEnded(SessionGrant grant, DateTime now) => grant.EndsUtc <= now;
 
     /// <summary>Instant this grant expires if left unused (last use + the idle window).</summary>
     public DateTime IdleExpiresUtc(SessionGrant grant) => grant.LastUsedUtc + _sessionIdle;
@@ -504,6 +512,9 @@ public sealed record SessionGrant(
 {
     /// <summary>Binaries and scripts the grant covers, at the hashes approved (#30).</summary>
     public IReadOnlyList<BoundFile> Files { get; init; } = [];
+
+    /// <summary>End of a timed grant (#46). Null: the grant lasts until the launcher exits.</summary>
+    public DateTime? EndsUtc { get; init; }
 
     /// <summary>Highest class this grant covers, for display and audit.</summary>
     public CommandClass GrantedClass =>

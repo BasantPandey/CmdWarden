@@ -75,6 +75,7 @@ nav:
       - Vault secrets UI: spec/vault-secrets-ui.md
       - Management shell tabs: spec/management-shell-tabs.md
       - CLI TUI: spec/cli-tui.md
+      - Release signing: spec/release-signing.md
 
 exclude_docs: |
   plan/

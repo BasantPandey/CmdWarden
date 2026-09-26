@@ -119,6 +119,35 @@ public class SessionAllowCoverageProcessTests
         Assert.Equal(PolicyReasonCodes.SessionAllow, sameClass.ReasonCode);
         Assert.Equal(1, gate.CardCount);
     }
+
+    [Fact]
+    public async Task A_ten_minute_click_shows_its_end_in_the_list_and_the_audit()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        await using var gate = CountingGate.AllowForSession(SessionLength.TenMinutes);
+        await using var fx = await ApprovalMemoryFixture.CreateAsync(
+            approvalMode: "prompt",
+            env: gate.AgentEnv);
+        if (fx is null)
+            return;
+        await fx.SaveTokenAsync("timed-" + Guid.NewGuid().ToString("N"));
+
+        var before = DateTimeOffset.UtcNow;
+        var write = await AgentAuthorizeClient.AuthorizeAsync(
+            "gh", new[] { "pr", "create", "--title", "t" }, pipeName: fx.PipeName);
+        var again = await AgentAuthorizeClient.AuthorizeAsync(
+            "gh", new[] { "pr", "merge", "5" }, pipeName: fx.PipeName);
+
+        Assert.Equal(GateDecisions.SessionGrant, write.Decision);
+        Assert.Equal(GateDecisions.SessionAllow, again.Decision);
+        var row = Assert.Single(await AgentSessionsClient.ListAsync(fx.PipeName));
+        var ends = DateTimeOffset.Parse(row.EndsUtc, System.Globalization.CultureInfo.InvariantCulture);
+        Assert.InRange(ends, before.AddMinutes(10), DateTimeOffset.UtcNow.AddMinutes(10));
+        Assert.Contains(fx.AuditLines(), l => l.Contains("\"session-grant\"", StringComparison.Ordinal)
+            && l.Contains("\"10m\"", StringComparison.Ordinal));
+    }
 }
 
 
@@ -134,7 +163,8 @@ internal sealed class CountingGate : IAsyncDisposable
         _logPath = logPath;
     }
 
-    public static CountingGate AllowForSession() => Create(ApprovalHelperExitCodes.AllowForSession);
+    public static CountingGate AllowForSession(SessionLength length = SessionLength.UntilExit) =>
+        Create(ApprovalHelperExitCodes.ForSession(length));
 
     public static CountingGate AllowOnce() => Create(ApprovalHelperExitCodes.AllowOnce);
 

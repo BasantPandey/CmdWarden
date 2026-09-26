@@ -52,12 +52,12 @@ CLI: `cw` (alias `cmdwarden`). Desktop app: CmdWarden Vault. You are an **AI har
 
 ## cw commands you may run on your own
 
-Read-only: `cw version`, `cw agent status`, `cw whoami`, `cw policy list`, `cw policy path`, `cw policy sessions`, `cw harden --list`, `cw audit -n 20`, `cw scan`, `cw shortcut status`, `cw doctor`.
+Read-only: `cw version`, `cw agent status`, `cw whoami`, `cw policy list`, `cw policy path`, `cw policy sessions`, `cw harden --list`, `cw audit -n 20`, `cw scan`, `cw shortcut status`, `cw doctor`, `cw update --check`.
 Note: `cw doctor` starts the agent when it is down.
 
 ## cw commands that need the user's explicit ask
 
-`cw save`, `cw delete`, `cw inject`, `cw policy enroll`, `cw policy set`, `cw policy unenroll`, `cw policy sessions --revoke`, `cw harden`, `cw unharden`, `cw agent start|stop`, `cw doctor --fix-path`, `cw shortcut install|remove`.
+`cw save`, `cw delete`, `cw inject`, `cw policy enroll`, `cw policy set`, `cw policy unenroll`, `cw policy sessions --revoke`, `cw harden`, `cw unharden`, `cw agent start|stop`, `cw doctor --fix-path`, `cw shortcut install|remove`, `cw update`, `cw uninstall`.
 - Never run `cw policy set <key> <tool> Full`.
 - Never enroll yourself with `--kind terminal`. A harness is `--kind ai-harness`.
 

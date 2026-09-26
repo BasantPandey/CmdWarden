@@ -162,6 +162,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var className = CommandClassNames.Format(commandClass);
         var decision = PolicyEvaluator.Decide(resolved.Level, commandClass);
         var decisionLabel = GateDecisions.AutoAllow;
+        string? grantLength = null;
         string? decisionReason = null;
         var secretName = VaultNames.EnvVarName(request.Name);
         var agentReason = AgentReason.Clean(request.AgentReason);
@@ -203,12 +204,13 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 workingDirectory: NullIfEmpty(request.WorkingDirectory)) with { Files = boundFiles, HiddenCommand = hidden, AgentReason = agentReason },
                 verb: "release", auditSecretName: secretName, purpose: request.Purpose);
             decisionLabel = gate.Decision;
+            grantLength = gate.GrantLength;
             decisionReason = gate.Reason;
         }
 
         // Audit before vault read (fail closed, #199).
         AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName,
-            launcher, resolved, secretName, request.Purpose, agentReason));
+            launcher, resolved, secretName, request.Purpose, agentReason, grantLength));
 
         try
         {
@@ -325,6 +327,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var levelName = PolicyLevelNames.Format(resolved.Level);
         var (decision, decisionReason, risk) = DecideWithRisk(tool, argv, commandClass, resolved, request.WorkingDirectory, auditSecretName, pack);
         var decisionLabel = GateDecisions.AutoAllow;
+        string? grantLength = null;
 
         ThrowIfAlarmed(launcher, resolved, tool, className, levelName, auditSecretName, "authorize");
         // #29: a canary value on the command line or in the caller env (hash only) is an attack.
@@ -361,6 +364,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 },
                 verb: "authorize", auditSecretName: auditSecretName, purpose: "authorize");
             decisionLabel = gate.Decision;
+            grantLength = gate.GrantLength;
             decisionReason = gate.Reason ?? decisionReason;
         }
 
@@ -411,7 +415,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             ? secretName
             : null;
         AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName,
-            launcher, resolved, auditedSecretName, helpOnly ? "authorize-help" : "authorize", agentReason));
+            launcher, resolved, auditedSecretName, helpOnly ? "authorize-help" : "authorize", agentReason, grantLength));
         // #40: the app token first. Without one, the personal token serves, and its own row comes first.
         GitHubAppToken? appToken = null;
         string? appNote = null;
@@ -699,6 +703,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             || (action == "erase" && !gitEqual));
 
         var decisionLabel = GateDecisions.AutoAllow;
+        string? grantLength = null;
         string? decisionReason = null;
         if (gitNoOp)
         {
@@ -725,12 +730,13 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                     toolPath: pinCheck.Pin!.Path,
                     workingDirectory: null), verb: "release", auditSecretName: secretName, purpose: purpose);
                 decisionLabel = gate.Decision;
+                grantLength = gate.GrantLength;
                 decisionReason = gate.Reason;
             }
         }
 
         var record = GateRecord(decisionLabel, decisionReason, tool, className, levelName,
-            launcher, resolved, secretName, purpose);
+            launcher, resolved, secretName, purpose, grantLength: grantLength);
         if (gitNoOp)
             TryAudit(decisionLabel, decisionReason, tool, className, levelName, launcher, resolved, secretName, purpose);
         else
@@ -835,6 +841,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         {
             ThrowIfAlarmed(launcher, resolved, tool, className, levelName, keyLabel, purpose);
             var decisionLabel = GateDecisions.AutoAllow;
+            string? grantLength = null;
             string? decisionReason = null;
             var hidden = HiddenWrapper(launcher);
             if (hidden is not null || PolicyEvaluator.Decide(resolved.Level, command.Class) != PolicyDecision.AutoAllow)
@@ -853,9 +860,10 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                     workingDirectory: null) with { HiddenCommand = hidden, Impact = impact },
                     verb: purpose, auditSecretName: keyLabel, purpose: purpose);
                 decisionLabel = gate.Decision;
+                grantLength = gate.GrantLength;
                 decisionReason = gate.Reason;
             }
-            AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName, launcher, resolved, keyLabel, purpose));
+            AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName, launcher, resolved, keyLabel, purpose, grantLength: grantLength));
             return true;
         }
         catch (RpcException)
@@ -894,6 +902,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             if (canary is not null)
                 throw CanaryAlarm(launcher, resolved, tool, className, levelName, canary.Name, purpose);
             var decisionLabel = GateDecisions.AutoAllow;
+            string? grantLength = null;
             string? decisionReason = null;
             var hidden = HiddenWrapper(launcher);
             if (hidden is not null || PolicyEvaluator.Decide(resolved.Level, commandClass) != PolicyDecision.AutoAllow)
@@ -916,9 +925,10 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                     },
                     verb: purpose, auditSecretName: secretName, purpose: purpose);
                 decisionLabel = gate.Decision;
+                grantLength = gate.GrantLength;
                 decisionReason = gate.Reason;
             }
-            AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName, launcher, resolved, secretName, purpose));
+            AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName, launcher, resolved, secretName, purpose, grantLength: grantLength));
             return true;
         }
         catch (RpcException)
@@ -1158,6 +1168,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 GrantedAtUtc = grant.GrantedAtUtc.ToString("o"),
                 LastUsedUtc = grant.LastUsedUtc.ToString("o"),
                 IdleExpiresUtc = _memory.IdleExpiresUtc(grant).ToString("o"),
+                EndsUtc = grant.EndsUtc?.ToString("o") ?? "",
             });
         }
         return Task.FromResult(response);
@@ -1183,7 +1194,8 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         PolicyResolveResult resolved,
         string? secretName,
         string? purpose,
-        string? agentReason = null) => new()
+        string? agentReason = null,
+        string? grantLength = null) => new()
     {
         Decision = decisionLabel,
         ReasonCode = reason,
@@ -1199,6 +1211,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         ClientPid = launcher.ClientPid,
         AgentReason = agentReason,
         AgentAccount = launcher.AgentAccount,
+        GrantLength = grantLength,
     };
 
     /// <summary>Grant path: no value leaves before the row persists (#199).</summary>
@@ -1257,7 +1270,8 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         }
     }
 
-    private sealed record GateResult(ApprovalOutcome Outcome, string Decision, string? Reason);
+    /// <param name="GrantLength">Set on a session-grant: the length the person chose (#46).</param>
+    private sealed record GateResult(ApprovalOutcome Outcome, string Decision, string? Reason, string? GrantLength = null);
 
     /// <summary>
     /// Gate, then return only an allow. Deny and unavailable write a best-effort row and throw
@@ -1361,15 +1375,13 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var grant = useSession && ApprovalPresentation.IsSessionAllowOffered(request.EnrollmentKind, request.CommandClass)
             ? _memory.Grant(selected.Pid, selected.CreateTimeUtc, selected.PolicyKey, selected.Kind,
                 request.Tool, request.SecretName, commandClass,
-                exactClass: outcome == ApprovalOutcome.AllowOnce, files: request.Files)
+                exactClass: outcome == ApprovalOutcome.AllowOnce, files: request.Files,
+                duration: outcome == ApprovalOutcome.AllowForSession ? SessionLengths.Duration(answer.Length) : null)
             : null;
         _memory.RememberTransient(transientKey, ApprovalOutcome.AllowOnce, selected.PolicyKey, request.Tool);
-        return new GateResult(
-            ApprovalOutcome.AllowOnce,
-            grant is null || outcome == ApprovalOutcome.AllowOnce
-                ? GateDecisions.AllowOnce
-                : GateDecisions.SessionGrant,
-            reason);
+        return grant is null || outcome == ApprovalOutcome.AllowOnce
+            ? new GateResult(ApprovalOutcome.AllowOnce, GateDecisions.AllowOnce, reason)
+            : new GateResult(ApprovalOutcome.AllowOnce, GateDecisions.SessionGrant, reason, SessionLengths.Name(answer.Length));
     }
 
     private static string DecisionFor(ApprovalOutcome outcome) => outcome switch

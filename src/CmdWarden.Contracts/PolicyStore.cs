@@ -120,7 +120,7 @@ public sealed class PolicyStore
         return DiffLaunchers(previous.Launchers, _doc.Launchers);
     }
 
-    /// <summary>One launcher's enrollment vanished (<see cref="Tool"/> null, e.g. unenroll) or one
+    /// <summary>One launcher's enrollment vanished or changed kind (<see cref="Tool"/> null, e.g. unenroll) or one
     /// tool's level changed under it (e.g. policy set).</summary>
     public readonly record struct PolicyChange(string LauncherPolicyKey, string? Tool);
 
@@ -131,7 +131,9 @@ public sealed class PolicyStore
         List<PolicyChange>? changes = null;
         foreach (var (key, oldEntry) in before)
         {
-            if (!after.TryGetValue(key, out var newEntry))
+            // A new kind changes the defaults and the session offer, so it drops the memory like an unenroll.
+            if (!after.TryGetValue(key, out var newEntry)
+                || !string.Equals(oldEntry.Kind, newEntry.Kind, StringComparison.OrdinalIgnoreCase))
             {
                 (changes ??= new()).Add(new PolicyChange(key, null));
                 continue;

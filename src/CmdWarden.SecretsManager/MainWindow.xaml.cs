@@ -62,7 +62,7 @@ public partial class MainWindow : Window
         };
         _pageChrome = new Dictionary<string, (string, string, string)>(StringComparer.Ordinal)
         {
-            ["gates"] = ("Secret Gates", "Refresh", "F5"),
+            ["gates"] = ("Secret Gates", "+ Enroll launcher", "Ctrl+E"),
             ["detectors"] = ("Detectors", "Run scan", "F5"),
             ["tools"] = ("Hardened Tools", "Refresh", "F5"),
             ["secrets"] = ("Secrets", "+ Add secret", "Ctrl+N"),
@@ -93,6 +93,7 @@ public partial class MainWindow : Window
         var ctrl = Keyboard.Modifiers == ModifierKeys.Control;
         var none = Keyboard.Modifiers == ModifierKeys.None;
         var onSecrets = _currentPage == "secrets";
+        var onGates = _currentPage == "gates";
         if (none && e.Key is Key.OemOpenBrackets or Key.OemCloseBrackets)
         {
             e.Handled = true;
@@ -103,6 +104,8 @@ public partial class MainWindow : Window
             e.Handled = true;
             if (onSecrets)
                 await RefreshAsync().ConfigureAwait(true);
+            else if (onGates)
+                await GatesRefreshAsync().ConfigureAwait(true);
             else if (PagePrimaryButton.IsEnabled)
                 PagePrimaryButton_Click(PagePrimaryButton, new RoutedEventArgs());
         }
@@ -110,6 +113,21 @@ public partial class MainWindow : Window
         {
             e.Handled = true;
             await AddSecretFlowAsync().ConfigureAwait(true);
+        }
+        else if (ctrl && e.Key == Key.E && onGates && PagePrimaryButton.IsEnabled)
+        {
+            e.Handled = true;
+            await EnrollFlowAsync().ConfigureAwait(true);
+        }
+        else if (none && onGates && e.Key == Key.Delete && _selectedLauncher is { } launcher)
+        {
+            e.Handled = true;
+            await UnenrollFlowAsync(launcher).ConfigureAwait(true);
+        }
+        else if (none && onGates && e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            SelectLauncher(null);
         }
         else if (none && onSecrets && e.Key is Key.Down or Key.Up)
         {
@@ -224,7 +242,7 @@ public partial class MainWindow : Window
                 await DetectorsScanAsync().ConfigureAwait(true);
                 break;
             case "gates":
-                await GatesRefreshAsync().ConfigureAwait(true);
+                await EnrollFlowAsync().ConfigureAwait(true);
                 break;
         }
     }
@@ -692,14 +710,24 @@ public partial class MainWindow : Window
 
     private sealed record LevelRow(
         string Label, string Pill, System.Windows.Media.Brush PillBg, System.Windows.Media.Brush PillFg,
-        string Tip, string Note, Visibility NoteVisibility, System.Windows.Media.ImageSource? Icon = null);
+        string Tip, string Note, Visibility NoteVisibility, System.Windows.Media.ImageSource? Icon = null)
+    {
+        public string LauncherKey { get; init; } = "";
+        public string Tool { get; init; } = "";
+        public PolicyLevel Level { get; init; }
+    }
 
     private sealed record LauncherCard(
         string Key, string Kind, System.Windows.Media.Brush KindBg, System.Windows.Media.Brush KindFg,
         string Path, string FullPath, Visibility PathVisibility, IReadOnlyList<LevelRow> Tools, string Hint,
-        System.Windows.Media.ImageSource? Icon);
+        System.Windows.Media.ImageSource? Icon)
+    {
+        public System.Windows.Media.Brush CardBorder { get; init; } = System.Windows.Media.Brushes.Transparent;
+    }
 
     private bool _gatesBusy;
+    private PolicyReadModel? _gatesModel;
+    private string? _selectedLauncher;
 
     private async Task GatesRefreshAsync()
     {
@@ -716,19 +744,25 @@ public partial class MainWindow : Window
         try
         {
             var m = await Task.Run(() => PolicyReadModel.Load()).ConfigureAwait(true);
+            _gatesModel = m;
             GatesDefaults.ItemsSource = new[]
             {
                 MakeLevelRow("AI Harness", m.AiHarnessDefault, LevelMatrix(m.AiHarnessDefault)),
                 MakeLevelRow("Terminal", m.TerminalDefault, LevelMatrix(m.TerminalDefault)),
             };
-            GatesList.ItemsSource = m.Launchers.Select(MakeLauncherCard).ToList();
+            if (_selectedLauncher is not null && !m.Launchers.Any(l => l.PolicyKey.Equals(_selectedLauncher, StringComparison.OrdinalIgnoreCase)))
+                _selectedLauncher = null;
+            RenderLaunchers();
             GatesEmpty.Visibility = m.Launchers.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             GatesSessionsCard.Visibility = Visibility.Visible;
-            await GatesSessionsRefreshAsync().ConfigureAwait(true);
+            // The agent call can wait for a timeout; the policy edits must not wait for it.
+            _ = GatesSessionsRefreshAsync();
         }
         catch (Exception ex)
         {
             // No silent fallback: the agent fails closed on this same file, so hide the cards.
+            _gatesModel = null;
+            _selectedLauncher = null;
             GatesDefaultsCard.Visibility = Visibility.Collapsed;
             GatesSessionsCard.Visibility = Visibility.Collapsed;
             GatesErrorText.Text = "Policy file could not be read. The Session Agent fails closed on the same file.\n"
@@ -760,7 +794,8 @@ public partial class MainWindow : Window
                 $"{r.LauncherPolicyKey} ({r.LauncherKind})  ·  pid {r.Pid}  ·  {r.Tool} / {r.SecretName}  ·  {r.CommandClass}",
                 $"granted {SessionAllowDisplay.LocalTime(r.GrantedAtUtc)}   ·   "
                     + $"last used {SessionAllowDisplay.LocalTime(r.LastUsedUtc)}   ·   "
-                    + $"expires {SessionAllowDisplay.LocalTime(r.IdleExpiresUtc)}")).ToList();
+                    + $"expires {SessionAllowDisplay.LocalTime(r.IdleExpiresUtc)}   ·   "
+                    + SessionAllowDisplay.Ends(r.EndsUtc))).ToList();
             GatesSessions.ItemsSource = cards;
             GatesSessionsStatus.Text = "No active session allows";
             GatesSessionsStatus.Visibility = cards.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -805,28 +840,143 @@ public partial class MainWindow : Window
         var (kbg, kfg) = PillBrushes(kindPill);
         var names = ToolCatalog.All().ToDictionary(t => t.Id, t => t.DisplayName);
         var rows = l.Tools
-            .Select(t => MakeLevelRow(names.GetValueOrDefault(t.Tool, t.Tool), t.Level, t.IsOverride ? "" : "(kind default)", t.Tool))
+            .Select(t => MakeLevelRow(names.GetValueOrDefault(t.Tool, t.Tool), t.Level, t.IsOverride ? "" : "(kind default)", t.Tool)
+                with { LauncherKey = l.PolicyKey, Tool = t.Tool, Level = t.Level })
             .ToList();
         var full = l.DisplayPath ?? "";
+        var selected = string.Equals(l.PolicyKey, _selectedLauncher, StringComparison.OrdinalIgnoreCase);
         return new LauncherCard(l.PolicyKey, kindLabel, kbg, kfg, LeftTruncate(full), full,
             full.Length == 0 ? Visibility.Collapsed : Visibility.Visible, rows,
-            $"Override a tool: cw policy set {l.PolicyKey} <tool> <Deny|Read|Trusted|Full>",
-            BrandImages.ForLauncher(null, l.DisplayPath));
+            "Click a level to change it. Del unenrolls the selected launcher.",
+            BrandImages.ForLauncher(null, l.DisplayPath))
+        {
+            CardBorder = (System.Windows.Media.Brush)FindResource(selected ? "AccentBrush" : "StrokeBrush"),
+        };
+    }
+
+    // ---- policy edits (#44): the same PolicyStore calls as cw policy enroll|set|unenroll ----
+
+    private void RenderLaunchers()
+    {
+        var cards = _gatesModel?.Launchers.Select(MakeLauncherCard).ToList();
+        GatesList.ItemsSource = cards;
+        if (cards?.FirstOrDefault(c => c.Key.Equals(_selectedLauncher, StringComparison.OrdinalIgnoreCase)) is { } selected)
+        {
+            // The new cards exist after layout; then the selected one scrolls into view.
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
+                (GatesList.ItemContainerGenerator.ContainerFromItem(selected) as FrameworkElement)?.BringIntoView());
+        }
+    }
+
+    private void SelectLauncher(string? key)
+    {
+        _selectedLauncher = key;
+        RenderLaunchers();
+    }
+
+    private void LauncherCard_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: LauncherCard card })
+            SelectLauncher(card.Key);
+    }
+
+    private async void LevelPill_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is not FrameworkElement { DataContext: LevelRow { LauncherKey.Length: > 0 } row })
+            return;
+        SelectLauncher(row.LauncherKey);
+        var dialog = new SetLevelWindow(row.LauncherKey, row.Label, row.Level) { Owner = this };
+        if (dialog.ShowDialog() != true)
+            return;
+        var level = dialog.Chosen;
+        await EditPolicyAsync(s => s.SetLevel(row.LauncherKey, row.Tool, level), restartForKey: null).ConfigureAwait(true);
+    }
+
+    private async void UnenrollButton_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is FrameworkElement { DataContext: LauncherCard card })
+            await UnenrollFlowAsync(card.Key).ConfigureAwait(true);
+    }
+
+    private async Task EnrollFlowAsync()
+    {
+        if (_gatesModel is not { } m)
+            return;
+        IReadOnlyList<SeenLauncher> seen;
+        try
+        {
+            var enrolled = m.Launchers.ToDictionary(l => l.PolicyKey, _ => new LauncherEntryDto(), StringComparer.OrdinalIgnoreCase);
+            seen = await Task.Run(() => PolicyReadModel.RecentUnenrolled(
+                new AuditLog().ReadRecentRecords(UsageMaxRows).Records, enrolled)).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            seen = [];
+        }
+        var dialog = new EnrollWindow(seen, m.AiHarnessDefault, m.TerminalDefault) { Owner = this };
+        if (dialog.ShowDialog() != true)
+            return;
+        // Read the dialog on the UI thread; the edit runs on a worker thread.
+        var (key, kind, path) = (dialog.PolicyKey, dialog.Kind, dialog.DisplayPath);
+        _selectedLauncher = key;
+        await EditPolicyAsync(s => s.Enroll(key, kind, path), restartForKey: key).ConfigureAwait(true);
+    }
+
+    private async Task UnenrollFlowAsync(string key)
+    {
+        SelectLauncher(key);
+        var confirm = new ConfirmWindow(
+            title: "Unenroll launcher",
+            body: $"Unenroll {key}? Every tool then resolves to Deny for it, and its session allows end.",
+            confirmLabel: "Unenroll",
+            isDanger: true)
+        {
+            Owner = this,
+        };
+        if (confirm.ShowDialog() != true)
+            return;
+        _selectedLauncher = null;
+        await EditPolicyAsync(s => s.Unenroll(key), restartForKey: key).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Load, change, and save the policy file. The Session Agent reads the change on its next call
+    /// and drops the matching approval memory, the same as after a cw policy command.
+    /// </summary>
+    private async Task EditPolicyAsync(Action<PolicyStore> change, string? restartForKey)
+    {
+        try
+        {
+            await Task.Run(() =>
+            {
+                var store = new PolicyStore(PolicyStore.DefaultPath());
+                store.Load();
+                change(store);
+                store.Save();
+            }).ConfigureAwait(true);
+            // #36: the agent reads the enrolled accounts for its pipe access at start.
+            if (restartForKey?.StartsWith(AgentAccounts.PolicyKeyPrefix, StringComparison.OrdinalIgnoreCase) == true
+                && (await AgentLifecycle.StatusAsync().ConfigureAwait(true)).Up)
+            {
+                await AgentLifecycle.StopAsync().ConfigureAwait(true);
+                await AgentLifecycle.StartAsync().ConfigureAwait(true);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "Policy change failed: " + VaultSecretFormValidation.SanitizeError(ex.Message),
+                WindowTitle, MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        await GatesRefreshAsync().ConfigureAwait(true);
     }
 
     // ponytail: fixed character budget with the full path in the tooltip; width-aware trimming if it ever looks off.
     private static string LeftTruncate(string path, int max = 64) =>
         path.Length <= max ? path : "…" + path[^(max - 1)..];
 
-    /// <summary>Class matrix for one level, derived from the evaluator so the text cannot drift from enforcement.</summary>
-    private static string LevelMatrix(PolicyLevel level)
-    {
-        var all = new[] { CommandClass.Read, CommandClass.Write, CommandClass.SecretReveal, CommandClass.Unknown };
-        var allowed = all.Where(c => PolicyEvaluator.IsAutoAllowed(level, c)).Select(CommandClassNames.Format).ToList();
-        var gated = all.Where(c => !PolicyEvaluator.IsAutoAllowed(level, c)).Select(CommandClassNames.Format).ToList();
-        var auto = allowed.Count == 0 ? "auto-allow: none" : "auto-allow: " + string.Join(", ", allowed);
-        return gated.Count == 0 ? auto : auto + " / Approval Gate: " + string.Join(", ", gated);
-    }
+    private static string LevelMatrix(PolicyLevel level) => PolicyLevelText.Matrix(level);
 
     private enum PillKind { Ok, Warn, Danger, Muted, Info }
 

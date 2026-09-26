@@ -15,18 +15,24 @@ public sealed class ProcessApprovalGate : IApprovalGate
     public const string HelperPathEnvVar = "CW_APPROVAL_GATE_PATH";
     public static readonly TimeSpan DefaultTimeout = ApprovalGateTimeouts.Gate;
 
+    /// <summary>#42: the signer of CmdWarden.Agent.dll. Null for an unsigned build.</summary>
+    private static readonly Lazy<string?> AgentSigner = new(() => Authenticode.VerifiedSigner(typeof(ProcessApprovalGate).Assembly.Location));
+
     private readonly Func<string?> _resolveHelperPath;
     private readonly Func<ProcessStartInfo, Process?> _startProcess;
     private readonly TimeSpan _timeout;
+    private readonly Func<string?> _ownSigner;
 
     public ProcessApprovalGate(
         Func<string?>? resolveHelperPath = null,
         Func<ProcessStartInfo, Process?>? startProcess = null,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        Func<string?>? ownSigner = null)
     {
         _resolveHelperPath = resolveHelperPath ?? (() => ApprovalGateLocator.FindHelperPath());
         _startProcess = startProcess ?? (psi => Process.Start(psi));
         _timeout = timeout ?? DefaultTimeout;
+        _ownSigner = ownSigner ?? (() => AgentSigner.Value);
     }
 
     public ApprovalAnswer Prompt(ApprovalRequest request)
@@ -40,6 +46,12 @@ public sealed class ProcessApprovalGate : IApprovalGate
         var helperPath = _resolveHelperPath();
         if (string.IsNullOrWhiteSpace(helperPath) || !File.Exists(helperPath))
             return ApprovalOutcome.Unavailable;
+        // #42: a signed agent runs only an Approval Gate with the same signer. A swapped helper could approve anything.
+        if (!CmdWardenSigner.Allows(helperPath, _ownSigner()))
+        {
+            Console.Error.WriteLine($"{ProductInfo.Name}: {helperPath} is not signed by the CmdWarden signer. The request fails closed.");
+            return ApprovalOutcome.Unavailable;
+        }
 
         var payload = ApprovalPresentation.ToHelperPayload(request);
         var json = ApprovalHelperJson.Serialize(payload);

@@ -101,6 +101,7 @@ public partial class MainWindow : Window
         {
             SessionButton.Visibility = Visibility.Collapsed;
             SessionScope.Visibility = Visibility.Collapsed;
+            LengthRow.Visibility = Visibility.Collapsed;
             SessionColumn.Width = new GridLength(0);
             SessionGap.Width = new GridLength(0);
         }
@@ -148,9 +149,14 @@ public partial class MainWindow : Window
         if (e.Key == Key.A && Keyboard.Modifiers == ModifierKeys.None && SessionButton.IsVisible)
         {
             e.Handled = true;
-            CompleteIfReal(ApprovalHelperExitCodes.AllowForSession);
+            CompleteIfReal(ApprovalHelperExitCodes.ForSession(ChosenLength));
         }
     }
+
+    private SessionLength ChosenLength =>
+        LengthTenMinutes.IsChecked == true ? SessionLength.TenMinutes
+        : LengthOneHour.IsChecked == true ? SessionLength.OneHour
+        : SessionLength.UntilExit;
 
     private void ApproveButton_Click(object sender, RoutedEventArgs e) =>
         CompleteIfReal(ApprovalHelperExitCodes.AllowOnce);
@@ -159,7 +165,7 @@ public partial class MainWindow : Window
         Complete(ApprovalHelperExitCodes.Deny);
 
     private void SessionButton_Click(object sender, RoutedEventArgs e) =>
-        CompleteIfReal(ApprovalHelperExitCodes.AllowForSession);
+        CompleteIfReal(ApprovalHelperExitCodes.ForSession(ChosenLength));
 
     /// <summary>An approval needs real keyboard or mouse input (#23). Other input only shows a hint.</summary>
     private void CompleteIfReal(int code)

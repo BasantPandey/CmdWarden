@@ -29,7 +29,7 @@ This plan consolidates the closed map decisions so implement sessions can ship o
 | New Session Agent RPCs or proto changes | Every fact is reachable from Contracts today |
 | Spawning `cw` or parsing its stdout | Rejected at [#104](https://github.com/BasantPandey/CmdWarden/issues/104) |
 | Timer polling, file watchers, live tail | Load-on-open plus Refresh is enough |
-| Secret Gates level editor | Out of scope on the map; future effort |
+| Secret Gates level editor | Out of scope on the map. Added later in [#44](https://github.com/BasantPandey/CmdWarden/issues/44): enroll, set level, unenroll |
 | Automic 100+ detector catalog, per-command Allow/Ask/Block | Not product truth |
 | View-model layer or automated UI tests | Shell pages are thin bindings; manual smoke like Approval Gate and Vault |
 

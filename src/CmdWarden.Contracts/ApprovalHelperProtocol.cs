@@ -18,12 +18,25 @@ public static class ApprovalHelperExitCodes
     public const int HelloUnavailableFlag = 0x20;
     public const int HelloCanceledFlag = 0x40;
 
+    /// <summary>Bits 8-9 carry the <see cref="SessionLength"/> of an "Allow for session" (#46).</summary>
+    public const int LengthShift = 8;
+    private const int LengthMask = 0x300;
+
     /// <summary>
     /// Exit code to the human answer. A Hello flag is valid only on the answer it can come with:
-    /// verified or unavailable on an approve, canceled on a deny. Any other code fails closed.
+    /// verified or unavailable on an approve, canceled on a deny. A length is valid only on
+    /// Allow for session. Any other code fails closed.
     /// </summary>
     public static ApprovalAnswer ToAnswer(int exitCode)
     {
+        var length = (SessionLength)((exitCode & LengthMask) >> LengthShift);
+        if (length != SessionLength.UntilExit)
+        {
+            var answer = ToAnswer(exitCode & ~LengthMask);
+            return answer.Outcome == ApprovalOutcome.AllowForSession && Enum.IsDefined(length)
+                ? answer with { Length = length }
+                : new ApprovalAnswer(ApprovalOutcome.Unavailable);
+        }
         var outcome = (exitCode & ~0x70) switch
         {
             AllowOnce => ApprovalOutcome.AllowOnce,
@@ -50,6 +63,9 @@ public static class ApprovalHelperExitCodes
         HelloCheck.Canceled => HelloCanceledFlag,
         _ => 0,
     };
+
+    /// <summary>Allow for session with the chosen length.</summary>
+    public static int ForSession(SessionLength length) => AllowForSession | ((int)length << LengthShift);
 }
 
 /// <summary>

@@ -1,0 +1,90 @@
+<Window x:Class="CmdWarden.SecretsManager.EnrollWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Enroll launcher"
+        Width="520"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#1C1C1C"
+        Foreground="White"
+        FontFamily="Segoe UI Variable, Segoe UI"
+        ShowInTaskbar="False">
+  <Border Margin="16" Background="#2A2A2A" BorderBrush="#1EFFFFFF" BorderThickness="1" CornerRadius="10" Padding="20">
+    <StackPanel>
+      <TextBlock Text="Enroll launcher" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4" />
+      <TextBlock Text="An enrolled launcher gets the default level of its kind for every tool."
+                 FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,16" TextWrapping="Wrap" />
+
+      <TextBlock x:Name="SeenHeading" Text="Recent launchers that are not enrolled" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,6" />
+      <Border x:Name="SeenFrame" Background="#1A1A1A" BorderBrush="#18FFFFFF" BorderThickness="1" CornerRadius="8"
+              Margin="0,0,0,14" MaxHeight="190">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <ItemsControl x:Name="SeenList" Margin="4">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <RadioButton GroupName="Seen" Style="{StaticResource SegmentStyle}" HorizontalContentAlignment="Stretch"
+                             Checked="Seen_Checked" Tag="{Binding PolicyKey}" HorizontalAlignment="Stretch"
+                             AutomationProperties.Name="{Binding PolicyKey}">
+                  <DockPanel>
+                    <Image DockPanel.Dock="Left" Source="{Binding Icon}" Width="20" Height="20" Margin="0,0,10,0"
+                           VerticalAlignment="Center" Style="{StaticResource BrandIconStyle}" />
+                    <StackPanel>
+                      <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding Seen}" FontSize="11" FontWeight="Normal" Margin="12,0,0,0"
+                                   VerticalAlignment="Center" Foreground="{StaticResource TextTertiaryBrush}" />
+                        <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                      </DockPanel>
+                      <TextBlock Text="{Binding Detail}" FontSize="11" FontWeight="Normal" TextTrimming="CharacterEllipsis"
+                                 Foreground="{StaticResource TextTertiaryBrush}" />
+                    </StackPanel>
+                  </DockPanel>
+                </RadioButton>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Border>
+
+      <TextBlock Text="Policy key" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,6" />
+      <TextBox x:Name="KeyBox" Padding="10,8" FontSize="12.5" FontFamily="Cascadia Mono, Consolas" Background="#1A1A1A"
+               Foreground="White" BorderBrush="#33FFFFFF" CaretBrush="White" TextChanged="Key_Changed"
+               AutomationProperties.Name="Policy key" />
+      <TextBlock Text="cw whoami shows the key of a terminal. The audit shows the key of each caller."
+                 FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,6,0,14" TextWrapping="Wrap" />
+
+      <TextBlock Text="Kind" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,6" />
+      <Border Style="{StaticResource SegmentFrameStyle}" AutomationProperties.Name="Kind">
+        <StackPanel Orientation="Horizontal">
+          <RadioButton x:Name="KindHarness" Style="{StaticResource SegmentStyle}" GroupName="Kind" IsChecked="True"
+                       Content="AI Harness" Checked="Kind_Checked" />
+          <RadioButton x:Name="KindTerminal" Style="{StaticResource SegmentStyle}" GroupName="Kind"
+                       Content="Terminal" Checked="Kind_Checked" />
+        </StackPanel>
+      </Border>
+      <TextBlock x:Name="KindText" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0"
+                 Foreground="{StaticResource TextSecondaryBrush}" />
+
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+        <Button Style="{StaticResource IconButtonStyle}" Margin="0,0,8,0"
+                IsCancel="True" Click="Cancel_Click" Padding="16,8" ToolTip="Cancel (Esc)">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="Cancel" />
+            <Border Style="{StaticResource KeyChipStyle}">
+              <TextBlock Text="Esc" Style="{StaticResource KeyChipTextStyle}" />
+            </Border>
+          </StackPanel>
+        </Button>
+        <Button x:Name="EnrollButton" Style="{StaticResource PrimaryButtonStyle}"
+                IsDefault="True" IsEnabled="False" Click="Enroll_Click" Padding="18,8" ToolTip="Enroll (Enter)">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="Enroll" />
+            <Border Style="{StaticResource KeyChipStyle}">
+              <TextBlock Text="Enter" Style="{StaticResource KeyChipTextStyle}" />
+            </Border>
+          </StackPanel>
+        </Button>
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</Window>
