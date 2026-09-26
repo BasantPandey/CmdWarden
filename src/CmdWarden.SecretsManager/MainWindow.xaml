@@ -258,6 +258,51 @@
                            Visibility="{Binding NoteVisibility}" />
               </Grid>
             </DataTemplate>
+            <Style TargetType="Button" x:Key="LevelPillButtonStyle">
+              <Setter Property="Cursor" Value="Hand" />
+              <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+              <Setter Property="Template">
+                <Setter.Value>
+                  <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd" CornerRadius="999" Padding="9,3" Background="{Binding PillBg}"
+                            BorderBrush="Transparent" BorderThickness="1">
+                      <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Pill}" FontSize="11" FontWeight="Bold" Foreground="{Binding PillFg}" />
+                        <TextBlock Text="&#xE70D;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="8"
+                                   Margin="6,1,0,0" VerticalAlignment="Center" Foreground="{Binding PillFg}" />
+                      </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                      <Trigger Property="IsMouseOver" Value="True">
+                        <Setter TargetName="bd" Property="BorderBrush" Value="{Binding PillFg}" />
+                      </Trigger>
+                      <Trigger Property="IsKeyboardFocused" Value="True">
+                        <Setter TargetName="bd" Property="BorderBrush" Value="White" />
+                      </Trigger>
+                    </ControlTemplate.Triggers>
+                  </ControlTemplate>
+                </Setter.Value>
+              </Setter>
+            </Style>
+            <DataTemplate x:Key="LauncherLevelRowTemplate">
+              <Grid Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="110" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                  <Image Source="{Binding Icon}" Width="14" Height="14" Margin="0,0,8,0" Style="{StaticResource BrandIconStyle}" />
+                  <TextBlock Text="{Binding Label}" FontSize="12" VerticalAlignment="Center" />
+                </StackPanel>
+                <Button Grid.Column="1" Style="{StaticResource LevelPillButtonStyle}" VerticalAlignment="Center"
+                        ToolTip="{Binding Tip}" Click="LevelPill_Click"
+                        AutomationProperties.Name="{Binding Label, StringFormat='Set the {0} level'}" />
+                <TextBlock Grid.Column="2" Text="{Binding Note}" FontSize="11.5" Margin="10,0,0,0" TextWrapping="Wrap"
+                           VerticalAlignment="Center" Foreground="{StaticResource TextTertiaryBrush}"
+                           Visibility="{Binding NoteVisibility}" />
+              </Grid>
+            </DataTemplate>
           </DockPanel.Resources>
 
           <Border x:Name="GatesErrorBanner" DockPanel.Dock="Top" Visibility="Collapsed"
@@ -281,7 +326,7 @@
                              FontSize="12" Margin="0,6,0,4" TextWrapping="Wrap"
                              Foreground="{StaticResource TextSecondaryBrush}" />
                   <ItemsControl x:Name="GatesDefaults" ItemTemplate="{StaticResource LevelRowTemplate}" />
-                  <TextBlock Text="Change a level: cw policy set &lt;policyKey&gt; &lt;tool&gt; &lt;Deny|Read|Trusted|Full&gt;"
+                  <TextBlock Text="Change a level: click it on a launcher card, or run cw policy set &lt;policyKey&gt; &lt;tool&gt; &lt;level&gt;"
                              FontSize="12" Margin="0,10,0,0" TextWrapping="Wrap" FontStyle="Italic"
                              Foreground="{StaticResource TextTertiaryBrush}" />
                 </StackPanel>
@@ -292,7 +337,7 @@
                       Padding="16" Margin="0,0,0,12">
                 <StackPanel>
                   <TextBlock Text="Active session allows" FontSize="15" FontWeight="SemiBold" />
-                  <TextBlock Text="Launcher grants from the Approval Gate's &quot;Allow for session&quot; button. Each ends when the launcher exits or after 60 idle minutes."
+                  <TextBlock Text="Launcher grants from the Approval Gate's &quot;Allow for session&quot; button. Each ends when the launcher exits, after 60 idle minutes, or at the time chosen in the popup."
                              FontSize="12" Margin="0,6,0,4" TextWrapping="Wrap"
                              Foreground="{StaticResource TextSecondaryBrush}" />
                   <TextBlock x:Name="GatesSessionsStatus" FontSize="12" Margin="0,6,0,0"
@@ -325,7 +370,7 @@
                 <TextBlock Text="Every tool resolves to Deny until a launcher is enrolled."
                            FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"
                            Foreground="{StaticResource TextSecondaryBrush}" />
-                <TextBlock Text="Enroll the current launcher: cw policy enroll --kind terminal|ai-harness"
+                <TextBlock Text="Enroll a launcher: + Enroll launcher (Ctrl+E), or cw policy enroll --kind terminal|ai-harness"
                            FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap" FontStyle="Italic"
                            Foreground="{StaticResource TextTertiaryBrush}" />
               </StackPanel>
@@ -333,10 +378,16 @@
               <ItemsControl x:Name="GatesList">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource StrokeBrush}"
-                            BorderThickness="1" CornerRadius="12" Padding="16" Margin="0,0,0,12">
+                    <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{Binding CardBorder}"
+                            BorderThickness="1" CornerRadius="12" Padding="16" Margin="0,0,0,12"
+                            Cursor="Hand" MouseLeftButtonUp="LauncherCard_MouseLeftButtonUp">
                       <StackPanel>
                         <DockPanel LastChildFill="True">
+                          <Button DockPanel.Dock="Right" Style="{StaticResource DangerButtonStyle}" Margin="10,0,0,0"
+                                  Padding="10,4" VerticalAlignment="Center" Click="UnenrollButton_Click"
+                                  ToolTip="Unenroll this launcher (select it, then Del)" AutomationProperties.Name="Unenroll">
+                            <TextBlock Text="Unenroll" FontSize="11.5" />
+                          </Button>
                           <Border DockPanel.Dock="Right" CornerRadius="999" Padding="9,3" Margin="10,0,0,0"
                                   VerticalAlignment="Center" Background="{Binding KindBg}">
                             <TextBlock Text="{Binding Kind}" FontSize="11" FontWeight="Bold" Foreground="{Binding KindFg}" />
@@ -349,7 +400,7 @@
                         </DockPanel>
                         <TextBlock Text="{Binding Path}" ToolTip="{Binding FullPath}" FontSize="12" Margin="0,4,0,2"
                                    Foreground="{StaticResource TextTertiaryBrush}" Visibility="{Binding PathVisibility}" />
-                        <ItemsControl ItemsSource="{Binding Tools}" ItemTemplate="{StaticResource LevelRowTemplate}" />
+                        <ItemsControl ItemsSource="{Binding Tools}" ItemTemplate="{StaticResource LauncherLevelRowTemplate}" />
                         <TextBlock Text="{Binding Hint}" FontSize="12" Margin="0,10,0,0" TextWrapping="Wrap"
                                    FontStyle="Italic" Foreground="{StaticResource TextTertiaryBrush}" />
                       </StackPanel>

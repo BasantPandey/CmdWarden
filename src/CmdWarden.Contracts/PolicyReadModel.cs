@@ -41,4 +41,27 @@ public sealed record PolicyReadModel(
 
         return new PolicyReadModel(store.Path, store.DefaultAiHarnessLevel, store.DefaultTerminalLevel, launchers);
     }
+
+    /// <summary>
+    /// Launchers in the audit that are not enrolled, newest first, one row per key (#44).
+    /// The Vault offers them in its Enroll dialog. Unknown launchers have no stable key and stay out.
+    /// </summary>
+    public static IReadOnlyList<SeenLauncher> RecentUnenrolled(
+        IEnumerable<AuditGateRecord> newestFirst, IReadOnlyDictionary<string, LauncherEntryDto> enrolled)
+    {
+        var seen = new List<SeenLauncher>();
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in newestFirst)
+        {
+            var key = r.LauncherPolicyKey.Trim();
+            if (key.Length == 0 || key.Equals(LauncherKinds.PolicyKeyUnknown, StringComparison.OrdinalIgnoreCase)
+                || enrolled.ContainsKey(key) || !keys.Add(key))
+                continue;
+            seen.Add(new SeenLauncher(key, string.IsNullOrWhiteSpace(r.LauncherPath) ? null : r.LauncherPath, r.Timestamp));
+        }
+        return seen;
+    }
 }
+
+/// <summary>A launcher that the audit saw, and that is not enrolled.</summary>
+public sealed record SeenLauncher(string PolicyKey, string? Path, DateTimeOffset? LastSeen);

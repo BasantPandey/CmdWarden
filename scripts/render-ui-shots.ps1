@@ -4,7 +4,7 @@ Render the Approval Gate and CmdWarden Vault screenshots for the docs.
 
 .DESCRIPTION
 Run: pwsh scripts/render-ui-shots.ps1
-Writes docs/images/approval-gate.png and docs/images/vault-*.png.
+Writes docs/images/approval-gate.png and docs/images/vault-*.png, including the Enroll and Set level dialogs.
 
 The script uses demo data in %LOCALAPPDATA%\CmdWarden-docs and a private pipe.
 Your real policy, audit trail, and agent stay as they are.
@@ -215,6 +215,27 @@ try {
         Start-Sleep -Seconds 3
         Save-Window $hwnd $pages[$nav]
     }
+
+    # Enroll and Set level dialogs. Both close unsaved: the demo policy stays as it is.
+    Invoke-Id $w "NavGates"
+    Start-Sleep -Seconds 2
+    Invoke-Id $w "PagePrimaryButton"
+    $enroll = Wait-Window $vault.Id "Enroll launcher" $w
+    $seen = $enroll.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::RadioButton)))
+    $seen.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Start-Sleep -Milliseconds 400
+    Save-Window (Hwnd $enroll) "vault-enroll-launcher.png"
+    $enroll.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close()
+    Start-Sleep -Milliseconds 400
+    $pill = $w.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "Set the GitHub CLI level")))
+    $pill.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $set = Wait-Window $vault.Id "Set level" $w
+    Start-Sleep -Milliseconds 400
+    Save-Window (Hwnd $set) "vault-set-level.png"
+    $set.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close()
+    Start-Sleep -Milliseconds 400
 
     Invoke-Id $w "NavSecrets"
     Start-Sleep -Seconds 2

@@ -132,6 +132,31 @@ public class PolicyStoreTests
     }
 
     [Fact]
+    public void Load_reports_a_kind_change_as_a_launcher_change()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "cw-policy-kind-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, "policy.json");
+        try
+        {
+            var writer = new PolicyStore(path);
+            writer.Enroll("key-a", LauncherEnrollmentKind.Terminal);
+            writer.Save();
+            var reader = new PolicyStore(path);
+            reader.Load();
+
+            writer.Enroll("key-a", LauncherEnrollmentKind.AiHarness);
+            writer.Save();
+
+            Assert.Contains(reader.Load(), c => c.LauncherPolicyKey == "key-a" && c.Tool is null);
+        }
+        finally
+        {
+            try { Directory.Delete(dir, recursive: true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
     public void Load_reports_no_changes_when_the_file_is_unchanged()
     {
         var dir = Path.Combine(Path.GetTempPath(), "cw-policy-nodiff-" + Guid.NewGuid().ToString("N"));

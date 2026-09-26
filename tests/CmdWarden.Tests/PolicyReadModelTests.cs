@@ -25,6 +25,30 @@ public class PolicyReadModelTests : IDisposable
     }
 
     [Fact]
+    public void RecentUnenrolled_lists_each_unenrolled_key_once_newest_first()
+    {
+        var store = NewStore();
+        store.Enroll("enrolled", LauncherEnrollmentKind.Terminal);
+        AuditGateRecord Row(string key, string? path, int minutesAgo) => new()
+        {
+            Ts = DateTime.UtcNow.AddMinutes(-minutesAgo).ToString("o"),
+            Decision = GateDecisions.Deny,
+            Tool = "gh",
+            LauncherPolicyKey = key,
+            LauncherPath = path,
+        };
+
+        var seen = PolicyReadModel.RecentUnenrolled(
+            [Row("new", @"C:\claude.exe", 1), Row("enrolled", null, 2), Row(LauncherKinds.PolicyKeyUnknown, null, 3),
+             Row("new", @"C:\old.exe", 4), Row("older", null, 5), Row("", null, 6)],
+            store.Launchers);
+
+        Assert.Equal(["new", "older"], seen.Select(s => s.PolicyKey));
+        Assert.Equal(@"C:\claude.exe", seen[0].Path);
+        Assert.Null(seen[1].Path);
+    }
+
+    [Fact]
     public void Missing_file_gives_defaults_and_no_launchers()
     {
         var m = PolicyReadModel.Load(PolicyPath);

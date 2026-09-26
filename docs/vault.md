@@ -15,7 +15,7 @@ Run `cw shortcut install` again after every reinstall of the tool. The shortcuts
 
 - **Left nav:** six page buttons. Click **«** or press **[** / **]** to collapse the nav to an icon rail.
 - **Title bar:** page name, a **Session Agent** badge (Up / Agent down), and one primary button (**+ Add secret** on Secrets, **Run scan** on Detectors, **Refresh** elsewhere).
-- **Body:** the page content. Every page is read-only except Secrets.
+- **Body:** the page content. Every page is read-only except Secrets and Secret Gates.
 
 ## Keys
 
@@ -36,7 +36,7 @@ Each button shows its key next to its label.
 
 | Page | Shows | CLI twin |
 |------|-------|----------|
-| **Secret Gates** | **Defaults** card: the level each launcher kind gets (AI Harness → Read, Terminal → Trusted). One card per enrolled launcher: kind pill, policy key, path, and which command classes auto-allow or go to the Approval Gate. **Active session allows** card: every live "Allow for session" grant with granted, last used, expires, and end times. | `cw policy list`, `cw policy sessions` |
+| **Secret Gates** | **Defaults** card: the level each launcher kind gets (AI Harness → Read, Terminal → Trusted). One card per enrolled launcher: kind pill, policy key, path, and which command classes auto-allow or go to the Approval Gate. **Active session allows** card: every live "Allow for session" grant with granted, last used, expires, and end times. Enroll a launcher, set a level, or unenroll a launcher. | `cw policy list`, `cw policy sessions`, `cw policy enroll`, `cw policy set`, `cw policy unenroll` |
 | **Detectors** | Residual risk findings: title, tool, severity pill, summary, evidence, and remediation. Empty state: **Nothing to fix**. | `cw scan` |
 | **Hardened Tools** | One card per catalog tool (`gh`, `git`, `az`, `docker`): pinned path and a pill **Hardened**, **Degraded**, or **Not hardened** with the reason. Strong mode shows in the note. | `cw harden --list`, `cw doctor` |
 | **Secrets** | Every secret name in the vault. **+ Add secret** opens a dialog. **Delete** on a selected card asks for confirmation. | `cw save`, `cw delete` |
@@ -48,6 +48,18 @@ Each button shows its key next to its label.
 **Secret Gates** - defaults per launcher kind, one card per enrolled launcher, and active session allows.
 
 ![Secret Gates page](images/vault-secret-gates.png)
+
+**Enroll launcher** - click **+ Enroll launcher** or press **Ctrl+E**. Pick a launcher that the audit saw, or type a policy key. Choose **AI Harness** or **Terminal**, then press **Enter**.
+
+![Enroll launcher dialog](images/vault-enroll-launcher.png)
+
+**Set level** - click the level of a tool on a launcher card. Choose **Deny**, **Read**, **Trusted**, or **Full**, then press **Enter**.
+
+![Set level dialog](images/vault-set-level.png)
+
+**Unenroll** - click **Unenroll** on a launcher card. Or select the card with a click and press **Del**. Press **Enter** to unenroll or **Esc** to keep it.
+
+Each change writes the same policy file as `cw policy`. The Session Agent reads the change on its next call. It then drops the session allows and remembered answers of that launcher and tool, the same as after a `cw policy` command.
 
 **Detectors** - one card per finding with severity, evidence, and the `cw` command that fixes it.
 
@@ -79,7 +91,6 @@ Each button shows its key next to its label.
 
 ## What the Vault does not do
 
-- It does not enroll launchers or set policy levels. Use `cw policy enroll` and `cw policy set`.
 - It does not harden tools. Use `cw harden`.
 - It does not revoke session allows. Use `cw policy sessions --revoke <id>`.
 - It does not show the Approval Gate. That card comes from the Session Agent when a gated command runs.

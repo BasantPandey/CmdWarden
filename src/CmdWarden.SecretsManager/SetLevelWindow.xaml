@@ -1,0 +1,55 @@
+<Window x:Class="CmdWarden.SecretsManager.SetLevelWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Set level"
+        Width="440"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#1C1C1C"
+        Foreground="White"
+        FontFamily="Segoe UI Variable, Segoe UI"
+        ShowInTaskbar="False">
+  <Border Margin="16" Background="#2A2A2A" BorderBrush="#1EFFFFFF" BorderThickness="1" CornerRadius="10" Padding="20">
+    <StackPanel>
+      <TextBlock x:Name="TitleText" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4" TextWrapping="Wrap" />
+      <TextBlock x:Name="LauncherText" FontSize="12" FontFamily="Cascadia Mono, Consolas" TextWrapping="Wrap"
+                 Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,16" />
+
+      <Border Style="{StaticResource SegmentFrameStyle}" AutomationProperties.Name="Level">
+        <StackPanel Orientation="Horizontal">
+          <RadioButton x:Name="LevelDeny" Style="{StaticResource SegmentStyle}" GroupName="Level" Content="Deny" Checked="Level_Checked" />
+          <RadioButton x:Name="LevelRead" Style="{StaticResource SegmentStyle}" GroupName="Level" Content="Read" Checked="Level_Checked" />
+          <RadioButton x:Name="LevelTrusted" Style="{StaticResource SegmentStyle}" GroupName="Level" Content="Trusted" Checked="Level_Checked" />
+          <RadioButton x:Name="LevelFull" Style="{StaticResource SegmentStyle}" GroupName="Level" Content="Full" Checked="Level_Checked" />
+        </StackPanel>
+      </Border>
+      <TextBlock x:Name="MatrixText" FontSize="12" TextWrapping="Wrap" Margin="0,10,0,0"
+                 Foreground="{StaticResource TextSecondaryBrush}" />
+      <TextBlock x:Name="FullWarning" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed"
+                 Foreground="{StaticResource WarnBrush}"
+                 Text="Full also releases secret-reveal commands, such as gh auth token, with no popup." />
+
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+        <Button Style="{StaticResource IconButtonStyle}" Margin="0,0,8,0"
+                IsCancel="True" Click="Cancel_Click" Padding="16,8" ToolTip="Cancel (Esc)">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="Cancel" />
+            <Border Style="{StaticResource KeyChipStyle}">
+              <TextBlock Text="Esc" Style="{StaticResource KeyChipTextStyle}" />
+            </Border>
+          </StackPanel>
+        </Button>
+        <Button x:Name="SetButton" Style="{StaticResource PrimaryButtonStyle}"
+                IsDefault="True" IsEnabled="False" Click="Set_Click" Padding="18,8" ToolTip="Set level (Enter)">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="Set level" />
+            <Border Style="{StaticResource KeyChipStyle}">
+              <TextBlock Text="Enter" Style="{StaticResource KeyChipTextStyle}" />
+            </Border>
+          </StackPanel>
+        </Button>
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</Window>
