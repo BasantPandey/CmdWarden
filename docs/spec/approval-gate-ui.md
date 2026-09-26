@@ -154,7 +154,7 @@ Secret values, full process chain, tool pin path, full argv dump beyond the main
 | UI control | `ApprovalOutcome` | Effect |
 |------------|-------------------|--------|
 | **Approve Once** | `AllowOnce` | Launcher process keeps this one class for tool + secret until exit or 60 idle minutes; never secret-reveal; no lasting policy change (#205) |
-| **Allow for session** | `AllowForSession` | Launcher process keeps this class (and lower) for tool + secret until exit or 60 idle minutes; never secret-reveal; hidden for unenrolled launchers (#132) |
+| **Allow for session** | `AllowForSession` | Launcher process keeps this class (and lower) for tool + secret until exit or 60 idle minutes; never secret-reveal; hidden for unenrolled launchers (#132). The **Allow for session lasts** row picks Until exit, 10 minutes, or 1 hour. Exit code bits 8-9 carry the choice (#46) |
 | **Deny** | `Deny` | Block grant |
 | Cannot show UI / timeout / helper crash / bootstrap fail | `Unavailable` | **Fail closed** (block) |
 | `CW_APPROVAL_MODE=allow` | `AllowOnce` | CI / scripted |
