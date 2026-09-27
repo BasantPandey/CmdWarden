@@ -100,6 +100,6 @@ Docs site: `uv run --with mkdocs-material mkdocs serve`. CLI screenshots: `uv ru
 
 ## Status
 
-Version **0.2.0**. All four catalog tools work end to end in compat mode. Strong mode is opt-in for `gh`, `git`, and `docker`. Every secret release writes an audit row first, or it fails closed.
+See the [latest release](https://github.com/BasantPandey/CmdWarden/releases/latest) for the current version. The catalog tools and the tool packs work end to end in compat mode. Strong mode is opt-in for `gh`, `git`, `az`, and `docker`. Every secret release writes an audit row first, or it fails closed.
 
 Issues and plans: [GitHub issues](https://github.com/BasantPandey/CmdWarden/issues). Found a bug or want a tool added? Open an issue. Star the repo if CmdWarden saves you a token.
