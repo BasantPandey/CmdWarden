@@ -211,7 +211,10 @@ jobs:
             (Join-Path $art "CmdWarden.$v-packages.zip")
           )
           foreach ($a in $assets) { if (-not (Test-Path $a)) { throw "Missing asset: $a" } }
-          $signature = if ($env:SIGNED -eq "true") { "Every CmdWarden exe and dll is signed." } else { "This release is not signed yet." }
+          $signature = if ($env:SIGNED -eq "true") { 'Every CmdWarden exe and dll is signed. Check them:' }
+            else { 'This release is not signed yet: Windows SmartScreen may warn. Compare the sha256 of the zip with this page. A signed release shows `Valid` here:' }
+          $dotnetTool = if ($env:NUGET_API_KEY) { '`dotnet tool install -g CmdWarden`' }
+            else { "Download ``CmdWarden.$v.nupkg`` to a folder, then ``dotnet tool install -g CmdWarden --add-source <folder>``" }
 
           $notes = @"
           ## CmdWarden $v
@@ -225,7 +228,7 @@ jobs:
           | winget | ``winget install BasantPandey.CmdWarden`` (when the winget catalog has this version) |
           | Setup zip | Download ``CmdWarden.$v-setup.zip``, extract it, double-click ``install.cmd`` |
           | Portable zip | Extract ``CmdWarden.$v-win-x64.zip`` and run ``cw.exe`` |
-          | dotnet tool | ``dotnet tool install -g CmdWarden`` (needs the .NET 10 SDK) |
+          | dotnet tool | $dotnetTool (needs the .NET 10 SDK) |
 
           The winget package, the setup zip, and the portable zip carry their own .NET runtime. No .NET install and no admin prompt.
 
@@ -233,7 +236,7 @@ jobs:
 
           ### Signature
 
-          $signature Check them:
+          $signature
 
           ``````powershell
           Get-ChildItem "`$env:LOCALAPPDATA\CmdWarden\app" -Recurse -Include cw.exe, CmdWarden.*.exe |
