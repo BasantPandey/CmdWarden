@@ -1,43 +1,48 @@
-# Package managers (Chocolatey, winget, Scoop)
+# Package managers (winget, Scoop, Chocolatey)
 
-CmdWarden is **not** on the public Chocolatey / winget / Scoop community catalogs by default. This folder holds **templates** you can use:
+The release makes the winget and Scoop manifests for you. Each release has `CmdWarden.<version>-packages.zip` with manifests that carry the real sha256 of the portable zip.
 
-1. **Locally** (your machine / internal feed)
-2. To **submit** to public catalogs when the Release assets are publicly downloadable
+The portable zip `CmdWarden.<version>-win-x64.zip` carries its own .NET runtime. A package manager installs it with no .NET and no admin prompt.
 
-| Manager | Path | Best for |
-|---------|------|----------|
-| **Chocolatey** | [chocolatey/](chocolatey/) | `choco install cmdwarden` (local or community) |
-| **winget** | [winget/](winget/) | Windows Package Manager manifests |
-| **Scoop** | [scoop/](scoop/) | Portable apps / developer machines |
-| **PowerShell** | [../scripts/Install-CmdWarden.ps1](../scripts/Install-CmdWarden.ps1) | Works today against GitHub Releases |
+| Manager | Source | Command for the user |
+|---------|--------|----------------------|
+| **winget** | `winget/` in the packages zip | `winget install BasantPandey.CmdWarden` |
+| **Scoop** | `scoop/cmdwarden.json` in the packages zip | `scoop install cmdwarden` (from a bucket) |
+| **Chocolatey** | [chocolatey/](chocolatey/) template | `choco install cmdwarden` |
 
-Also always available:
+Make the manifests by hand for any zip:
 
 ```powershell
-# Recommended today
-.\scripts\Install-CmdWarden.ps1
-# or from Release nupkg
-dotnet tool install -g CmdWarden --add-source C:\packages --version 0.1.0
+./scripts/New-PackageManifests.ps1 -Version 0.8.0 -Zip artifacts/CmdWarden.0.8.0-win-x64.zip -Out artifacts/packages
 ```
 
-## Private repository limitation
+## winget
 
-Community **chocolatey.org**, **winget-pkgs**, and public **Scoop** buckets require a **public** download URL for automation and moderation. If the GitHub repo (or releases) are private:
+The installer manifest uses `ArchiveBinariesDependOnPath: true`. winget then puts the install folder on PATH and makes no symlink. `cw.exe` must run from its own folder, because it finds `runtime\` next to it.
 
-| Approach | Works? |
-|----------|--------|
-| Local `choco pack` + `choco install -s .` | Yes (with `gh` auth or `GH_TOKEN` at install time) |
-| Internal Chocolatey/NuGet feed | Yes |
-| Public chocolatey.org / winget / scoop | Needs public release assets (or mirror) |
-| `Install-CmdWarden.ps1` | Yes with `gh auth login` or token |
+Check a manifest before you submit it:
 
----
+```powershell
+winget validate artifacts\packages\winget
+winget install --manifest artifacts\packages\winget
+```
+
+The release submits the manifests to [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) when the `WINGET_TOKEN` secret is set. The token is a GitHub classic token with the `public_repo` scope. Without it, submit the manifests by hand: `wingetcreate submit --token <token> artifacts\packages\winget`.
+
+## Scoop
+
+Put `cmdwarden.json` in a bucket repository, then:
+
+```powershell
+scoop bucket add cmdwarden https://github.com/<you>/scoop-cmdwarden
+scoop install cmdwarden
+```
+
+The manifest has `checkver` and `autoupdate`, so a bucket bot can follow new releases.
 
 ## Chocolatey (quick local)
 
 ```powershell
-# Install Chocolatey if needed: https://chocolatey.org/install
 cd packaging\chocolatey\cmdwarden
 choco pack
 choco install cmdwarden -y -s .
@@ -46,38 +51,11 @@ cw version
 
 See [chocolatey/README.md](chocolatey/README.md).
 
----
+## Release secrets
 
-## winget (local manifest)
-
-```powershell
-# Install App Installer / winget from Microsoft Store if needed
-winget validate .\packaging\winget
-winget install --manifest .\packaging\winget
-```
-
-Public listing: open a PR to [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) (installer URL must be world-readable). Update `InstallerSha256` when you cut a new release.
-
----
-
-## Scoop (custom bucket)
-
-```powershell
-# Example: add this file to your own bucket repo, then:
-scoop bucket add mybucket https://github.com/you/scoop-bucket
-scoop install cmdwarden
-```
-
-Or install the JSON from a path (bucket-dependent). Update `hash` when the zip changes.
-
----
-
-## Version bump checklist
-
-When releasing `v0.2.0`:
-
-1. GitHub Release with `CmdWarden.0.2.0.nupkg` + zip
-2. Chocolatey: bump `cmdwarden.nuspec` `<version>`
-3. winget: bump `PackageVersion` + `InstallerUrl` + `InstallerSha256`
-4. Scoop: bump `version`, `url`, `hash`
-5. Re-pack / re-submit as needed
+| Secret or variable | Use |
+|--------------------|-----|
+| `SIGNPATH_API_TOKEN` (secret), `SIGNPATH_ORGANIZATION_ID`, `SIGNPATH_PROJECT_SLUG`, `SIGNPATH_SIGNING_POLICY_SLUG` (variables) | Sign every exe and dll through SignPath Foundation (free for open source) |
+| `NUGET_API_KEY` | Push the dotnet tool to NuGet.org |
+| `WINGET_TOKEN` | Submit the winget manifests |
+| `REQUIRE_SIGNING` (variable) | `true` stops a release that is not signed |

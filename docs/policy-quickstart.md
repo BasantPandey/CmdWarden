@@ -8,6 +8,8 @@ Install first: [install.md](install.md). Terms: [Glossary](glossary.md).
 
 ## 1. One-minute setup
 
+The short way: run `cw setup` in **your normal terminal**. It does all of this section, finds the AI harness for you, and ends with a real card. The steps below do the same by hand.
+
 Run the first block in **your normal terminal** (Windows Terminal / PowerShell).
 
 ```powershell

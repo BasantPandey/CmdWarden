@@ -8,15 +8,23 @@ The release workflow signs every CmdWarden exe and dll, and the two install scri
 
 The release signs these files:
 
-- The publish folder of the win-x64 zip: `cw.exe`, `cmdwarden.exe`, `agent\`, `shim-payload\`, `secrets-manager\`.
+- The portable folder of the win-x64 zip and the setup zip: `cw.exe`, `cmdwarden.exe`, `agent\`, `shim-payload\`, `secrets-manager\`, `try-agent\`. The .NET files in `runtime\` keep the signature of Microsoft.
 - The same files inside the nupkg. The script replaces each entry in place, so the rest of the package stays the same.
 - `Install-CmdWarden.ps1` and `Uninstall-CmdWarden.ps1` in the setup zip. `install.cmd` and `uninstall.cmd` cannot carry a signature.
 
-The workflow order is: pack, publish, stage, sign, put back, verify, push the nupkg, then zip. The verify step fails the release when one staged file has no valid signature.
+The workflow order is: pack, build the portable folder, stage, sign, put back, verify, smoke test, push the nupkg, then zip. The verify step fails the release when one staged file has no valid signature. On a signed release, the smoke test also checks each CmdWarden exe of the portable folder.
 
 ## Set up signing
 
-Use one of the two ways. The workflow uses Azure Artifact Signing when both are set.
+Use one of the three ways. When more than one is set, the workflow uses SignPath first, then Azure Artifact Signing.
+
+### SignPath Foundation (free for open source)
+
+1. Apply at [signpath.org](https://signpath.org) for the CmdWarden project. SignPath Foundation gives open-source projects a code signing certificate at no cost.
+2. In SignPath, add a project with an artifact configuration that signs `**/*.exe`, `**/*.dll`, and `**/*.ps1` in the uploaded zip, and a signing policy.
+3. Add the repository secret `SIGNPATH_API_TOKEN` and the repository variables `SIGNPATH_ORGANIZATION_ID`, `SIGNPATH_PROJECT_SLUG`, and `SIGNPATH_SIGNING_POLICY_SLUG`.
+
+The workflow uploads `artifacts/to-sign/files` as a build artifact, asks SignPath to sign it, waits, and puts the signed files back in the same folder.
 
 ### Azure Artifact Signing (Trusted Signing)
 

@@ -16,10 +16,14 @@ public static class HookInstaller
     public const string PolicyMarker = " hook check ";
 
     public static string ClaudeSettingsPath(string? home = null) =>
-        Path.Combine(home ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "settings.json");
+        Path.Combine(home ?? CmdWarden.Contracts.ProductPaths.UserHome(), ".claude", "settings.json");
 
     public static string CursorHooksPath(string? home = null) =>
-        Path.Combine(home ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cursor", "hooks.json");
+        Path.Combine(home ?? CmdWarden.Contracts.ProductPaths.UserHome(), ".cursor", "hooks.json");
+
+    /// <summary>#66: Codex reads hooks.json in the same shape as the Claude Code settings.</summary>
+    public static string CodexHooksPath(string? home = null) =>
+        Path.Combine(home ?? CmdWarden.Contracts.ProductPaths.UserHome(), ".codex", "hooks.json");
 
     /// <summary>
     /// The command line that runs this cw with <paramref name="args"/>. Forward slashes work in
@@ -44,7 +48,10 @@ public static class HookInstaller
         return path.Contains(' ') ? $"\"{path}\"" : path;
     }
 
-    /// <summary>Adds one entry for the event and tool matcher. Returns false when it is already there.</summary>
+    /// <summary>
+    /// Adds one entry for the event and tool matcher. An entry of ours with an older matcher gets the
+    /// new one. Returns false when it is already there as asked.
+    /// </summary>
     public static bool InstallClaude(string settingsPath, string command,
         string hookEvent = "PostToolUse", string matcher = "*", string marker = LeakGuardMarker)
     {
@@ -53,8 +60,14 @@ public static class HookInstaller
         root["hooks"] = hooks;
         var list = hooks[hookEvent] as JsonArray ?? new JsonArray();
         hooks[hookEvent] = list;
-        if (list.Any(g => g?["hooks"] is JsonArray inner && inner.Any(h => IsOurs(h?["command"], marker))))
-            return false;
+        if (list.FirstOrDefault(g => g?["hooks"] is JsonArray inner && inner.Any(h => IsOurs(h?["command"], marker))) is JsonObject ours)
+        {
+            if ((string?)ours["matcher"] == matcher)
+                return false;
+            ours["matcher"] = matcher;
+            Save(settingsPath, root);
+            return true;
+        }
         list.Add(new JsonObject
         {
             ["matcher"] = matcher,

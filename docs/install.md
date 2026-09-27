@@ -1,16 +1,21 @@
+---
+title: Install CmdWarden
+description: Install CmdWarden on Windows with winget or the setup zip. It carries its own .NET runtime, needs no admin prompt, and cw setup does the rest.
+---
+
 # Install CmdWarden
 
-CmdWarden installs as a global **dotnet tool** on Windows. Package: **CmdWarden**. Commands: **`cw`** and **`cmdwarden`**. Current version: **0.1.0**.
+CmdWarden carries its own .NET runtime. You need no .NET install and no admin prompt. Commands: **`cw`** and **`cmdwarden`**.
 
 | Section | Go there when |
 |---------|---------------|
 | [1. Requirements](#1-requirements) | You start from a clean machine |
 | [2. Install](#2-install) | You install for the first time |
-| [3. Verify](#3-verify) | You check the install |
-| [4. What you get](#4-what-you-get) | You want to see the app before you set it up |
-| [5. First-time setup](#5-first-time-setup) | You protect your first tool |
-| [6. Other install ways](#6-other-install-ways) | The installer script does not fit |
-| [7. Update](#7-update) | A new build is out |
+| [3. Set up](#3-set-up) | You protect your tools and your AI harness |
+| [4. Verify](#4-verify) | You check the install |
+| [5. What you get](#5-what-you-get) | You want to see the app before you set it up |
+| [6. Other install ways](#6-other-install-ways) | You want the dotnet tool or a build from source |
+| [7. Update](#7-update) | A new release is out |
 | [8. Uninstall](#8-uninstall) | You remove CmdWarden |
 | [9. Troubleshooting](#9-troubleshooting) | Something fails |
 
@@ -20,54 +25,63 @@ CmdWarden installs as a global **dotnet tool** on Windows. Package: **CmdWarden*
 
 | Need | Notes |
 |------|-------|
-| **Windows 10 or 11** | CmdWarden is Windows only |
-| **.NET SDK 10** | The installer offers to install it with winget when it is missing. Or [download .NET 10](https://dotnet.microsoft.com/download). |
-| **GitHub access** | The repo is private. Sign in to GitHub in the browser to download the setup zip. |
+| **Windows 10 or 11** | CmdWarden is Windows only. It needs a desktop session for the Approval Gate card. |
+| **About 250 MB of disk** | The download is about 95 MB. Most of it is the .NET runtime that CmdWarden carries. |
 
-Install is **binaries only**. It does not change how `gh` or `git` run until you run `cw harden`.
+Install alone changes nothing. `gh`, `git`, and the other tools run as before until you run `cw setup` or `cw harden`.
 
 ---
 
 ## 2. Install
 
-1. Download `CmdWarden.<version>-setup.zip` from the [latest Release](https://github.com/BasantPandey/CmdWarden/releases/latest).
-2. Extract the zip. It holds the package, `install.cmd`, `uninstall.cmd`, and the two scripts.
-3. Double-click **`install.cmd`**. Do not run it as admin.
+Pick one way.
 
-The installer does these steps and prints each one with `==>`:
-
-1. Checks Windows and the .NET 10 SDK. When the SDK is missing, it asks to install it with winget.
-2. Uses the `CmdWarden.<version>.nupkg` next to it. Without one, it downloads the latest GitHub Release.
-3. Stops an old Session Agent and removes an old or broken tool install.
-4. Runs `dotnet tool install -g CmdWarden`.
-5. Adds `%USERPROFILE%\.dotnet\tools` to your user PATH.
-6. Creates the Start Menu entry **CmdWarden Vault**. `-Desktop` adds the Desktop icon.
-7. Adds **CmdWarden** to Windows Settings > Apps. Its **Uninstall** button runs the uninstaller.
-8. Runs `cw version` and `cw doctor`.
-
-From a clone of the repo, run the same installer. It downloads the Release, so run `gh auth login` first:
+**winget** (recommended):
 
 ```powershell
-git clone https://github.com/BasantPandey/CmdWarden.git
-cd CmdWarden
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Install-CmdWarden.ps1 -Desktop
+winget install BasantPandey.CmdWarden
 ```
 
-*Expect:* the last lines read `CmdWarden 0.1.0 installed as a global dotnet tool.` and list the next commands.
+winget puts the install folder on your user PATH. Open a new terminal after the install.
 
-Options:
+**Setup zip**:
 
-```powershell
-.\scripts\Install-CmdWarden.ps1 -Version 0.1.0 -Force                 # one version, clean reinstall
-.\scripts\Install-CmdWarden.ps1 -PackagePath C:\packages\CmdWarden.0.1.0.nupkg   # local nupkg, no download
-.\scripts\Install-CmdWarden.ps1 -Mode zip -InstallDir "$env:LOCALAPPDATA\CmdWarden\app"   # portable, no global tool
-.\scripts\Install-CmdWarden.ps1 -SkipDoctor                           # do not run cw doctor
-.\scripts\Install-CmdWarden.ps1 -Yes                                  # install the .NET SDK without a question
-```
+1. Download `CmdWarden.<version>-setup.zip` from the [latest release](https://github.com/BasantPandey/CmdWarden/releases/latest).
+2. Extract the zip, then double-click **`install.cmd`**. Do not run it as admin.
+
+The installer copies CmdWarden to `%LOCALAPPDATA%\CmdWarden\app`, puts it on your user PATH, and adds **CmdWarden** to Windows Settings > Apps. When an older CmdWarden dotnet tool is there, it removes that copy. At the end it offers to run `cw setup`.
+
+**Portable zip**: extract `CmdWarden.<version>-win-x64.zip` anywhere and run `.\cw.exe setup`.
 
 ---
 
-## 3. Verify
+## 3. Set up
+
+Run this once, in **your own terminal**, not in the AI harness:
+
+```powershell
+cw setup
+```
+
+Each step asks first. Enter means yes. `cw setup --yes` runs every step with no questions.
+
+| Step | What it does |
+|------|--------------|
+| terminal | Enrolls this terminal as Trusted. Your own work gets no card. |
+| tools | Hardens each tool it finds: `gh`, `git`, `az`, `docker`, `npm`, `aws`, `kubectl`, and `ssh`. When a tool comes before the shims on the machine PATH, it fixes PATH with one admin prompt. |
+| harnesses | Finds Claude Code, Cursor, and Codex. Enrolls each one at Read. Adds the policy hook, the leak guard, and the MCP server. For Codex, it also offers to enroll the sandbox accounts. |
+| shortcuts | Adds the Start Menu entry, the tray icon at logon, and the Settings > Apps entry. |
+| canary | Plants fake tokens. A use of one shows an alarm and blocks the app that used it. |
+| protect | Turns on the secret protections that each harness has but leaves off. See [Trust](trust.md). |
+| try | Runs `cw try`: a stand-in agent asks for a fake secret, and you see the real card. |
+
+Then restart your AI harness, so it reads the new PATH and hooks. `cw setup` is safe to run again: a step that is done says so.
+
+Run `cw try` at any time to see the card again. It never uses a real token.
+
+---
+
+## 4. Verify
 
 Open a **new** terminal, then run:
 
@@ -76,61 +90,46 @@ cw version
 cw doctor
 ```
 
-*Expect:*
-
-```text
-CmdWarden 0.1.0
-CLI: cw (alias: cmdwarden)
-```
-
-```text
-CmdWarden doctor
-  product: CmdWarden 0.1.0
-  agent binary: ...\agent\CmdWarden.Agent.dll
-  vault UI binary: ...\secrets-manager\CmdWarden.SecretsManager.exe
-  vault Start Menu shortcut: present
-  session agent: ALIVE
-  agent version: 0.1.0
-```
-
 `cw doctor` starts the Session Agent when it is not running. State lives under `%LOCALAPPDATA%\CmdWarden\`.
 
 Check the signatures of the installed files. A signed release shows `Valid` on each row:
 
 ```powershell
-Get-ChildItem "$env:USERPROFILE\.dotnet\tools\.store\cmdwarden" -Recurse -Include cw.dll, CmdWarden.*.exe |
+Get-ChildItem "$env:LOCALAPPDATA\CmdWarden\app" -Recurse -Include cw.exe, CmdWarden.*.exe |
   Get-AuthenticodeSignature | Format-Table Status, Path
 ```
 
-`~\.dotnet\tools\cw.exe` is a launcher that dotnet makes at install. It has no CmdWarden signature.
-
-The package holds these parts:
+The install folder holds these parts:
 
 | Part | Role |
 |------|------|
 | `cw.exe`, `cmdwarden.exe` | CLI |
 | `agent\` | Session Agent: policy, vault, audit, approval |
 | `agent\approval-gate\` | Approval Gate card |
-| `secrets-manager\` | CmdWarden Vault desktop app |
+| `secrets-manager\` | CmdWarden Vault desktop app and tray icon |
 | `shim-payload\` | PATH shims that `cw harden` installs |
+| `try-agent\` | The stand-in agent of `cw try` |
+| `runtime\` | The .NET runtime that every part uses |
+
+A harden copies the shims to `%LOCALAPPDATA%\CmdWarden\shims` and the base runtime to `%LOCALAPPDATA%\CmdWarden\runtime`.
 
 ---
 
-## 4. What you get
+## 5. What you get
 
 ### Approval Gate
 
-The card appears on your desktop when policy does not auto-allow a secret release. The command waits until you click **Deny**, **Allow for session**, or **Approve Once**. Or press **Esc**, **A**, or **Enter**.
+The card appears on your desktop when policy does not auto-allow a secret release. The command waits until you click **Deny**, **Allow for session**, or **Approve Once**. When the card offers **Allow for session**, it is the default: press **Enter**. Press **1** for Approve Once and **Esc** for Deny. The card offers it to an enrolled app, never for a secret read. Other cards show Deny and Approve Once (**Enter**).
 
 ![Approval Gate card](images/approval-gate.png)
 
 ### Tray icon
 
-The CmdWarden tray icon lists live session allows, revokes them, and tells you when CmdWarden blocks a retry or a canary use. See [Tray icon](vault.md#tray-icon).
+The CmdWarden tray icon shows how many cards you answered today, lists live session allows, revokes them, and tells you when CmdWarden blocks a retry or a canary use. See [Tray icon](vault.md#tray-icon).
 
 ### CmdWarden Vault
 
-Open **CmdWarden Vault** from the Start Menu or the Desktop icon. Six pages. Every page is read-only except Secrets and Secret Gates. The app never shows a secret value.
+Open **CmdWarden Vault** from the Start Menu. Six pages. Every page is read-only except Secrets and Secret Gates. The app never shows a secret value.
 
 **Secret Gates** - defaults per launcher kind, one card per enrolled launcher, and active session allows. Enroll with **Ctrl+E**, click a level to change it, and unenroll with **Del**.
 
@@ -158,116 +157,54 @@ Open **CmdWarden Vault** from the Start Menu or the Desktop icon. Six pages. Eve
 
 ---
 
-## 5. First-time setup
-
-Install alone does not protect a tool. Run this once.
-
-In **your normal terminal**:
-
-```powershell
-cw policy enroll --kind terminal
-cw harden gh
-```
-
-In the **AI harness terminal** (Cursor, Claude Code, Codex panel):
-
-```powershell
-cw policy enroll --kind ai-harness
-```
-
-Open a new terminal, then check:
-
-```powershell
-where.exe gh          # first hit is under %LOCALAPPDATA%\CmdWarden\shims
-gh auth status
-cw policy list
-```
-
-Your terminal is **Trusted**. The harness is **Read**. Continue with the **[Policy quick start](policy-quickstart.md)** for `git`, `az`, `docker`, profiles, and scripts.
-
----
-
 ## 6. Other install ways
 
-### From a Release nupkg by hand
+### dotnet tool
 
-Download `CmdWarden.<version>.nupkg` from the [Releases page](https://github.com/BasantPandey/CmdWarden/releases) into a folder, then:
+For .NET developers. It needs the [.NET 10 SDK](https://dotnet.microsoft.com/download).
 
 ```powershell
-$pkgDir = "C:\packages"
-dotnet tool uninstall -g CmdWarden 2>$null
-dotnet tool install -g CmdWarden --add-source $pkgDir --version 0.1.0
-cw shortcut install --desktop
-cw doctor
+dotnet tool install -g CmdWarden
+cw setup
 ```
 
-`--add-source` takes the **folder**, not the nupkg file.
+When NuGet.org does not have the version yet, download `CmdWarden.<version>.nupkg` from the release into a folder and pass that folder: `dotnet tool install -g CmdWarden --add-source C:\packages`.
+
+### Scoop
+
+Each release has `CmdWarden.<version>-packages.zip` with a Scoop manifest. Put `scoop\cmdwarden.json` in a bucket, then run `scoop install cmdwarden`.
 
 ### From source
-
-Use this to install what is on `main` right now.
 
 ```powershell
 git clone https://github.com/BasantPandey/CmdWarden.git
 cd CmdWarden
-dotnet pack src/CmdWarden.Cli/CmdWarden.Cli.csproj -c Release -o .\artifacts\nupkg
-cw agent stop 2>$null
-dotnet tool uninstall -g CmdWarden 2>$null
-dotnet tool install -g CmdWarden --add-source .\artifacts\nupkg --version 0.1.0
-cw shortcut install --desktop
-cw doctor
+pwsh ./scripts/Build-Portable.ps1 -Out artifacts/portable
+.\artifacts\portable\cw.exe setup
 ```
 
-The pack builds the CLI, Session Agent, Approval Gate, CmdWarden Vault, shims, and credential helpers.
-
-### Portable zip
-
-Download `CmdWarden.<version>-win-x64.zip` from the Release, extract it, and run `.\cw.exe`. No global tool. Needs the .NET 10 runtime.
+The script builds every part and copies the .NET runtime of your SDK next to them. It ends with a check that `cw.exe` runs with no .NET on PATH.
 
 ### GitHub Actions artifact
 
-Every green **build** on `main` uploads a Windows exe layout. Open [Actions](https://github.com/BasantPandey/CmdWarden/actions), pick the latest run, download the artifact, extract, and run `.\cw.exe`.
-
-### Package managers
-
-Templates for Chocolatey, winget, and Scoop live under [packaging/](https://github.com/BasantPandey/CmdWarden/tree/main/packaging). The public catalogs need a public download URL, so they work today only against a local or internal feed.
+Every green **build** on `main` uploads the portable folder. Open [Actions](https://github.com/BasantPandey/CmdWarden/actions), pick the latest run, download the artifact, extract it, and run `.\cw.exe`.
 
 ---
 
 ## 7. Update
 
-Run `cw update`:
+| Install way | Update |
+|-------------|--------|
+| winget | `winget upgrade BasantPandey.CmdWarden` |
+| Setup zip | `cw update` |
+| dotnet tool | `dotnet tool update -g CmdWarden` |
 
 ```powershell
 cw update --check   # only say if a newer release is available
 cw update           # install the newest release
 ```
 
-`cw update` reads the newest GitHub Release and downloads its setup zip. It compares the sha256 of the zip with the digest that GitHub shows for the asset. A wrong or missing digest stops the update. Then the installer of the zip runs in a new window with `-Force -Yes`, and `cw` stops. The installer stops the Session Agent and replaces the tool.
-
-`cw update` installs the dotnet tool. For a portable zip install, download the new zip.
-
-From a clone, the installer script updates in place:
-
-```powershell
-cd path\to\CmdWarden
-git pull origin main
-.\scripts\Install-CmdWarden.ps1 -Force -Desktop
-```
-
-From source, the version stays `0.1.0` while code changes, so `dotnet tool update` does nothing. Uninstall, then install again:
-
-```powershell
-git pull origin main
-dotnet pack src/CmdWarden.Cli/CmdWarden.Cli.csproj -c Release -o .\artifacts\nupkg
-cw agent stop
-dotnet tool uninstall -g CmdWarden
-dotnet tool install -g CmdWarden --add-source .\artifacts\nupkg --version 0.1.0
-cw shortcut install --desktop
-cw doctor
-```
-
-Run `cw shortcut install` after every reinstall. The shortcuts point at the exe inside the tool folder, and a reinstall replaces that folder.
+`cw update` reads the newest GitHub release and downloads its setup zip. It compares the sha256 of the zip with the digest that GitHub shows for the asset. A wrong or missing digest stops the update. Then the installer of the zip runs in a new window, and `cw` stops. The installer stops the Session Agent and replaces `%LOCALAPPDATA%\CmdWarden\app`. Your policy, vault, and shims stay.
 
 ---
 
@@ -277,32 +214,28 @@ Use one of these:
 
 - Run `cw uninstall`. It runs the same uninstaller as Settings > Apps, in a new window.
 - Open Windows **Settings > Apps**, select **CmdWarden**, and click **Uninstall**.
-- Double-click **`uninstall.cmd`** from the setup zip or from `scripts\`.
-- Run the script:
+- Double-click **`uninstall.cmd`** from the setup zip.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Uninstall-CmdWarden.ps1
-```
+For a winget install, run `cw uninstall` first. It removes the hooks and shims, then it runs `winget uninstall` for you. A plain `winget uninstall` removes only the files.
 
 The uninstaller works when `cw` is broken or gone. Each step runs on its own. A failed step prints a warning, and the next step continues.
 
-1. Runs `cw unharden` for `gh`, `git`, and `docker`, so their logins go back to the stock stores. With no working `cw`, it removes the CmdWarden credential helper from the git and docker config.
-2. Stops the Session Agent, the Approval Gate, and CmdWarden Vault.
-3. Removes the Start Menu entry and the Desktop icon.
-4. Uninstalls the dotnet tool and clears its tool store.
-5. Removes CmdWarden folders from the user PATH. For the machine PATH, it asks for one admin prompt.
-6. Deletes `%LOCALAPPDATA%\CmdWarden`: policy, pins, shims, and audit.
-7. Asks before it deletes saved secrets from Credential Manager (`CmdWarden/...`). The default is to keep them.
-8. Removes the entry in Settings > Apps.
-
-At the end, it lists each item that you must check by hand.
+1. Unhardens every tool, so their logins go back to the stock stores.
+2. Removes the hooks, MCP servers, and protections from Claude Code, Cursor, and Codex, and removes the canaries.
+3. Stops the Session Agent, the Approval Gate, and CmdWarden Vault.
+4. Removes the Start Menu entry and the Desktop icon.
+5. Uninstalls an old dotnet tool copy.
+6. Removes CmdWarden folders from the user PATH. For the machine PATH, it asks for one admin prompt.
+7. Deletes `%LOCALAPPDATA%\CmdWarden`: policy, pins, shims, audit, and the app.
+8. Asks before it deletes saved secrets from Credential Manager (`CmdWarden/...`). The default is to keep them.
+9. Removes the entry in Settings > Apps, and the winget package when winget installed it.
 
 Options:
 
 ```powershell
-.\scripts\Uninstall-CmdWarden.ps1 -KeepData          # keep policy, pins, and audit, for a reinstall
-.\scripts\Uninstall-CmdWarden.ps1 -RemoveSecrets     # also delete saved secrets
-.\scripts\Uninstall-CmdWarden.ps1 -Quiet             # ask nothing; keep secrets; skip the admin PATH step
+.\Uninstall-CmdWarden.ps1 -KeepData          # keep policy, pins, and audit, for a reinstall
+.\Uninstall-CmdWarden.ps1 -RemoveSecrets     # also delete saved secrets
+.\Uninstall-CmdWarden.ps1 -Quiet             # ask nothing; keep secrets; skip the admin PATH step
 ```
 
 ---
@@ -311,27 +244,14 @@ Options:
 
 | Symptom | Fix |
 |---------|-----|
-| `cw` not found | Open a **new** terminal. Check `%USERPROFILE%\.dotnet\tools` is on the user PATH. |
-| Installer says `No latest release found` or the download gets 404 | Use the setup zip: it has the package inside. Or run `gh auth login`, or set `$env:GH_TOKEN` with repo read access. |
-| Installer says `The .NET 10 SDK was not found` | Run `winget install --id Microsoft.DotNet.SDK.10 --exact`, open a new terminal, and run the installer again. |
-| `cw` is broken and you want it gone | Run the uninstaller (section 8). It does not need a working `cw`. |
-| `dotnet tool install` cannot find the package | Pass the **folder** that holds the nupkg to `--add-source`. |
-| `dotnet tool uninstall` says `Access to the path ... is denied` | A Session Agent runs from the tool folder. Run `cw agent stop`. If it still fails, stop it from an admin terminal or end the `dotnet` process that runs `CmdWarden.Agent.dll`. |
-| `cw doctor` says agent binary missing | Reinstall from a full pack. `agent\` must sit inside the tool package. |
+| `cw` not found | Open a **new** terminal. PATH changes reach only new terminals. |
+| SmartScreen warns about `install.cmd` | The release is not signed yet. Check the sha256 of the zip against the release page, then click **More info** > **Run anyway**. |
+| `cw setup` skips the terminal step | You ran it inside an AI harness. Run it in your own terminal. |
+| `cw doctor` says agent binary missing | The install folder is not complete. Install again. |
 | `cw doctor` says pipe exists but access denied | An agent runs elevated or as another user. Run `cw agent stop` from that terminal, then `cw agent start` from a normal one. |
-| `cw shortcut install` says `Vault UI binary not found` | Pack from source so `secrets-manager\` is inside the package, or set `CW_SECRETS_MANAGER_PATH`. |
-| Shortcut opens nothing after reinstall | Run `cw shortcut install --desktop` again. |
-| No Approval Gate card | Check `agent\approval-gate\CmdWarden.ApprovalGate.exe` exists under the tool install. A missing card fails closed. |
-| `Unknown command: shortcut` | The installed `cw` is old. Update (section 7). |
-| Wrong or old version | `dotnet tool list -g`, then uninstall and install with `--version`. |
-
-Tool install location:
-
-```text
-%USERPROFILE%\.dotnet\tools\cw.exe
-%USERPROFILE%\.dotnet\tools\.store\cmdwarden\<version>\cmdwarden\<version>\tools\net10.0\any\
-```
+| No Approval Gate card | Check `agent\approval-gate\CmdWarden.ApprovalGate.exe` exists in the install folder. A missing card fails closed. |
+| `cw` is broken and you want it gone | Run the uninstaller (section 8). It does not need a working `cw`. |
 
 ---
 
-Next: [Policy quick start](policy-quickstart.md) · [User guide](user-guide.md) · [README](index.md)
+Next: [Policy quick start](policy-quickstart.md) · [Trust](trust.md) · [User guide](user-guide.md)

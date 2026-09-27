@@ -92,10 +92,24 @@ public partial class MainWindow : Window
         DetailPolicyKey.Text = "Policy key: " + payload.PolicyKey;
         DetailTimestamp.Text = "Timestamp: " + payload.RequestedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
 
-        // #132/#205: a session state needs an enrolled launcher; Approve Once stays the default (Enter) button.
+        // #132/#205: a session state needs an enrolled launcher. #68: when it is offered, one approval
+        // covers the task, so "Allow for session" is the default (Enter) button and Approve Once is 1.
         if (payload.SessionAllowOffered)
         {
             SessionScope.Text = payload.SessionScopeLine ?? "";
+            var primary = ApproveButton.Style;
+            ApproveButton.Style = DenyButton.Style;
+            ApproveButton.Foreground = SessionButton.Foreground;
+            ApproveButton.IsDefault = false;
+            ApproveButton.ToolTip = "Approve Once (1)";
+            ApproveKey.Text = "1";
+            SessionButton.Style = primary;
+            SessionButton.ClearValue(ForegroundProperty);
+            SessionButton.IsDefault = true;
+            SessionButton.ToolTip = "Allow for session (Enter)";
+            SessionKey.Text = "Enter";
+            // The longer label and the Enter chip need more room than the two other buttons.
+            SessionColumn.Width = new GridLength(1.4, GridUnitType.Star);
         }
         else
         {
@@ -150,6 +164,11 @@ public partial class MainWindow : Window
         {
             e.Handled = true;
             CompleteIfReal(ApprovalHelperExitCodes.ForSession(ChosenLength));
+        }
+        else if (e.Key is Key.D1 or Key.NumPad1 && Keyboard.Modifiers == ModifierKeys.None && SessionButton.IsVisible)
+        {
+            e.Handled = true;
+            CompleteIfReal(ApprovalHelperExitCodes.AllowOnce);
         }
     }
 

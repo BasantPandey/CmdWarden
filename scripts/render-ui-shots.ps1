@@ -37,9 +37,10 @@ public static class Shot {
     [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
     [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr h, int a, out R r, int size);
     [DllImport("user32.dll")] public static extern void keybd_event(byte k, byte s, int f, int e);
-    // Windows lets a process take the focus only after a key press. An Alt tap counts.
-    // The wait lets the window read the Alt release before a posted key, which it reads first otherwise.
-    public static void Focus(IntPtr h) { keybd_event(0x12, 0, 0, 0); SetForegroundWindow(h); keybd_event(0x12, 0, 2, 0); System.Threading.Thread.Sleep(300); }
+    // Windows lets a process take the focus only after a key press. A Shift tap counts. An Alt tap
+    // would put the window in system menu mode, which hides its content from UI Automation.
+    // The wait lets the window read the Shift release before a posted key, which it reads first otherwise.
+    public static void Focus(IntPtr h) { keybd_event(0x10, 0, 0, 0); SetForegroundWindow(h); keybd_event(0x10, 0, 2, 0); System.Threading.Thread.Sleep(300); }
 }
 "@
 # Physical pixels, so window sizes and captures match the screen.
@@ -253,7 +254,7 @@ try {
     Save-Window $hwnd "vault-secrets.png"
 
     # Ctrl+N opens Add secret. The shot shows the Esc and Enter keys, then the dialog closes unsaved.
-    Invoke-Id $w "AddSecretButton"
+    Invoke-Id $w "PagePrimaryButton"
     $add = Wait-Window $vault.Id "Add secret" $w
     $nameBox = Find-Id $add "NameBox"
     $nameBox.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("NPM_TOKEN")
@@ -268,19 +269,23 @@ try {
     Invoke-Id $w "RefreshButton"
     Start-Sleep -Seconds 1
     [Shot]::Focus($hwnd)
-    $demoText = $w.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-        (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "DEMO_TOKEN")))
-    if (-not $demoText) { throw "DEMO_TOKEN card not found." }
-    $demoDelete = [System.Windows.Automation.TreeWalker]::ControlViewWalker.GetParent($demoText).FindFirst(
-        [System.Windows.Automation.TreeScope]::Descendants,
-        (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)))
+    # The page reloads its list every 3 seconds, so each check finds the DEMO_TOKEN card again.
+    function Test-DemoSelected {
+        $demoText = $w.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "DEMO_TOKEN")))
+        if (-not $demoText) { throw "DEMO_TOKEN card not found." }
+        $demoDelete = [System.Windows.Automation.TreeWalker]::ControlViewWalker.GetParent($demoText).FindFirst(
+            [System.Windows.Automation.TreeScope]::Descendants,
+            (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)))
+        $demoDelete.Current.IsEnabled
+    }
     # Esc clears the selection. Then Down moves one card at a time until the DEMO_TOKEN Delete button is on.
     Send-Key $hwnd 0x1B
-    for ($i = 0; $i -lt 20 -and -not $demoDelete.Current.IsEnabled; $i++) {
+    for ($i = 0; $i -lt 20 -and -not (Test-DemoSelected); $i++) {
         Send-Key $hwnd 0x28
         Start-Sleep -Milliseconds 300
     }
-    if (-not $demoDelete.Current.IsEnabled) { throw "Could not select DEMO_TOKEN." }
+    if (-not (Test-DemoSelected)) { throw "Could not select DEMO_TOKEN." }
     Send-Key $hwnd 0x2E
     $confirm = Wait-Window $vault.Id "Delete secret" $w
     Start-Sleep -Milliseconds 400

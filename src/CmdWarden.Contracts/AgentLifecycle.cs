@@ -124,18 +124,20 @@ public static class AgentLifecycle
             WorkingDirectory = binaryDir,
         };
 
-        if (binary.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
-            || (binary.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) && File.Exists(siblingDll)))
+        // Host via dotnet when it is on PATH: an SDK in a user folder has no registry entry for the
+        // apphost to find. #64: a build with its own runtime\ always runs the apphost, which uses that
+        // runtime; so does a PC with no dotnet on PATH.
+        var apphost = Path.Combine(binaryDir, AgentLocator.AgentExeName);
+        var managed = binary.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? binary : siblingDll;
+        var privateRuntime = Directory.Exists(Path.Combine(binaryDir, "..", "runtime", "host"));
+        if (File.Exists(managed) && (!File.Exists(apphost) || (DotnetOnPath() && !privateRuntime)))
         {
-            // Always host via dotnet when the managed assembly is present (reliable deps resolution).
             psi.FileName = "dotnet";
-            psi.ArgumentList.Add(File.Exists(siblingDll) && binary.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
-                ? siblingDll
-                : binary);
+            psi.ArgumentList.Add(managed);
         }
         else
         {
-            psi.FileName = binary;
+            psi.FileName = File.Exists(apphost) ? apphost : binary;
         }
 
         // CW_POLICY_PATH and CW_APPROVAL_MODE pass through as they are.
@@ -276,6 +278,11 @@ public static class AgentLifecycle
         or TimeoutException
         or IOException
         or HttpRequestException;
+
+    private static bool DotnetOnPath() =>
+        (Environment.GetEnvironmentVariable("PATH") ?? "")
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Any(dir => File.Exists(Path.Combine(dir, "dotnet.exe")));
 
     private static bool LooksSelfContained(string binaryDir)
     {

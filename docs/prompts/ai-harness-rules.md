@@ -8,7 +8,7 @@ Copy the block below into the rules file of your harness: `CLAUDE.md`, `.cursorr
 # CmdWarden rules
 
 This machine runs CmdWarden. It gates secret use by tool and by caller.
-A Session Agent holds policy. Shims on PATH stand in for `gh`, `git`, `az`, and `docker`.
+A Session Agent holds policy. Shims on PATH stand in for `gh`, `git`, `az`, `docker`, `npm`, `aws`, and `kubectl`.
 Secrets live in Windows Credential Manager. A gated command shows an Approval Gate popup on the desktop.
 CLI: `cw` (alias `cmdwarden`). Desktop app: CmdWarden Vault. You are an **AI harness** launcher with level **Read**.
 
@@ -25,10 +25,13 @@ CLI: `cw` (alias `cmdwarden`). Desktop app: CmdWarden Vault. You are an **AI har
 - Do not run `az account get-access-token`, `az ad sp create-for-rbac`, `az ad sp credential reset`, `az keyvault secret show`, or `az storage account keys list`.
 - Do not print a secret variable, for example `echo %GH_TOKEN%`.
 - Do not write a secret value to a file, an env var, a profile, or the chat. Secret names are fine.
+- Do not read a `.env` file that holds plain values. Tell the user: `cw env import` moves them into the vault.
 
 ## Need a secret in a child process
 
 - Run `cw inject +NAME -- <command>`. Only the child gets the variable.
+- A project `.env` with `KEY=cw://NAME` lines: run `cw inject --env-file .env -- <command>`.
+- The output shows `[CmdWarden: NAME]` in place of a value. That is expected. Do not try `--no-masking`.
 - The command after `--` runs directly. Use `cmd /c` when you need `%VAR%` expansion.
 - Ask the user before you run `cw inject`. It can show the Approval Gate.
 
@@ -52,12 +55,13 @@ CLI: `cw` (alias `cmdwarden`). Desktop app: CmdWarden Vault. You are an **AI har
 
 ## cw commands you may run on your own
 
-Read-only: `cw version`, `cw agent status`, `cw whoami`, `cw policy list`, `cw policy path`, `cw policy sessions`, `cw harden --list`, `cw audit -n 20`, `cw scan`, `cw shortcut status`, `cw doctor`, `cw update --check`.
+Read-only: `cw version`, `cw agent status`, `cw whoami`, `cw policy list`, `cw policy path`, `cw policy sessions`, `cw harden --list`, `cw audit -n 20`, `cw scan`, `cw shortcut status`, `cw doctor`, `cw update --check`, `cw try` (fake secret only).
 Note: `cw doctor` starts the agent when it is down.
 
 ## cw commands that need the user's explicit ask
 
-`cw save`, `cw delete`, `cw inject`, `cw policy enroll`, `cw policy set`, `cw policy unenroll`, `cw policy sessions --revoke`, `cw harden`, `cw unharden`, `cw agent start|stop`, `cw doctor --fix-path`, `cw shortcut install|remove`, `cw update`, `cw uninstall`.
+`cw save`, `cw delete`, `cw inject`, `cw env import`, `cw setup`, `cw policy enroll`, `cw policy set`, `cw policy unenroll`, `cw policy sessions --revoke`, `cw harden`, `cw unharden`, `cw agent start|stop`, `cw doctor --fix-path`, `cw shortcut install|remove`, `cw update`, `cw uninstall`.
+- The CmdWarden hook stops the commands that turn protection off, such as `cw policy set` and `cw unharden`. The user runs those in their own terminal.
 - Never run `cw policy set <key> <tool> Full`.
 - Never enroll yourself with `--kind terminal`. A harness is `--kind ai-harness`.
 

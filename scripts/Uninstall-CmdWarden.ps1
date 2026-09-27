@@ -8,14 +8,15 @@
   A failed step prints a warning and the next step continues.
 
   Steps:
-    1. Unharden gh, git, and docker, so their logins go back to the stock stores.
-    2. Stop the Session Agent, the Approval Gate, and CmdWarden Vault.
-    3. Remove the Start Menu entry and the Desktop icon.
-    4. Uninstall the dotnet tool and clear its tool store.
-    5. Remove CmdWarden folders from PATH.
-    6. Delete local data: policy, pins, shims, audit (skip with -KeepData).
-    7. Delete saved secrets from Credential Manager (only with -RemoveSecrets or a yes).
-    8. Remove the entry in Windows Settings > Apps.
+    1. Unharden every tool, so their logins go back to the stock stores.
+    2. Remove the hooks, MCP servers, and protections from Claude Code, Cursor, and Codex. Remove the canaries.
+    3. Stop the Session Agent, the Approval Gate, and CmdWarden Vault.
+    4. Remove the Start Menu entry and the Desktop icon.
+    5. Uninstall the dotnet tool and clear its tool store.
+    6. Remove CmdWarden folders from PATH.
+    7. Delete local data: policy, pins, shims, audit, the portable app (skip with -KeepData).
+    8. Delete saved secrets from Credential Manager (only with -RemoveSecrets or a yes).
+    9. Remove the entry in Windows Settings > Apps. Remove the winget package when winget installed it.
 
   Windows Settings > Apps > CmdWarden > Uninstall runs this script.
 
@@ -72,9 +73,12 @@ function Confirm-Step([string] $Question, [bool] $Default) {
     return $answer.Trim().ToLowerInvariant().StartsWith("y")
 }
 
-# A cw that answers "cw version". Order: tool shim, tool store dll, portable copy.
+# A cw that answers "cw version". Order: the copy next to this script, tool shim, tool store dll,
+# portable copy, cw on PATH (a winget install).
 function Find-Cw {
     $candidates = New-Object System.Collections.Generic.List[object]
+    $beside = Join-Path (Split-Path -Parent $PSScriptRoot) "cw.exe"
+    if (Test-Path $beside) { $candidates.Add(@($beside)) }
     $shim = Join-Path $ToolsDir "cw.exe"
     if (Test-Path $shim) { $candidates.Add(@($shim)) }
     if (Test-Path $ToolStore) {
@@ -84,6 +88,8 @@ function Find-Cw {
     }
     $portable = Join-Path $ProductRoot "app\cw.exe"
     if (Test-Path $portable) { $candidates.Add(@($portable)) }
+    $onPath = Get-Command cw -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($onPath) { $candidates.Add(@($onPath.Source)) }
 
     foreach ($c in $candidates) {
         $exe = $c[0]
@@ -168,11 +174,12 @@ if (-not $Quiet) {
     }
 }
 
-Write-Step "Unharden gh, git, az, docker"
+Write-Step "Unharden gh, git, az, docker, npm, aws, kubectl, ssh"
 $cw = Find-Cw
+$wingetInstall = $cw -and ($cw[0] -match '\\Microsoft\\WinGet\\Packages\\')
 if ($cw) {
     Write-Ok "Using: $($cw -join ' ')"
-    foreach ($tool in "gh", "git", "az", "docker") {
+    foreach ($tool in "gh", "git", "az", "docker", "npm", "aws", "kubectl", "ssh") {
         if ((Invoke-Cw $cw @("unharden", $tool)) -ne 0) {
             Write-Warn "cw unharden $tool failed. See the lines above."
         }
@@ -183,17 +190,21 @@ else {
 }
 
 # A hook or MCP server left in the harness config would call a cw that is gone.
-Write-Step "Remove the Claude Code and Cursor hooks and MCP server"
+Write-Step "Remove the Claude Code, Cursor, and Codex hooks, MCP servers, and protections"
 if ($cw) {
     foreach ($command in "leak-guard", "hook", "mcp") {
-        foreach ($harness in "claude", "cursor") {
+        foreach ($harness in "claude", "cursor", "codex") {
             Invoke-Cw $cw @($command, "uninstall", $harness) | Out-Null
         }
     }
+    foreach ($harness in "claude", "codex") {
+        Invoke-Cw $cw @("protect", "uninstall", $harness) | Out-Null
+    }
+    Invoke-Cw $cw @("canary", "remove") | Out-Null
 }
 else {
-    Write-Warn "No working cw found. Remove the entries with 'leak-guard' or 'hook check' from ~\.claude\settings.json and ~\.cursor\hooks.json."
-    Write-Warn "Remove the cmdwarden MCP server: claude mcp remove --scope user cmdwarden, and its entry in ~\.cursor\mcp.json."
+    Write-Warn "No working cw found. Remove the entries with 'leak-guard' or 'hook check' from ~\.claude\settings.json, ~\.cursor\hooks.json, and ~\.codex\hooks.json."
+    Write-Warn "Remove the cmdwarden MCP server: claude mcp remove --scope user cmdwarden, its entry in ~\.cursor\mcp.json, and the CmdWarden blocks in ~\.codex\config.toml."
 }
 Clear-GitHelper
 Clear-DockerHelper
@@ -289,6 +300,13 @@ else {
 }
 $copy = Join-Path $ProductRoot "uninstall"
 if ($KeepData -and (Test-Path $copy)) { Remove-Item -Recurse -Force $copy -ErrorAction SilentlyContinue }
+
+if ($wingetInstall -and (Get-Command winget -ErrorAction SilentlyContinue)) {
+    Write-Step "winget package"
+    & winget uninstall --id BasantPandey.CmdWarden --exact --silent --disable-interactivity *> $null
+    if ($LASTEXITCODE -eq 0) { Write-Ok "winget uninstall BasantPandey.CmdWarden" }
+    else { Write-Warn "Run: winget uninstall BasantPandey.CmdWarden" }
+}
 
 Write-Host ""
 if ($script:Warnings.Count -eq 0) {

@@ -20,6 +20,7 @@ internal sealed class TrayIcon : IDisposable
     private readonly DispatcherTimer _timer;
     private readonly TrayAlertFeed _alerts = new(DateTimeOffset.UtcNow);
     private IReadOnlyList<SessionAllowRow> _rows = [];
+    private int _promptsToday;
     private bool _agentUp;
     private bool _polling;
 
@@ -63,19 +64,20 @@ internal sealed class TrayIcon : IDisposable
                 _rows = [];
                 _agentUp = false;
             }
-            _icon.Text = !_agentUp ? $"{ProductInfo.Name}: Session Agent is not running"
-                : _rows.Count == 0 ? $"{ProductInfo.Name}: no session allows"
-                : $"{ProductInfo.Name}: {_rows.Count} session allow{(_rows.Count == 1 ? "" : "s")}";
-
             IReadOnlyList<AuditGateRecord> records;
             try
             {
-                records = await Task.Run(() => new AuditLog().ReadRecentRecords(200).Records).ConfigureAwait(true);
+                // ponytail: the last 2000 rows cover a normal day; a busier day shows a lower count.
+                records = await Task.Run(() => new AuditLog().ReadRecentRecords(2000).Records).ConfigureAwait(true);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 records = [];
             }
+            _promptsToday = PromptCount.Today(records, DateTimeOffset.UtcNow);
+            _icon.Text = !_agentUp ? $"{ProductInfo.Name}: Session Agent is not running"
+                : $"{ProductInfo.Name}: {PromptsLine}; {(_rows.Count == 0 ? "no session allows" : $"{_rows.Count} session allow{(_rows.Count == 1 ? "" : "s")}")}";
+
             foreach (var alert in _alerts.Next(records, DateTimeOffset.UtcNow))
                 _icon.ShowBalloonTip(8000, alert.Title, alert.Text, Forms.ToolTipIcon.Warning);
         }
@@ -90,6 +92,7 @@ internal sealed class TrayIcon : IDisposable
         var menu = _icon.ContextMenuStrip!;
         menu.Items.Clear();
         menu.Items.Add(new Forms.ToolStripLabel(ProductInfo.Name) { Font = new System.Drawing.Font(menu.Font, System.Drawing.FontStyle.Bold) });
+        menu.Items.Add(new Forms.ToolStripMenuItem(PromptsLine) { Enabled = false });
         if (!_agentUp)
             menu.Items.Add(new Forms.ToolStripMenuItem("Session Agent is not running") { Enabled = false });
         else if (_rows.Count == 0)
@@ -110,6 +113,8 @@ internal sealed class TrayIcon : IDisposable
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit tray icon", null, (_, _) => System.Windows.Application.Current.Shutdown());
     }
+
+    private string PromptsLine => $"{_promptsToday} prompt{(_promptsToday == 1 ? "" : "s")} today";
 
     /// <summary>"gh / GH_TOKEN · write · claude (pid 1234) · until the launcher exits".</summary>
     private static string MenuLine(SessionAllowRow row)

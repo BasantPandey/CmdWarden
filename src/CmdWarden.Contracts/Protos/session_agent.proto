@@ -115,6 +115,8 @@ message ReleaseSecretRequest {
   string agent_reason = 7;
   // #35: the working folder of the caller, for the Approval card. Display only.
   string working_directory = 8;
+  // #67: more vault names for the same run. One Approval card covers the whole set.
+  repeated string extra_names = 9;
 }
 
 message BoundFileEntry {
@@ -135,6 +137,8 @@ message ReleaseSecretResponse {
   string enrollment_kind = 10;
   // #30: the hashes the approval covers. The runner checks them just before the start.
   repeated BoundFileEntry bound_files = 11;
+  // #67: the values of extra_names, by env var name.
+  map<string, bytes> extra_values = 12;
 }
 
 message DeleteSecretRequest {

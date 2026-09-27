@@ -242,11 +242,15 @@ public class GitAuthorizeProcessTests
         fx.Enroll(LauncherEnrollmentKind.AiHarness); // Read: a write asks
         fx.PinCmdAsGit();
         using var repo = new FakeGitRepo();
+        var store = new PolicyStore(fx.PolicyPath);
+        store.Load();
+        // #68: a new policy file allows low-risk writes; "ask" is the setting of an older file.
+        store.SetLowRisk(LowRiskModes.Ask);
+        store.Save();
 
         await Assert.ThrowsAsync<Grpc.Core.RpcException>(() =>
             AgentAuthorizeClient.AuthorizeAsync("git", ["push"], pipeName: fx.PipeName, workingDirectory: repo.Dir));
 
-        var store = new PolicyStore(fx.PolicyPath);
         store.Load();
         store.SetLowRisk(LowRiskModes.Allow);
         store.Save();

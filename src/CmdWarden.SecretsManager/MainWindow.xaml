@@ -151,7 +151,8 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
-              <Button x:Name="AddSecretButton" Grid.Column="0"
+              <!-- The header button adds a secret; this one stays for Ctrl+N state only. -->
+              <Button x:Name="AddSecretButton" Grid.Column="0" Visibility="Collapsed"
                       Style="{StaticResource PrimaryButtonStyle}" IsEnabled="False"
                       Click="AddSecretButton_Click" Margin="0,0,6,0" ToolTip="Add secret (Ctrl+N)">
                 <StackPanel Orientation="Horizontal">

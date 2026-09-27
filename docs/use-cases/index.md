@@ -1,6 +1,6 @@
 ---
 title: Use cases
-description: Fourteen short guides for CmdWarden, from gating your GitHub token from an AI agent to undoing everything.
+description: Sixteen short guides for CmdWarden, from gating your GitHub token from an AI agent to keeping your .env out of the agent.
 ---
 
 # Use cases
@@ -24,5 +24,6 @@ Each guide states when to use it, the commands to type, and what to expect. Want
 | **UC13** | [Gate ssh key use](gate-ssh-keys.md) | A push over ssh from the agent asks; your terminal pushes freely |
 | **UC14** | [Short-lived GitHub tokens for one repo](short-lived-github-tokens.md) | gh gets a GitHub App token for the current repo that ends in one hour |
 | **UC15** | [Keep API keys out of the agent](api-keys-through-proxy.md) | The agent sends `cw://NAME`; the proxy puts the real key in place for listed hosts only |
+| **UC16** | [Keep .env secrets out of the agent](env-files.md) | `cw env import` moves the values; `cw inject --env-file` gives them only to your program |
 
-New here? Start with **UC1**, then read **UC2**. Terms you meet along the way are in the [Glossary](../glossary.md).
+New here? Run `cw setup`, then read **UC2**. Terms you meet along the way are in the [Glossary](../glossary.md).

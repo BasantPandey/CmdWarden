@@ -40,6 +40,29 @@ public static class LeakGuardHook
     }
 
     /// <summary>
+    /// #66 Codex PostToolUse: <c>decision: block</c> replaces the tool result with <c>reason</c>, so the
+    /// reason carries the output with placeholders.
+    /// </summary>
+    public static async Task<string?> CodexPostToolUseAsync(JsonNode input, Func<IReadOnlyList<string>, string, Task<LeakCheck>> check)
+    {
+        if (input["tool_response"] is not { } response)
+            return null;
+        var (copy, names) = await RedactAsync(response, check, "codex:" + (string?)input["tool_name"]).ConfigureAwait(false);
+        if (names.Count == 0)
+            return null;
+        return new JsonObject
+        {
+            ["decision"] = "block",
+            ["reason"] = copy is JsonValue v && v.TryGetValue<string>(out var text) ? text : copy.ToJsonString(),
+            ["hookSpecificOutput"] = new JsonObject
+            {
+                ["hookEventName"] = "PostToolUse",
+                ["additionalContext"] = Note(names),
+            },
+        }.ToJsonString();
+    }
+
+    /// <summary>
     /// Cursor hooks. Cursor can block a file read and can replace MCP output only; it cannot change
     /// shell output, so a shell match only adds a note. Every event still reaches the Agent, so a
     /// canary token in any of them raises the alarm.

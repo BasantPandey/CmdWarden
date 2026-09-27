@@ -42,6 +42,7 @@ nav:
   - Home: index.md
   - Get started:
       - Install: install.md
+      - Trust: trust.md
       - Policy quick start: policy-quickstart.md
       - AI harness rules: prompts/ai-harness-rules.md
   - Use cases:
@@ -61,6 +62,7 @@ nav:
       - UC13 Gate ssh key use: use-cases/gate-ssh-keys.md
       - UC14 Short-lived GitHub tokens: use-cases/short-lived-github-tokens.md
       - UC15 Keep API keys out of the agent: use-cases/api-keys-through-proxy.md
+      - UC16 Keep .env secrets out of the agent: use-cases/env-files.md
   - Guide:
       - user-guide.md
       - How it works: concepts.md
