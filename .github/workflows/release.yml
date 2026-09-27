@@ -1,5 +1,9 @@
-# Tag-triggered pack + publish exes + GitHub Release (PRD #67 + exe assets).
-# Push v0.1.0 → CmdWarden.0.1.0.nupkg + CmdWarden.0.1.0-win-x64.zip
+# Tag-triggered release. Push v0.8.0 and the workflow builds, signs when a signing way is set,
+# tests, and publishes:
+#   CmdWarden.0.8.0-win-x64.zip   portable folder with its own .NET runtime (winget and Scoop use it)
+#   CmdWarden.0.8.0-setup.zip     the same folder in app\, plus install.cmd and uninstall.cmd
+#   CmdWarden.0.8.0.nupkg         dotnet tool for .NET developers (also to NuGet.org when NUGET_API_KEY is set)
+#   CmdWarden.0.8.0-packages.zip  winget and Scoop manifests with the real sha256
 name: release
 
 on:
@@ -13,10 +17,14 @@ jobs:
     permissions:
       contents: write
       packages: write
-    # #42: signing runs when one signing way is configured. Secrets cannot go in an if, so env carries them.
+      actions: read
+    # #42, #64: signing runs when one signing way is set. Secrets cannot go in an if, so env carries them.
     env:
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
       ARTIFACT_SIGNING_ENDPOINT: ${{ secrets.ARTIFACT_SIGNING_ENDPOINT }}
       CODE_SIGNING_PFX: ${{ secrets.CODE_SIGNING_PFX }}
+      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
 
     steps:
       - name: Checkout
@@ -62,40 +70,9 @@ jobs:
           -p:Version=${{ env.VERSION }}
           -p:PackageVersion=${{ env.VERSION }}
 
-      - name: Publish Windows exes
+      - name: Build the portable folder
         shell: pwsh
-        run: |
-          $out = Join-Path $env:GITHUB_WORKSPACE "artifacts/bin"
-          if (Test-Path $out) { Remove-Item $out -Recurse -Force }
-          New-Item -ItemType Directory -Path $out | Out-Null
-
-          # Framework-dependent publish (no RID): produces cw.exe (+ cmdwarden, agent/, shim-payload/).
-          # Avoid -r win-x64: nested Agent MSBuild lacks that RID in assets. Needs .NET 10 runtime to run.
-          dotnet publish src/CmdWarden.Cli/CmdWarden.Cli.csproj `
-            -c Release `
-            -o $out `
-            -p:Version=$env:VERSION `
-            -p:PackageVersion=$env:VERSION `
-            -p:PublishSingleFile=false
-
-          $required = @(
-            "cw.exe",
-            "cmdwarden.exe",
-            "agent\CmdWarden.Agent.exe",
-            "shim-payload\gh.exe",
-            "shim-payload\git.exe",
-            "shim-payload\az.exe",
-            "shim-payload\docker.exe",
-            "shim-payload\docker-credential-cmdwarden.exe"
-          )
-          foreach ($rel in $required) {
-            $p = Join-Path $out $rel
-            if (-not (Test-Path $p)) {
-              Write-Host "Publish tree:"
-              Get-ChildItem $out -Recurse -File | Select-Object -ExpandProperty FullName
-              throw "Missing expected binary after publish: $rel"
-            }
-          }
+        run: ./scripts/Build-Portable.ps1 -Version $env:VERSION -Out artifacts/bin
 
       - name: Stage the files to sign
         shell: pwsh
@@ -106,8 +83,30 @@ jobs:
           -Script scripts/Install-CmdWarden.ps1,scripts/Uninstall-CmdWarden.ps1
           -Out artifacts/to-sign
 
+      # #64: SignPath Foundation signs open-source projects for free.
+      - name: Upload the files to sign
+        id: unsigned
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: to-sign
+          path: artifacts/to-sign/files/**
+          if-no-files-found: error
+
+      - name: Sign with SignPath
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: artifacts/to-sign/files
+
       - name: Sign with Azure Artifact Signing
-        if: env.ARTIFACT_SIGNING_ENDPOINT != ''
+        if: env.SIGNPATH_API_TOKEN == '' && env.ARTIFACT_SIGNING_ENDPOINT != ''
         uses: azure/artifact-signing-action@v2
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -124,7 +123,7 @@ jobs:
           timestamp-digest: SHA256
 
       - name: Sign with a code signing certificate
-        if: env.ARTIFACT_SIGNING_ENDPOINT == '' && env.CODE_SIGNING_PFX != ''
+        if: env.SIGNPATH_API_TOKEN == '' && env.ARTIFACT_SIGNING_ENDPOINT == '' && env.CODE_SIGNING_PFX != ''
         shell: pwsh
         env:
           CODE_SIGNING_PASSWORD: ${{ secrets.CODE_SIGNING_PASSWORD }}
@@ -143,15 +142,25 @@ jobs:
           }
 
       - name: Put the signed files back and check them
+        id: signed
         shell: pwsh
         run: |
-          if (-not $env:ARTIFACT_SIGNING_ENDPOINT -and -not $env:CODE_SIGNING_PFX) {
+          if (-not $env:SIGNPATH_API_TOKEN -and -not $env:ARTIFACT_SIGNING_ENDPOINT -and -not $env:CODE_SIGNING_PFX) {
             if ("${{ vars.REQUIRE_SIGNING }}" -eq "true") { throw "REQUIRE_SIGNING is true, but no signing secret is set." }
             Write-Host "::warning::No signing secret is set. The release binaries are not signed."
+            "SIGNED=false" | Out-File -FilePath $env:GITHUB_ENV -Append
             exit 0
           }
           ./scripts/Release-Signing.ps1 -Apply -Out artifacts/to-sign
           ./scripts/Release-Signing.ps1 -Verify -Out artifacts/to-sign
+          "SIGNED=true" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Smoke test with no .NET on PATH
+        shell: pwsh
+        run: |
+          $signed = @{}
+          if ($env:SIGNED -eq "true") { $signed.RequireSigned = $true }
+          ./scripts/Test-Portable.ps1 -Folder artifacts/bin @signed
 
       - name: Push nupkg to GitHub Packages
         run: >
@@ -160,116 +169,94 @@ jobs:
           --api-key ${{ secrets.GITHUB_TOKEN }}
           --skip-duplicate
 
-      - name: Zip Windows exes
-        shell: pwsh
-        run: |
-          $out = Join-Path $env:GITHUB_WORKSPACE "artifacts/bin"
-          $zip = Join-Path $env:GITHUB_WORKSPACE "artifacts/CmdWarden.$($env:VERSION)-win-x64.zip"
-          if (Test-Path $zip) { Remove-Item $zip -Force }
-          Compress-Archive -Path (Join-Path $out '*') -DestinationPath $zip -Force
-          Write-Host "Wrote $zip"
-          Get-Item $zip | Format-List Name, Length
+      - name: Push nupkg to NuGet.org
+        if: env.NUGET_API_KEY != ''
+        run: >
+          dotnet nuget push ${{ github.workspace }}/artifacts/nupkg/CmdWarden.${{ env.VERSION }}.nupkg
+          --source https://api.nuget.org/v3/index.json
+          --api-key ${{ secrets.NUGET_API_KEY }}
+          --skip-duplicate
 
-      - name: Build setup zip
+      - name: Zip the portable folder, the setup, and the manifests
         shell: pwsh
         run: |
-          $setup = Join-Path $env:GITHUB_WORKSPACE "artifacts/setup"
-          if (Test-Path $setup) { Remove-Item $setup -Recurse -Force }
-          New-Item -ItemType Directory -Path $setup | Out-Null
-          Copy-Item (Join-Path $env:GITHUB_WORKSPACE "artifacts/nupkg/CmdWarden.$($env:VERSION).nupkg") $setup
+          $v = $env:VERSION
+          $art = Join-Path $env:GITHUB_WORKSPACE "artifacts"
+          $zip = Join-Path $art "CmdWarden.$v-win-x64.zip"
+          Compress-Archive -Path (Join-Path $art "bin/*") -DestinationPath $zip -Force
+
+          $setup = Join-Path $art "setup"
+          New-Item -ItemType Directory -Force $setup | Out-Null
+          Copy-Item -Recurse (Join-Path $art "bin") (Join-Path $setup "app")
           foreach ($f in "install.cmd", "uninstall.cmd", "Install-CmdWarden.ps1", "Uninstall-CmdWarden.ps1") {
             Copy-Item (Join-Path $env:GITHUB_WORKSPACE "scripts/$f") $setup
           }
-          $zip = Join-Path $env:GITHUB_WORKSPACE "artifacts/CmdWarden.$($env:VERSION)-setup.zip"
-          if (Test-Path $zip) { Remove-Item $zip -Force }
-          Compress-Archive -Path (Join-Path $setup '*') -DestinationPath $zip -Force
-          Get-Item $zip | Format-List Name, Length
+          Compress-Archive -Path (Join-Path $setup "*") -DestinationPath (Join-Path $art "CmdWarden.$v-setup.zip") -Force
+
+          ./scripts/New-PackageManifests.ps1 -Version $v -Zip $zip -Out (Join-Path $art "packages")
+          Compress-Archive -Path (Join-Path $art "packages/*") -DestinationPath (Join-Path $art "CmdWarden.$v-packages.zip") -Force
+          Get-ChildItem $art -Filter "CmdWarden.$v*" | Format-Table Name, Length
 
       - name: Create GitHub Release and attach assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
         run: |
-          $nupkg = Join-Path $env:GITHUB_WORKSPACE "artifacts/nupkg/CmdWarden.$($env:VERSION).nupkg"
-          $zip = Join-Path $env:GITHUB_WORKSPACE "artifacts/CmdWarden.$($env:VERSION)-win-x64.zip"
-          $setupZip = Join-Path $env:GITHUB_WORKSPACE "artifacts/CmdWarden.$($env:VERSION)-setup.zip"
-          if (-not (Test-Path $nupkg)) {
-            Get-ChildItem (Join-Path $env:GITHUB_WORKSPACE "artifacts/nupkg") -ErrorAction SilentlyContinue
-            throw "Missing nupkg: $nupkg"
-          }
-          if (-not (Test-Path $zip)) {
-            throw "Missing zip: $zip"
-          }
-          if (-not (Test-Path $setupZip)) {
-            throw "Missing setup zip: $setupZip"
-          }
-
           $v = $env:VERSION
+          $art = Join-Path $env:GITHUB_WORKSPACE "artifacts"
+          $assets = @(
+            (Join-Path $art "CmdWarden.$v-win-x64.zip"),
+            (Join-Path $art "CmdWarden.$v-setup.zip"),
+            (Join-Path $art "nupkg/CmdWarden.$v.nupkg"),
+            (Join-Path $art "CmdWarden.$v-packages.zip")
+          )
+          foreach ($a in $assets) { if (-not (Test-Path $a)) { throw "Missing asset: $a" } }
+          $signature = if ($env:SIGNED -eq "true") { "Every CmdWarden exe and dll is signed." } else { "This release is not signed yet." }
+
           $notes = @"
           ## CmdWarden $v
 
-          First-catalog Windows CLI secret gate (Session Agent, vault, policy, harden/shims, scan).
+          Make AI coding agents ask before they use your CLI secrets on Windows.
 
-          ### Assets
+          ### Install
 
-          | Asset | Use |
-          |-------|-----|
-          | ``CmdWarden.$v-setup.zip`` | Easiest: extract, then double-click ``install.cmd``. No download, no GitHub login. |
-          | ``CmdWarden.$v.nupkg`` | Install as a global **dotnet tool** by hand |
-          | ``CmdWarden.$v-win-x64.zip`` | Unzipped binaries: ``cw.exe``, ``cmdwarden.exe``, ``agent/``, ``shim-payload/`` (needs .NET 10 runtime) |
+          | Way | Command or file |
+          |-----|-----------------|
+          | winget | ``winget install BasantPandey.CmdWarden`` (when the winget catalog has this version) |
+          | Setup zip | Download ``CmdWarden.$v-setup.zip``, extract it, double-click ``install.cmd`` |
+          | Portable zip | Extract ``CmdWarden.$v-win-x64.zip`` and run ``cw.exe`` |
+          | dotnet tool | ``dotnet tool install -g CmdWarden`` (needs the .NET 10 SDK) |
 
-          ### Install with the setup zip (easiest)
+          The winget package, the setup zip, and the portable zip carry their own .NET runtime. No .NET install and no admin prompt.
 
-          1. Download ``CmdWarden.$v-setup.zip`` and extract it.
-          2. Double-click ``install.cmd``. When the .NET 10 SDK is missing, the installer offers to install it with winget.
-          3. To remove CmdWarden: Windows Settings > Apps > CmdWarden > Uninstall, or double-click ``uninstall.cmd``.
-
-          ### Install as dotnet tool (by hand)
-
-          1. Download ``CmdWarden.$v.nupkg`` from this Release into a local folder (e.g. ``C:\packages``).
-             If the repository is private, sign in to GitHub in the browser first.
-          2. Install:
-
-          ``````powershell
-          dotnet tool install -g CmdWarden --add-source C:\packages --version $v
-          cw version
-          cw doctor
-          ``````
-
-          ### Use the zip (optional)
-
-          1. Download and extract ``CmdWarden.$v-win-x64.zip``.
-          2. Run ``cw.exe`` / ``cmdwarden.exe`` from the extract folder (or add it to PATH).
-          3. Session Agent is under ``agent\CmdWarden.Agent.exe``; harden payloads under ``shim-payload\``.
+          Then run ``cw setup``. It sets up everything and shows a real Approval Gate card.
 
           ### Signature
 
-          Every CmdWarden exe and dll carries a signature when the release was signed. Check them:
+          $signature Check them:
 
           ``````powershell
-          Get-ChildItem "$env:USERPROFILE\.dotnet\tools\.store\cmdwarden" -Recurse -Include cw.dll, CmdWarden.*.exe |
+          Get-ChildItem "`$env:LOCALAPPDATA\CmdWarden\app" -Recurse -Include cw.exe, CmdWarden.*.exe |
             Get-AuthenticodeSignature | Format-Table Status, Path
           ``````
 
-          ### After install
+          ### Update and remove
 
-          See the repository README and user guide for ``cw agent start``, policy enroll, ``cw harden``, and ``cw scan``.
-          Install is binaries only; harden is opt-in for PATH shims.
-
-          ### Update
-
-          ``````powershell
-          cw update
-          ``````
-
-          ``cw update`` downloads ``CmdWarden.<version>-setup.zip``, checks its sha256, and runs its installer.
-          To remove CmdWarden, run ``cw uninstall``.
+          ``cw update`` installs the newest release after a sha256 check. A winget install updates with ``winget upgrade BasantPandey.CmdWarden``.
+          ``cw uninstall`` removes CmdWarden and every change it made.
           "@
           $notes = ($notes -split "`n" | ForEach-Object { $_ -replace '^          ', '' }) -join "`n"
           $notesPath = Join-Path $env:RUNNER_TEMP "release-notes.md"
           Set-Content -Path $notesPath -Value $notes.Trim() -Encoding utf8
 
-          gh release create $env:TAG $setupZip $nupkg $zip `
+          gh release create $env:TAG @assets `
             --title "CmdWarden $v" `
             --notes-file $notesPath `
             --verify-tag
+
+      - name: Submit to the winget catalog
+        if: env.WINGET_TOKEN != ''
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          ./wingetcreate.exe submit --token $env:WINGET_TOKEN --prtitle "New version: BasantPandey.CmdWarden $env:VERSION" artifacts/packages/winget

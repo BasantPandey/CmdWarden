@@ -8,13 +8,21 @@ namespace CmdWarden.Cli;
 /// </summary>
 public static class InjectRunner
 {
-    public static int Run(string fileName, IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string> env)
+    /// <summary>
+    /// Runs the child with <paramref name="env"/>. With <paramref name="mask"/> (#69), each value in it
+    /// becomes <c>[CmdWarden: NAME]</c> in the child stdout and stderr; stdin stays the console.
+    /// Without it, the child writes to the console directly.
+    /// </summary>
+    public static int Run(string fileName, IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string> env,
+        IReadOnlyDictionary<string, string>? mask = null)
     {
+        var masked = mask is { Count: > 0 };
         var psi = new ProcessStartInfo
         {
             FileName = fileName,
             UseShellExecute = false,
-            // Do not redirect — user sees child I/O; secret stays out of our streams.
+            RedirectStandardOutput = masked,
+            RedirectStandardError = masked,
         };
 
         foreach (var arg in arguments)
@@ -25,8 +33,27 @@ public static class InjectRunner
 
         using var process = Process.Start(psi)
             ?? throw new InvalidOperationException($"Failed to start process '{fileName}'.");
+        if (masked)
+        {
+            var output = Task.Run(() => Pump(process.StandardOutput.BaseStream, Console.OpenStandardOutput(), new OutputMask(mask!)));
+            var error = Task.Run(() => Pump(process.StandardError.BaseStream, Console.OpenStandardError(), new OutputMask(mask!)));
+            Task.WaitAll(output, error);
+        }
         process.WaitForExit();
         return process.ExitCode;
+    }
+
+    private static void Pump(Stream from, Stream to, OutputMask mask)
+    {
+        var buffer = new byte[8192];
+        int read;
+        while ((read = from.Read(buffer)) > 0)
+        {
+            to.Write(mask.Push(buffer.AsSpan(0, read)));
+            to.Flush();
+        }
+        to.Write(mask.Flush());
+        to.Flush();
     }
 
     /// <summary>
@@ -66,7 +93,7 @@ public static class InjectRunner
     /// Parse: inject +NAME [+NAME2 ...] -- command [args...]
     /// </summary>
     public static (List<string> SecretNames, string FileName, List<string> Arguments) ParseInjectArgs(
-        string[] argsAfterInject)
+        string[] argsAfterInject, bool requireName = true)
     {
         var names = new List<string>();
         var i = 0;
@@ -86,10 +113,10 @@ public static class InjectRunner
             }
 
             throw new ArgumentException(
-                "Expected +SECRET_NAME arguments before --. Example: cw inject +TOKEN -- cmd /c echo %TOKEN%");
+                "Expected +SECRET_NAME arguments or --env-file before --. Example: cw inject +TOKEN -- cmd /c echo %TOKEN%");
         }
 
-        if (names.Count == 0)
+        if (names.Count == 0 && requireName)
             throw new ArgumentException("At least one +SECRET_NAME is required.");
 
         if (i >= argsAfterInject.Length)

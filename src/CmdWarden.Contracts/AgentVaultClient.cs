@@ -28,7 +28,8 @@ public static class AgentVaultClient
         string commandClass = "write",
         string? commandLine = null,
         CancellationToken cancellationToken = default,
-        IEnumerable<string>? boundPaths = null)
+        IEnumerable<string>? boundPaths = null,
+        IEnumerable<string>? extraNames = null)
     {
         using var call = AgentCall.Create(pipeName, timeout, cancellationToken);
         var request = new ReleaseSecretRequest
@@ -40,6 +41,7 @@ public static class AgentVaultClient
             CommandLine = commandLine ?? "",
         };
         request.BoundPaths.AddRange(boundPaths ?? []);
+        request.ExtraNames.AddRange(extraNames ?? []);
         request.AgentReason = AgentReason.FromEnvironment();
         request.WorkingDirectory = Environment.CurrentDirectory;
         return await call.Client.ReleaseSecretAsync(request, cancellationToken: call.Token).ConfigureAwait(false);

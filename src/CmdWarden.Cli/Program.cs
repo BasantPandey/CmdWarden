@@ -13,7 +13,7 @@ return await CliApp.RunAsync(args);
 /// <summary>
 /// CmdWarden CLI: doctor, vault save, inject (spike).
 /// </summary>
-public static class CliApp
+public static partial class CliApp
 {
     public static async Task<int> RunAsync(string[] args)
     {
@@ -63,6 +63,10 @@ public static class CliApp
             "update" => await UpdateCommands.UpdateAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "uninstall" => UpdateCommands.Uninstall(args.AsSpan(1).ToArray()),
             "proxy" => await ProxyCommands.RunAsync(args.AsSpan(1).ToArray(), RestartAgentAsync).ConfigureAwait(false),
+            "env" => EnvCommands.Run(args.AsSpan(1).ToArray()),
+            "setup" => await SetupAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
+            "try" => await TryAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
+            "protect" => CmdWarden.Cli.Hooks.HarnessProtections.Run(args.AsSpan(1).ToArray()),
             _ => Unknown(args[0]),
         };
     }
@@ -435,6 +439,9 @@ public static class CliApp
         }
 
         var (clean, removed) = CmdWarden.Cli.Launch.HarnessLauncher.CleanEnvironment(CmdWarden.Cli.Launch.HarnessLauncher.CurrentEnvironment());
+        // #70: Claude Code strips credential variables from its own commands too.
+        if (harness.Id == "claude")
+            clean[CmdWarden.Cli.Hooks.HarnessProtections.ScrubVariable] = "1";
         Console.WriteLine(removed.Count == 0
             ? $"{ProductInfo.Name}: no token variables to remove."
             : $"{ProductInfo.Name}: removed from the environment of {harness.DisplayName}: {string.Join(", ", removed)}");
@@ -452,6 +459,8 @@ public static class CliApp
             Console.WriteLine($"{ProductInfo.Name}: {harness.Image} not found, so it is not enrolled. Enroll it later with cw policy enroll --kind ai-harness --key <key>.");
         else if (enrolled)
             Console.WriteLine($"{ProductInfo.Name}: enrolled {harness.Image} as ai-harness ({key}).");
+        if (harness.Id == "codex")
+            OfferAgentAccountsAsync(ask: !Console.IsInputRedirected).GetAwaiter().GetResult();
 
         if (harness.Gui && CmdWarden.Cli.Launch.HarnessLauncher.IsRunning(harness))
             Console.WriteLine($"{ProductInfo.Name}: {harness.DisplayName} is already running. A new window joins that process and keeps its old environment. Close {harness.DisplayName} first.");
@@ -824,38 +833,59 @@ public static class CliApp
                 return code;
 
             var (options, remainder) = ParseInjectOptions(args);
-            var (names, fileName, arguments) = InjectRunner.ParseInjectArgs(remainder);
+            var (names, fileName, arguments) = InjectRunner.ParseInjectArgs(remainder, requireName: options.EnvFile is null);
             var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            // #67: KEY=cw://NAME lines map a vault entry to any env name; plain lines pass through.
+            var envRefs = new List<(string Key, string Vault)>();
+            if (options.EnvFile is { } envFile)
+            {
+                foreach (var line in DotEnvFile.Parse(File.ReadAllText(envFile)).Where(l => l.Key is not null))
+                {
+                    if (line.VaultRef is { } vaultName)
+                        envRefs.Add((line.Key!, vaultName));
+                    else
+                        env[line.Key!] = line.Value!;
+                }
+            }
+            var vaultNames = names.Concat(envRefs.Select(r => r.Vault)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (vaultNames.Count == 0)
+                throw new ArgumentException($"No vault names: pass +NAME, or put KEY={DotEnvFile.RefPrefix}NAME lines in {options.EnvFile}.");
             // Same display join as the shim argv card line (#200).
             var commandLine = string.Join(' ', arguments.Prepend(fileName));
             // #30: the approval binds the program and its script. They stay locked until the child exits.
             var program = InjectRunner.ResolveProgram(fileName);
             var bound = BoundFiles.Find(program, arguments, Environment.CurrentDirectory);
             using var locks = BoundFiles.Lock(bound);
-            IReadOnlyList<BoundFile> approved = [];
 
-            foreach (var name in names)
+            // #67: one request, so one card covers the whole set.
+            var released = await AgentVaultClient.ReleaseAsync(
+                    vaultNames[0],
+                    purpose: "inject",
+                    tool: options.Tool,
+                    commandClass: options.CommandClass,
+                    commandLine: commandLine,
+                    timeout: ApprovalGateTimeouts.Client,
+                    boundPaths: bound,
+                    extraNames: vaultNames.Skip(1))
+                .ConfigureAwait(false);
+            IReadOnlyList<BoundFile> approved = released.BoundFiles.Select(f => new BoundFile(f.Path, f.Sha256)).ToList();
+            var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (name, bytes) in released.ExtraValues.Select(kv => (kv.Key, kv.Value)).Prepend((released.Name, released.Value)))
             {
-                var released = await AgentVaultClient.ReleaseAsync(
-                        name,
-                        purpose: "inject",
-                        tool: options.Tool,
-                        commandClass: options.CommandClass,
-                        commandLine: commandLine,
-                        timeout: ApprovalGateTimeouts.Client,
-                        boundPaths: bound)
-                    .ConfigureAwait(false);
-                approved = released.BoundFiles.Select(f => new BoundFile(f.Path, f.Sha256)).ToList();
-                var raw = released.Value.ToByteArray();
+                var raw = bytes.ToByteArray();
                 try
                 {
-                    env[released.Name] = Encoding.UTF8.GetString(raw);
+                    values[name] = Encoding.UTF8.GetString(raw);
                 }
                 finally
                 {
                     Array.Clear(raw);
                 }
             }
+            foreach (var name in names)
+                env[VaultNames.EnvVarName(name)] = values[VaultNames.EnvVarName(name)];
+            foreach (var (key, vault) in envRefs)
+                env[key] = values[VaultNames.EnvVarName(vault)];
 
             if (BoundFiles.Mismatches(approved) is { Count: > 0 } changed)
             {
@@ -864,10 +894,11 @@ public static class CliApp
             }
 
             // Parent process environment is not modified - only the child ProcessStartInfo.Environment.
-            var exit = InjectRunner.Run(program, arguments, env);
+            var exit = InjectRunner.Run(program, arguments, env, options.NoMasking ? null : values);
             // Clear local copies
             foreach (var key in env.Keys.ToList())
                 env[key] = string.Empty;
+            values.Clear();
             return exit;
         }
         catch (ArgumentException ex)
@@ -882,7 +913,7 @@ public static class CliApp
         }
         catch (Exception ex) when (AgentVaultClient.IsPermissionDenied(ex))
         {
-            Console.Error.WriteLine(ex.Message);
+            Console.Error.WriteLine(((Grpc.Core.RpcException)ex).Status.Detail);
             if (ex.Message.Contains(PolicyReasonCodes.UserDenied, StringComparison.Ordinal))
             {
                 Console.Error.WriteLine("Release denied at Approval Gate.");
@@ -908,7 +939,7 @@ public static class CliApp
         }
         catch (Exception ex) when (AgentVaultClient.IsNotFound(ex))
         {
-            Console.Error.WriteLine(ex.Message);
+            Console.Error.WriteLine(((Grpc.Core.RpcException)ex).Status.Detail);
             return 1;
         }
         catch (Exception ex)
@@ -923,6 +954,8 @@ public static class CliApp
         // Defaults: tool=inject, class=write (Trusted terminals can inject; not secret-reveal).
         var tool = "inject";
         var commandClass = CommandClassNames.Write;
+        string? envFile = null;
+        var noMasking = false;
         var remainder = new List<string>();
         for (var i = 0; i < args.Length; i++)
         {
@@ -953,13 +986,29 @@ public static class CliApp
                 continue;
             }
 
+            if (a == "--env-file")
+            {
+                if (i + 1 >= args.Length)
+                    throw new ArgumentException("--env-file requires a file path.");
+                envFile = args[++i];
+                if (!File.Exists(envFile))
+                    throw new ArgumentException($"Env file not found: {envFile}");
+                continue;
+            }
+
+            if (a == "--no-masking")
+            {
+                noMasking = true;
+                continue;
+            }
+
             remainder.Add(a);
         }
 
-        return (new InjectOptions(tool, commandClass), remainder.ToArray());
+        return (new InjectOptions(tool, commandClass, envFile, noMasking), remainder.ToArray());
     }
 
-    private sealed record InjectOptions(string Tool, string CommandClass);
+    private sealed record InjectOptions(string Tool, string CommandClass, string? EnvFile, bool NoMasking);
 
     private static async Task<int> PolicyAsync(string[] args)
     {
@@ -1154,6 +1203,32 @@ public static class CliApp
         if (policyKey.StartsWith(AgentAccounts.PolicyKeyPrefix, StringComparison.OrdinalIgnoreCase))
             await RestartAgentForPipeAccessAsync().ConfigureAwait(false);
         return 0;
+    }
+
+    /// <summary>
+    /// #66: enroll the Codex sandbox accounts on this PC as ai-harness, so a command from the sandbox
+    /// gets the Approval Gate and not a hard block. With <paramref name="ask"/>, each one asks first.
+    /// Returns the names it enrolled.
+    /// </summary>
+    internal static async Task<IReadOnlyList<string>> OfferAgentAccountsAsync(bool ask)
+    {
+        if (!OperatingSystem.IsWindows())
+            return [];
+        var store = LoadPolicyStore();
+        var added = new List<string>();
+        foreach (var (account, sid) in AgentAccounts.OnThisPc().Where(a => !store.Launchers.ContainsKey(AgentAccounts.PolicyKey(a.Sid))))
+        {
+            if (ask && !Ui.Confirm($"Codex sandbox account {account} is not enrolled. Enroll it as ai-harness?"))
+                continue;
+            store.Enroll(AgentAccounts.PolicyKey(sid), LauncherEnrollmentKind.AiHarness, AgentAccounts.NameOf(sid));
+            added.Add(account);
+        }
+        if (added.Count == 0)
+            return added;
+        store.Save();
+        Console.WriteLine($"{ProductInfo.Name}: enrolled {string.Join(", ", added)} as ai-harness.");
+        await RestartAgentForPipeAccessAsync().ConfigureAwait(false);
+        return added;
     }
 
     /// <summary>#36: the agent reads the enrolled accounts for its pipe access at start, so a running agent restarts.</summary>
@@ -1918,6 +1993,8 @@ public static class CliApp
         Console.WriteLine();
         var table = Ui.Table("command", "what it does").Border(TableBorder.None).HideHeaders();
         void Row(string cmd, string text) => table.AddRow($"[bold]{Ui.E(cmd)}[/]", Ui.E(text));
+        Row("setup [--yes]", "Set up everything in one step, then show a real Approval Gate card");
+        Row("try", "A stand-in agent asks for a fake secret: see the Approval Gate card");
         Row("help", "Show this help");
         Row("version", "Show version");
         Row("doctor [--fix-path]", "Check Session Agent + vault UI / Start Menu shortcut; --fix-path elevates once");
@@ -1925,6 +2002,8 @@ public static class CliApp
         Row("whoami", "Show hybrid launcher identity for this caller");
         Row("save <NAME>", "Store secret in Credential Manager via agent");
         Row("inject +NAME -- cmd", "Run cmd with secret only in child env [--tool T] [--class read|write|secret-reveal|unknown]");
+        Row("inject --env-file .env -- cmd", "Same, for each KEY=cw://NAME line of the file; one card for the set");
+        Row("inject ... --no-masking", "Show secret values in the output (default: [CmdWarden: NAME])");
         Row("delete <NAME>", "Remove secret from vault");
         Row("policy ...", "List/enroll/set tool x launcher policy levels");
         Row("harden gh|git|az|docker", "Pin real tool, install PATH shim (gh also imports token)");
@@ -1938,10 +2017,12 @@ public static class CliApp
         Row("audit [-n N]", "Show recent gate decisions (local audit trail)");
         Row("scan", "First-catalog residual risk detectors (read-only)");
         Row("launch claude|codex|cursor [-- args]", "Start an AI harness without token variables; enroll it if needed");
-        Row("leak-guard install|uninstall claude|cursor", "Hide vaulted secret values in tool output from the model");
-        Row("hook install|uninstall claude|cursor", "Check policy before the harness runs a command; a deny stops it early");
-        Row("mcp [serve] | mcp install|uninstall claude|cursor", "MCP server: run_with_secret, list_allowed, why_denied");
+        Row("leak-guard install|uninstall claude|cursor|codex", "Hide vaulted secret values in tool output from the model");
+        Row("hook install|uninstall claude|cursor|codex", "Check policy before the harness runs a command; a deny stops it early");
+        Row("mcp [serve] | mcp install|uninstall claude|cursor|codex", "MCP server: run_with_secret, list_allowed, why_denied");
+        Row("env import [<file>]", "Move the secret values of a .env file into the vault; the file keeps KEY=cw://NAME");
         Row("canary install [--env F]|remove|status", "Fake tokens that show an attack when used");
+        Row("protect install|uninstall claude|codex", "Turn on the secret protections the harness leaves off");
         Row("shortcut install [--desktop]|remove|status", "Start Menu (and Desktop) entry for CmdWarden Vault");
         Row("update [--check]", "Install the newest release (checks the sha256 of the setup zip)");
         Row("uninstall", "Run the uninstaller of Settings > Apps > CmdWarden");

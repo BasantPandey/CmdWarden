@@ -13,6 +13,11 @@ namespace CmdWarden.Cli;
 public static class UpdateCommands
 {
     public const string UninstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\CmdWarden";
+    public const string WingetId = "BasantPandey.CmdWarden";
+
+    /// <summary>#64: winget puts a portable package under %LOCALAPPDATA%\Microsoft\WinGet\Packages.</summary>
+    public static bool IsWingetInstall(string? baseDirectory = null) =>
+        (baseDirectory ?? AppContext.BaseDirectory).Contains(@"\Microsoft\WinGet\Packages\", StringComparison.OrdinalIgnoreCase);
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(5) };
 
     public static async Task<int> UpdateAsync(string[] args)
@@ -53,10 +58,9 @@ public static class UpdateCommands
             Console.WriteLine($"{ProductInfo.Name} {latest.Version} is available. Run cw update.");
             return 0;
         }
-        if (RegisteredZipInstall() is { } zipDir)
+        if (IsWingetInstall())
         {
-            Console.Error.WriteLine($"cw update installs the dotnet tool. This copy is a zip install in {zipDir}.");
-            Console.Error.WriteLine($"Download CmdWarden.{latest.Version}-win-x64.zip from https://github.com/{ReleaseUpdate.Repo}/releases/latest.");
+            Console.WriteLine($"winget installed this copy. Run: winget upgrade {WingetId}");
             return 1;
         }
         if (latest.SetupZip is not { } asset)
@@ -103,13 +107,22 @@ public static class UpdateCommands
             return 1;
         }
         using var key = Registry.CurrentUser.OpenSubKey(UninstallKey);
-        if (key?.GetValue("UninstallString") is not string command || SplitCommand(command) is not var (exe, arguments))
+        var bundled = Path.Combine(AppContext.BaseDirectory, "uninstall", "Uninstall-CmdWarden.ps1");
+        if (key?.GetValue("UninstallString") is string command && SplitCommand(command) is var (exe, arguments))
+        {
+            StartInWindow(exe, arguments);
+        }
+        else if (File.Exists(bundled))
+        {
+            // #64: a winget or portable copy with no Apps entry carries the script next to cw.
+            StartInWindow(PowerShellExe(), $"-NoProfile -ExecutionPolicy Bypass -File \"{bundled}\"");
+        }
+        else
         {
             Console.Error.WriteLine("CmdWarden has no entry in Settings > Apps.");
             Console.Error.WriteLine("Run uninstall.cmd from the setup zip, or scripts\\Uninstall-CmdWarden.ps1.");
             return 1;
         }
-        StartInWindow(exe, arguments);
         Console.WriteLine("The uninstaller runs in a new window. cw stops now.");
         return 0;
     }
@@ -130,19 +143,6 @@ public static class UpdateCommands
         }
         var space = line.IndexOf(' ');
         return space < 0 ? (line, "") : (line[..space], line[(space + 1)..].Trim());
-    }
-
-    /// <summary>The folder of a zip install that is this copy of cw, or null for a dotnet tool install.</summary>
-    [SupportedOSPlatform("windows")]
-    private static string? RegisteredZipInstall()
-    {
-        using var key = Registry.CurrentUser.OpenSubKey(UninstallKey);
-        if (key?.GetValue("InstallLocation") is not string location || location.Length == 0)
-            return null;
-        var dir = Path.GetFullPath(location).TrimEnd('\\');
-        var self = Path.GetFullPath(AppContext.BaseDirectory).TrimEnd('\\');
-        return !dir.EndsWith(@"\.store\cmdwarden", StringComparison.OrdinalIgnoreCase)
-            && self.StartsWith(dir, StringComparison.OrdinalIgnoreCase) ? dir : null;
     }
 
     private static string PowerShellExe() =>

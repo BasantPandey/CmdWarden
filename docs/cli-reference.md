@@ -4,9 +4,11 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 
 | Command | Role |
 |---------|------|
+| `cw setup [--yes] [--skip <step,...>]` | Set up everything in one step: terminal, tools, harnesses, shortcuts, canary, protections. Ends with `cw try`. See [Install](install.md#3-set-up) |
+| `cw try` | A stand-in agent that nobody enrolled asks for the fake secret `CW_TRY_TOKEN`. You see the real Approval Gate card, then the audit row |
 | `cw version` | Product / CLI version |
 | `cw update [--check]` | Install the newest release. The setup zip must match the sha256 digest of the release |
-| `cw uninstall` | Run the uninstaller of Settings > Apps > CmdWarden |
+| `cw uninstall` | Run the uninstaller of Settings > Apps > CmdWarden, or the one next to `cw` |
 | `cw doctor` | Session Agent health (lazy-start) |
 | `cw agent start\|stop\|status` | Explicit agent control |
 | `cw whoami` | Current launcher identity |
@@ -17,7 +19,7 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw policy unenroll <key>` | Remove enrollment |
 | `cw policy sessions [--revoke <id> \| --revoke-all]` | List or revoke active session allows |
 | `cw policy hello off\|secret-reveal\|write-and-up` | When the Approval Gate asks for Windows Hello after Approve (default `secret-reveal`) |
-| `cw policy low-risk ask\|allow` | `allow`: a low-risk write of an enrolled launcher, like a push to a feature branch, runs with no popup (default `ask`) |
+| `cw policy low-risk ask\|allow` | `allow`: a low-risk write of an enrolled launcher, like a push to a feature branch, runs with no popup. A new policy file starts with `allow`; an older one keeps its setting |
 | `cw harden gh\|git\|az\|docker` | Pin + PATH shim (+ gh token import) |
 | `cw harden npm\|aws\|kubectl\|<pack tool>` | Pin + PATH shim from a [tool pack](tool-packs.md) |
 | `cw harden ssh [--upstream <pipe>]` | Ask before a sign with an ssh key; see [Gate ssh key use](use-cases/gate-ssh-keys.md) |
@@ -30,14 +32,18 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw unharden gh\|git\|docker\|az\|ssh\|<pack tool>` | Restore the stock store, remove pin and shim |
 | `cw doctor --fix-path` | Put the shims dir first on the machine PATH (one UAC prompt) |
 | `cw save <NAME>` / `cw delete <NAME>` | Named vault secret |
-| `cw inject +NAME -- <cmd>` | Run cmd with secret in child env only |
+| `cw inject +NAME -- <cmd>` | Run cmd with secret in child env only. The output shows `[CmdWarden: NAME]` in place of each value |
+| `cw inject --env-file <file> -- <cmd>` | Same, for each `KEY=cw://NAME` line of a dotenv file. One card covers the whole set. Plain lines pass through |
+| `cw inject ... --no-masking` | Show the secret values in the output |
+| `cw env import [<file>] [--prefix P] [--all] [--yes]` | Move the secret values of a dotenv file (default `.env`) into the vault. Each moved line becomes `KEY=cw://NAME`. See [Keep .env secrets out of the agent](use-cases/env-files.md) |
 | `cw scan [--move-to-vault]` | Read-only residual risk scan; `--move-to-vault` moves plain MCP server secrets into the vault |
 | `cw launch claude\|codex\|cursor [-- args]` | Start an AI harness without the token variables `cw scan` knows; enroll its binary as ai-harness if needed |
-| `cw leak-guard install\|uninstall claude\|cursor` | Hook that replaces vaulted secret values in tool output with `[CmdWarden: NAME]` |
-| `cw hook install\|uninstall claude\|cursor` | Hook that checks the policy before the harness runs a shell command. A deny stops the command, and the agent reads "CmdWarden denied this. Ask the user. Do not retry." Allow and ask add no step |
-| `cw mcp install\|uninstall claude\|cursor` | Add the CmdWarden MCP server to the harness. Tools: `run_with_secret` (run a program through the gate; the output passes the leak guard), `list_allowed` (policy per tool, secret names only), `why_denied` (the last deny for this launcher) |
+| `cw leak-guard install\|uninstall claude\|cursor\|codex` | Hook that replaces vaulted secret values in tool output with `[CmdWarden: NAME]` |
+| `cw hook install\|uninstall claude\|cursor\|codex` | Hook that checks the policy before the harness runs a shell command. A deny stops the command, and the agent reads "CmdWarden denied this. Ask the user. Do not retry." Allow and ask add no step. It also stops a read of a `.env` file that holds plain secret values, and a `cw` command that turns protection off |
+| `cw mcp install\|uninstall claude\|cursor\|codex` | Add the CmdWarden MCP server to the harness. Tools: `run_with_secret` (run a program through the gate; the output passes the leak guard), `list_allowed` (policy per tool, secret names only), `why_denied` (the last deny for this launcher) |
 | `cw mcp` | Run the MCP server on stdio. The harness starts it |
 | `cw canary install [--env <file>]...\|remove\|status` | Fake tokens that block the launcher and show an alarm when used |
+| `cw protect install\|uninstall claude\|codex` | Turn on the secret protections of the harness: Claude Code deny rules and env scrub, the Codex shell environment policy. `uninstall` removes only what cw added. See [Trust](trust.md) |
 | `cw audit [-n N]` | Recent gate decisions |
 | `cw shortcut install [--desktop]\|remove\|status` | Start Menu (and Desktop) entry for CmdWarden Vault, a `cw launch` entry per harness on this PC, and the tray icon at logon |
 

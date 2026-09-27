@@ -13,6 +13,6 @@ cw policy unenroll <policyKey>
 
 ## Remove CmdWarden
 
-Open Windows **Settings > Apps**, select **CmdWarden**, and click **Uninstall**. Or double-click `uninstall.cmd`.
+Run `cw uninstall`, or open Windows **Settings > Apps**, select **CmdWarden**, and click **Uninstall**. For a winget install, run `cw uninstall`: it removes the hooks and shims first, then the winget package.
 
 *Expect:* the uninstaller unhardens `gh`, `git`, and `docker`. Then it removes the tool, the shortcuts, the PATH entries, and `%LOCALAPPDATA%\CmdWarden\`. It asks before it deletes saved secrets. It works when `cw` is broken. See [Install, section 8](../install.md#8-uninstall) for the options.

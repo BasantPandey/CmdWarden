@@ -6,15 +6,26 @@ namespace CmdWarden.Cli.Hooks;
 /// <summary><c>cw hook</c> (#33): ask the Session Agent about policy before the harness runs a command.</summary>
 public static class PolicyHookCommands
 {
-    public const string ClaudeMatcher = "Bash|PowerShell";
+    /// <summary>Read: #67 checks a Claude Code file read of a dotenv file.</summary>
+    public const string ClaudeMatcher = "Bash|PowerShell|Read";
+    public const string CodexMatcher = "Bash";
     public const string CursorEvent = "beforeShellExecution";
 
     public static async Task<int> HookAsync(string[] args)
     {
         switch (args)
         {
-            case ["check", "claude" or "cursor"]:
+            case ["check", "claude" or "cursor" or "codex"]:
                 return await CheckAsync(args[1]).ConfigureAwait(false);
+            case ["install", "codex"]:
+                Report(HookInstaller.InstallClaude(HookInstaller.CodexHooksPath(), HookInstaller.SelfCommand("hook check codex"),
+                        "PreToolUse", CodexMatcher, HookInstaller.PolicyMarker),
+                    "Codex PreToolUse hook", HookInstaller.CodexHooksPath(), "added", "already there");
+                return 0;
+            case ["uninstall", "codex"]:
+                Report(HookInstaller.UninstallClaude(HookInstaller.CodexHooksPath(), "PreToolUse", HookInstaller.PolicyMarker),
+                    "Codex PreToolUse hook", HookInstaller.CodexHooksPath(), "removed", "not there");
+                return 0;
             case ["install", "claude"]:
                 Report(HookInstaller.InstallClaude(HookInstaller.ClaudeSettingsPath(), HookInstaller.SelfCommand("hook check claude"),
                         "PreToolUse", ClaudeMatcher, HookInstaller.PolicyMarker),
@@ -34,11 +45,12 @@ public static class PolicyHookCommands
                     "Cursor beforeShellExecution hook", HookInstaller.CursorHooksPath(), "removed", "not there");
                 return 0;
             default:
-                Console.WriteLine("Usage: cw hook install|uninstall claude|cursor");
+                Console.WriteLine("Usage: cw hook install|uninstall claude|cursor|codex");
                 Console.WriteLine("  Check the policy before the harness runs a shell command.");
                 Console.WriteLine("  A deny stops the command, and the agent reads: " + PolicyHook.DenyText(["<why>"]));
                 Console.WriteLine("  Allow and ask add no step: the Approval Gate still asks when the command runs.");
-                Console.WriteLine("The harness runs: cw hook check claude|cursor  (hook JSON on stdin).");
+                Console.WriteLine("  It also stops a read of a .env file that still holds plain secret values.");
+                Console.WriteLine("The harness runs: cw hook check claude|cursor|codex  (hook JSON on stdin).");
                 return args.Length > 0 && args[0] is "-h" or "--help" or "help" ? 0 : 1;
         }
     }
@@ -68,9 +80,9 @@ public static class PolicyHookCommands
             return 0;
         }
 
-        var output = harness == "claude"
-            ? await PolicyHook.ClaudePreToolUseAsync(input, AskAgentAsync).ConfigureAwait(false)
-            : await PolicyHook.CursorBeforeShellAsync(input, AskAgentAsync).ConfigureAwait(false);
+        var output = harness == "cursor"
+            ? await PolicyHook.CursorBeforeShellAsync(input, AskAgentAsync).ConfigureAwait(false)
+            : await PolicyHook.ClaudePreToolUseAsync(input, AskAgentAsync).ConfigureAwait(false);
         if (output is not null)
             Console.Out.Write(output);
         return 0;

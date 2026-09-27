@@ -164,10 +164,20 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var decisionLabel = GateDecisions.AutoAllow;
         string? grantLength = null;
         string? decisionReason = null;
-        var secretName = VaultNames.EnvVarName(request.Name);
+        var extraNames = request.ExtraNames.Where(n => !string.Equals(n, request.Name, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        // #67: one card and one audit row name the whole set.
+        var secretName = string.Join(", ", extraNames.Prepend(request.Name).Select(VaultNames.EnvVarName));
         var agentReason = AgentReason.Clean(request.AgentReason);
 
         ThrowIfAlarmed(launcher, resolved, tool, className, levelName, secretName, request.Purpose);
+        if (extraNames.Count > 0)
+        {
+            // Name a missing entry before the card asks about it. Names only; no value leaves the vault.
+            var stored = new HashSet<string>(_vault.ListNames(), StringComparer.OrdinalIgnoreCase);
+            if (extraNames.Prepend(request.Name).FirstOrDefault(n => !stored.Contains(n)) is { } missing)
+                throw new RpcException(new Status(StatusCode.NotFound, $"No vault entry named {missing}. Add it with: cw save {missing}"));
+        }
         IReadOnlyList<BoundFile> boundFiles;
         try
         {
@@ -179,8 +189,9 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             throw new RpcException(new Status(StatusCode.InvalidArgument, "ReleaseSecret: cannot read a bound file: " + ex.Message));
         }
         // #29: asking for a canary vault entry, or naming a canary value on the command line, is an attack.
+        var envNames = extraNames.Prepend(request.Name).Select(VaultNames.EnvVarName).ToList();
         var canary = _canaries.Load().FirstOrDefault(e => e.Kind == CanaryStore.VaultKind
-            && string.Equals(e.Location, secretName, StringComparison.OrdinalIgnoreCase))?.Tokens.FirstOrDefault()
+            && envNames.Contains(e.Location, StringComparer.OrdinalIgnoreCase))?.Tokens.FirstOrDefault()
             ?? FindCanary([request.CommandLine], []);
         if (canary is not null)
             throw CanaryAlarm(launcher, resolved, tool, className, levelName, canary.Name, request.Purpose);
@@ -217,7 +228,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             var bytes = _vault.Read(request.Name);
             var response = new ReleaseSecretResponse
             {
-                Name = secretName,
+                Name = VaultNames.EnvVarName(request.Name),
                 Value = ByteString.CopyFrom(bytes),
                 TargetName = VaultNames.TargetName(request.Name),
                 LauncherPolicyKey = launcher.Selected.PolicyKey,
@@ -230,6 +241,12 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             };
             response.BoundFiles.AddRange(boundFiles.Select(f => new BoundFileEntry { Path = f.Path, Sha256 = f.Sha256 }));
             Array.Clear(bytes);
+            foreach (var extra in extraNames)
+            {
+                var extraBytes = _vault.Read(extra);
+                response.ExtraValues[VaultNames.EnvVarName(extra)] = ByteString.CopyFrom(extraBytes);
+                Array.Clear(extraBytes);
+            }
             return Task.FromResult(response);
         }
         catch (KeyNotFoundException ex)

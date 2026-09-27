@@ -313,6 +313,10 @@ internal sealed class PolicyDocument
     public Dictionary<string, LauncherEntryDto> Launchers { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// A new policy file. #68: it allows low-risk writes of an enrolled launcher. A file from an older
+    /// version keeps its own setting, and a file with no setting reads as "ask".
+    /// </summary>
     public static PolicyDocument CreateDefault() => new()
     {
         Defaults = new PolicyDefaultsDto
@@ -320,6 +324,7 @@ internal sealed class PolicyDocument
             AiHarness = PolicyLevelNames.Read,
             Terminal = PolicyLevelNames.Trusted,
         },
+        LowRisk = LowRiskModes.Allow,
         Launchers = new Dictionary<string, LauncherEntryDto>(StringComparer.OrdinalIgnoreCase),
     };
 }

@@ -4,7 +4,9 @@
   Install CmdWarden on Windows from a GitHub Release (or a local nupkg).
 
 .DESCRIPTION
-  Installs CmdWarden as a global dotnet tool (cw / cmdwarden). Optionally installs the portable zip.
+  Installs CmdWarden. The setup zip carries the portable build in app\, with its own .NET runtime:
+  the default mode copies it to %LOCALAPPDATA%\CmdWarden\app and puts it on the user PATH. No .NET
+  install and no admin prompt (#64). -Mode tool installs the global dotnet tool (needs the .NET 10 SDK).
 
   Package source, in this order:
     1. -PackagePath.
@@ -24,8 +26,9 @@
   GitHub owner/name. Default: BasantPandey/CmdWarden
 
 .PARAMETER Mode
-  tool  - global dotnet tool (default, recommended)
-  zip   - extract portable zip to InstallDir
+  portable - copy the app\ folder next to this script to InstallDir (default when app\ is there)
+  tool     - global dotnet tool (default without app\; needs the .NET 10 SDK)
+  zip      - download the portable zip of a release and extract it to InstallDir
 
 .PARAMETER PackagePath
   Install from a local .nupkg instead of downloading.
@@ -43,7 +46,7 @@
   Also create a Desktop icon for CmdWarden Vault (Start Menu entry is always created).
 
 .PARAMETER Yes
-  Answer yes to every question (install the .NET SDK with winget when it is missing).
+  Answer yes to every question (install the .NET SDK with winget when it is missing). Skips cw setup.
 
 .EXAMPLE
   # Latest release as global tool
@@ -70,8 +73,8 @@ param(
     [string] $Version,
     [string] $Tag,
     [string] $Repo = "BasantPandey/CmdWarden",
-    [ValidateSet("tool", "zip")]
-    [string] $Mode = "tool",
+    [ValidateSet("portable", "tool", "zip")]
+    [string] $Mode = $(if (Test-Path (Join-Path $PSScriptRoot "app\cw.exe")) { "portable" } else { "tool" }),
     [string] $PackagePath,
     [string] $InstallDir = (Join-Path $env:LOCALAPPDATA "CmdWarden\app"),
     [switch] $SkipDoctor,
@@ -495,10 +498,69 @@ function Install-VaultShortcut {
     Write-Ok "Shortcut installed (or updated)."
 }
 
+function Add-ToUserPath([string] $Dir) {
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    $parts = @($userPath -split ';' | Where-Object { $_ })
+    if (-not ($parts | Where-Object { $_.TrimEnd('\') -ieq $Dir.TrimEnd('\') })) {
+        [Environment]::SetEnvironmentVariable("Path", (@($parts) + $Dir) -join ';', "User")
+        Write-Ok "Added $Dir to the user PATH (new terminals pick it up)."
+    }
+    if ($env:Path -notlike "*$Dir*") { $env:Path = "$Dir;$env:Path" }
+}
+
+# #64: the old dotnet tool and the portable copy must not both answer to cw.
+function Remove-OldDotNetTool {
+    if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) { return }
+    $list = cmd /c "dotnet tool list -g 2>&1"
+    if ($list -notmatch '(?im)^cmdwarden\s') { return }
+    Write-Step "Removing the old CmdWarden dotnet tool"
+    Stop-CmdWardenProcesses
+    cmd /c "dotnet tool uninstall -g CmdWarden >nul 2>&1" | Out-Null
+    Clear-CmdWardenToolStore
+    Write-Ok "The dotnet tool is gone. cw now runs from $InstallDir."
+}
+
+function Install-Portable([string] $Source, [string] $Destination) {
+    Stop-CmdWardenProcesses
+    Start-Sleep -Milliseconds 500
+    if (Test-Path $Destination) {
+        Write-Warn "Replacing $Destination"
+        for ($try = 0; $try -lt 5 -and (Test-Path $Destination); $try++) {
+            Remove-Item -Recurse -Force $Destination -ErrorAction SilentlyContinue
+            if (Test-Path $Destination) { Start-Sleep -Milliseconds 500; Stop-CmdWardenProcesses }
+        }
+        if (Test-Path $Destination) { throw "Cannot replace $Destination. Close CmdWarden windows and terminals, then run the installer again." }
+    }
+    Write-Step "Copying CmdWarden to $Destination"
+    New-Item -ItemType Directory -Force (Split-Path -Parent $Destination) | Out-Null
+    Copy-Item -Recurse $Source $Destination
+    Write-Ok "Copied. It carries its own .NET runtime."
+    Add-ToUserPath $Destination
+    return (Join-Path $Destination "cw.exe")
+}
+
 # --- main ---
 Assert-Windows
 Write-Step "CmdWarden Windows installer"
 Write-Ok "Repo: $Repo  Mode: $Mode"
+
+if ($Mode -eq "portable") {
+    $pkgVersion = (Get-Item (Join-Path $PSScriptRoot "app\cw.exe")).VersionInfo.ProductVersion -replace '\+.*$', ''
+    $cw = Install-Portable (Join-Path $PSScriptRoot "app") $InstallDir
+    Remove-OldDotNetTool
+    Register-Uninstaller -PackageVersion $pkgVersion -AppDir $InstallDir
+    Invoke-Verify -CwCommand $cw -SkipDoctor:$true
+    Write-Host ""
+    Write-Host "CmdWarden $pkgVersion is installed in $InstallDir." -ForegroundColor Green
+    if (-not $Yes -and (Confirm-Yes "Run cw setup now? It sets up everything and shows the Approval Gate card.")) {
+        & $cw setup
+    }
+    else {
+        Write-Host "Next: open a new terminal and run: cw setup" -ForegroundColor Green
+    }
+    Write-Host "Uninstall: Settings > Apps > CmdWarden, or cw uninstall" -ForegroundColor Green
+    exit 0
+}
 
 Assert-DotNet
 

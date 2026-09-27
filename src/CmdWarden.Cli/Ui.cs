@@ -38,4 +38,14 @@ public static class Ui
 
     public static Task<T> StatusAsync<T>(string text, Func<Task<T>> work) =>
         Interactive ? AnsiConsole.Status().Spinner(Spinner.Known.Dots).StartAsync(E(text), _ => work()) : work();
+
+    /// <summary>A Y/n question; Enter means yes. No input (end of stdin) means no.</summary>
+    public static bool Confirm(string question, TextReader? input = null)
+    {
+        Console.Write($"{question} [Y/n] ");
+        var answer = (input ?? Console.In).ReadLine()?.Trim();
+        if (answer is null)
+            Console.WriteLine();
+        return answer is not null && (answer.Length == 0 || answer.StartsWith('y') || answer.StartsWith('Y'));
+    }
 }

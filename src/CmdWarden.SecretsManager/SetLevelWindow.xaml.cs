@@ -47,11 +47,16 @@ public partial class SetLevelWindow : Window
 
 internal static class PolicyLevelText
 {
-    /// <summary>Class matrix for one level, derived from the evaluator so the text cannot drift from enforcement.</summary>
-    public static string Matrix(PolicyLevel level)
+    /// <summary>
+    /// Class matrix for one level, derived from the evaluator so the text cannot drift from enforcement.
+    /// #68: with low-risk writes allowed, a level that asks for writes still runs the low-risk ones.
+    /// </summary>
+    public static string Matrix(PolicyLevel level, bool lowRiskWrites = false)
     {
         var all = new[] { CommandClass.Read, CommandClass.Write, CommandClass.SecretReveal, CommandClass.Unknown };
         var allowed = all.Where(c => PolicyEvaluator.IsAutoAllowed(level, c)).Select(CommandClassNames.Format).ToList();
+        if (lowRiskWrites && level != PolicyLevel.Deny && !PolicyEvaluator.IsAutoAllowed(level, CommandClass.Write))
+            allowed.Add("low-risk write");
         var gated = all.Where(c => !PolicyEvaluator.IsAutoAllowed(level, c)).Select(CommandClassNames.Format).ToList();
         var auto = allowed.Count == 0 ? "auto-allow: none" : "auto-allow: " + string.Join(", ", allowed);
         return gated.Count == 0 ? auto : auto + " / Approval Gate: " + string.Join(", ", gated);

@@ -160,7 +160,7 @@
           <StackPanel Orientation="Horizontal">
             <TextBlock Text="Allow for session" />
             <Border Style="{StaticResource KeyChipStyle}">
-              <TextBlock Text="A" Style="{StaticResource KeyChipTextStyle}" />
+              <TextBlock x:Name="SessionKey" Text="A" Style="{StaticResource KeyChipTextStyle}" />
             </Border>
           </StackPanel>
         </local:GatedButton>
@@ -170,7 +170,7 @@
           <StackPanel Orientation="Horizontal">
             <TextBlock Text="Approve Once" />
             <Border Style="{StaticResource KeyChipStyle}">
-              <TextBlock Text="Enter" Style="{StaticResource KeyChipTextStyle}" />
+              <TextBlock x:Name="ApproveKey" Text="Enter" Style="{StaticResource KeyChipTextStyle}" />
             </Border>
           </StackPanel>
         </local:GatedButton>

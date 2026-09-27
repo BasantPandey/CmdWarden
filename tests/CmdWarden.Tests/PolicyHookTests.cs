@@ -88,7 +88,7 @@ public class PolicyHookTests
             Assert.False(HookInstaller.InstallClaude(claude, policy, "PreToolUse", PolicyHookCommands.ClaudeMatcher, HookInstaller.PolicyMarker));
 
             var pre = JsonNode.Parse(File.ReadAllText(claude))!["hooks"]!["PreToolUse"]!.AsArray();
-            Assert.Equal("Bash|PowerShell", (string?)Assert.Single(pre)!["matcher"]);
+            Assert.Equal("Bash|PowerShell|Read", (string?)Assert.Single(pre)!["matcher"]);
             Assert.Equal(policy, (string?)pre[0]!["hooks"]![0]!["command"]);
 
             Assert.True(HookInstaller.UninstallClaude(claude, "PreToolUse", HookInstaller.PolicyMarker));

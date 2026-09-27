@@ -747,8 +747,8 @@ public partial class MainWindow : Window
             _gatesModel = m;
             GatesDefaults.ItemsSource = new[]
             {
-                MakeLevelRow("AI Harness", m.AiHarnessDefault, LevelMatrix(m.AiHarnessDefault)),
-                MakeLevelRow("Terminal", m.TerminalDefault, LevelMatrix(m.TerminalDefault)),
+                MakeLevelRow("AI Harness", m.AiHarnessDefault, LevelMatrix(m.AiHarnessDefault, m.LowRiskWritesAllowed)),
+                MakeLevelRow("Terminal", m.TerminalDefault, LevelMatrix(m.TerminalDefault, m.LowRiskWritesAllowed)),
             };
             if (_selectedLauncher is not null && !m.Launchers.Any(l => l.PolicyKey.Equals(_selectedLauncher, StringComparison.OrdinalIgnoreCase)))
                 _selectedLauncher = null;
@@ -976,7 +976,7 @@ public partial class MainWindow : Window
     private static string LeftTruncate(string path, int max = 64) =>
         path.Length <= max ? path : "…" + path[^(max - 1)..];
 
-    private static string LevelMatrix(PolicyLevel level) => PolicyLevelText.Matrix(level);
+    private static string LevelMatrix(PolicyLevel level, bool lowRiskWrites = false) => PolicyLevelText.Matrix(level, lowRiskWrites);
 
     private enum PillKind { Ok, Warn, Danger, Muted, Info }
 

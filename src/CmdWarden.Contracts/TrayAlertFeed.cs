@@ -1,5 +1,18 @@
 namespace CmdWarden.Contracts;
 
+/// <summary>#68: how many times the Approval Gate asked the person today, from the audit rows.</summary>
+public static class PromptCount
+{
+    /// <summary>A row that a person decided on the card: an approve, a session grant, or a deny. A reused answer is not a new prompt.</summary>
+    public static bool IsPrompt(AuditGateRecord r) =>
+        r.ReasonCode != PolicyReasonCodes.TransientReuse
+        && (r.Decision is GateDecisions.AllowOnce or GateDecisions.SessionGrant
+            || (r.Decision == GateDecisions.Deny && r.ReasonCode == PolicyReasonCodes.UserDenied));
+
+    public static int Today(IEnumerable<AuditGateRecord> records, DateTimeOffset now) =>
+        records.Count(r => IsPrompt(r) && r.Timestamp is { } t && t.ToLocalTime().Date == now.ToLocalTime().Date);
+}
+
 /// <summary>One toast of the tray icon (#43).</summary>
 public sealed record TrayAlert(string Title, string Text);
 

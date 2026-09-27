@@ -12,7 +12,8 @@ public sealed record PolicyLauncherEntry(
 /// Same path as cw policy path; a malformed file throws instead of falling back to defaults.
 /// </summary>
 public sealed record PolicyReadModel(
-    string Path, PolicyLevel AiHarnessDefault, PolicyLevel TerminalDefault, IReadOnlyList<PolicyLauncherEntry> Launchers)
+    string Path, PolicyLevel AiHarnessDefault, PolicyLevel TerminalDefault, IReadOnlyList<PolicyLauncherEntry> Launchers,
+    bool LowRiskWritesAllowed = false)
 {
     public static PolicyReadModel Load(string? path = null)
     {
@@ -39,7 +40,7 @@ public sealed record PolicyReadModel(
             })
             .ToList();
 
-        return new PolicyReadModel(store.Path, store.DefaultAiHarnessLevel, store.DefaultTerminalLevel, launchers);
+        return new PolicyReadModel(store.Path, store.DefaultAiHarnessLevel, store.DefaultTerminalLevel, launchers, store.LowRiskWritesAllowed);
     }
 
     /// <summary>

@@ -8,12 +8,23 @@ namespace CmdWarden.Cli.Hooks;
 /// <summary><c>cw leak-guard</c> (#27) and <c>cw canary</c> (#29).</summary>
 public static class LeakGuardCommands
 {
+    /// <summary>Codex matchers are regular expressions: this one matches every tool.</summary>
+    public const string CodexMatcher = ".*";
+
     public static async Task<int> LeakGuardAsync(string[] args)
     {
         switch (args)
         {
-            case ["claude" or "cursor"]:
+            case ["claude" or "cursor" or "codex"]:
                 return await RunHookAsync(args[0]).ConfigureAwait(false);
+            case ["install", "codex"]:
+                Report(HookInstaller.InstallClaude(HookInstaller.CodexHooksPath(), HookInstaller.SelfCommand("leak-guard codex"), matcher: CodexMatcher),
+                    "Codex PostToolUse hook", HookInstaller.CodexHooksPath(), "added", "already there");
+                return 0;
+            case ["uninstall", "codex"]:
+                Report(HookInstaller.UninstallClaude(HookInstaller.CodexHooksPath()),
+                    "Codex PostToolUse hook", HookInstaller.CodexHooksPath(), "removed", "not there");
+                return 0;
             case ["install", "claude"]:
                 Report(HookInstaller.InstallClaude(HookInstaller.ClaudeSettingsPath(), HookInstaller.SelfCommand("leak-guard claude")),
                     "Claude Code PostToolUse hook", HookInstaller.ClaudeSettingsPath(), "added", "already there");
@@ -31,11 +42,12 @@ public static class LeakGuardCommands
                     "Cursor hooks", HookInstaller.CursorHooksPath(), "removed", "not there");
                 return 0;
             default:
-                Console.WriteLine("Usage: cw leak-guard install|uninstall claude|cursor");
+                Console.WriteLine("Usage: cw leak-guard install|uninstall claude|cursor|codex");
                 Console.WriteLine("  Replace vaulted secret values in tool output with [CmdWarden: NAME] before the model sees them.");
                 Console.WriteLine("  claude  PostToolUse hook: replaces the value in the output of every tool.");
                 Console.WriteLine("  cursor  Blocks a file read that holds a value, replaces MCP output, notes shell output.");
-                Console.WriteLine("The harness runs: cw leak-guard claude|cursor  (hook JSON on stdin).");
+                Console.WriteLine("  codex   PostToolUse hook: replaces the tool result with the output that has placeholders.");
+                Console.WriteLine("The harness runs: cw leak-guard claude|cursor|codex  (hook JSON on stdin).");
                 return args.Length > 0 && args[0] is "-h" or "--help" or "help" ? 0 : 1;
         }
     }
@@ -65,16 +77,19 @@ public static class LeakGuardCommands
         try
         {
             _ = await AgentLifecycle.EnsureRunningAsync().ConfigureAwait(false);
-            var output = harness == "claude"
-                ? await LeakGuardHook.ClaudePostToolUseAsync(input, CheckAsync).ConfigureAwait(false)
-                : await LeakGuardHook.CursorAsync(input, CheckAsync).ConfigureAwait(false);
+            var output = harness switch
+            {
+                "claude" => await LeakGuardHook.ClaudePostToolUseAsync(input, CheckAsync).ConfigureAwait(false),
+                "codex" => await LeakGuardHook.CodexPostToolUseAsync(input, CheckAsync).ConfigureAwait(false),
+                _ => await LeakGuardHook.CursorAsync(input, CheckAsync).ConfigureAwait(false),
+            };
             if (output is not null)
                 Console.Out.Write(output);
         }
         catch (Exception ex)
         {
             var note = $"{ProductInfo.Name} leak guard could not check this output: {AgentFailure(ex)}";
-            Console.Out.Write(harness == "claude"
+            Console.Out.Write(harness is "claude" or "codex"
                 ? new JsonObject { ["systemMessage"] = note }.ToJsonString()
                 : (string?)input["hook_event_name"] == "beforeReadFile"
                     ? new JsonObject { ["permission"] = "allow", ["user_message"] = note }.ToJsonString()
@@ -109,7 +124,7 @@ public static class LeakGuardCommands
             return 0;
         }
 
-        var installer = new CanaryInstaller(store, new CredentialVault(), Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+        var installer = new CanaryInstaller(store, new CredentialVault(), ProductPaths.UserHome());
         if (args is ["remove"])
         {
             var cleaned = installer.Remove();

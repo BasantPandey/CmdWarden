@@ -17,6 +17,17 @@ public static class ProductPaths
         return Path.Combine(local, "CmdWarden");
     }
 
+    public const string HomeEnvVar = "CW_HOME";
+
+    /// <summary>
+    /// The user home where harness config lives (~/.claude, ~/.cursor, ~/.codex, ~/.aws).
+    /// <c>CW_HOME</c> moves it, so a test never writes the real harness config.
+    /// </summary>
+    public static string UserHome() =>
+        Environment.GetEnvironmentVariable(HomeEnvVar) is { Length: > 0 } home
+            ? Path.GetFullPath(home.Trim())
+            : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
     public static string ShimsDir() => Path.Combine(Root(), "shims");
     public static string AuditDir() => Path.Combine(Root(), "audit");
     public static string PinsDir() => Path.Combine(Root(), "pins");
