@@ -49,7 +49,6 @@ NestedInstallerFiles:
   - RelativeFilePath: cmdwarden.exe
     PortableCommandAlias: cmdwarden
 ArchiveBinariesDependOnPath: true
-Scope: user
 InstallModes:
   - silent
 UpgradeBehavior: install
