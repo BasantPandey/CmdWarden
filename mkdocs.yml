@@ -79,6 +79,7 @@ nav:
 
 exclude_docs: |
   plan/
+  research/
 
 markdown_extensions:
   - admonition
