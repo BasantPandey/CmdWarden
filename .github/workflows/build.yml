@@ -45,6 +45,20 @@ jobs:
         shell: pwsh
         run: ./scripts/Test-Portable.ps1 -Folder artifacts/bin
 
+      # install.cmd starts the installer with Windows PowerShell 5.1, not pwsh.
+      - name: Install from the setup layout with Windows PowerShell 5.1
+        shell: pwsh
+        run: |
+          $setup = "artifacts/setup"
+          New-Item -ItemType Directory -Force $setup | Out-Null
+          Copy-Item -Recurse artifacts/bin "$setup/app"
+          foreach ($f in "install.cmd", "uninstall.cmd", "Install-CmdWarden.ps1", "Uninstall-CmdWarden.ps1") { Copy-Item "scripts/$f" $setup }
+          $dir = Join-Path $env:RUNNER_TEMP "cw-app"
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$setup/Install-CmdWarden.ps1" -Yes -InstallDir $dir
+          if ($LASTEXITCODE -ne 0) { throw "The installer failed with exit code $LASTEXITCODE." }
+          & "$dir/cw.exe" version
+          if ($LASTEXITCODE -ne 0) { throw "The installed cw.exe did not run." }
+
       - name: Upload bin artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7

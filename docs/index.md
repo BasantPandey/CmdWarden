@@ -7,7 +7,7 @@ description: CmdWarden stops AI agents and install scripts from using your gh, g
 
 **Make AI coding agents ask before they use your secrets.** Claude Code, Cursor, and Codex run commands with your `gh`, `git`, `npm`, `az`, `aws`, and `docker` logins. CmdWarden puts a card in between. Your own terminal keeps working as before.
 
-![Approval Gate card: an AI harness asks for GH_TOKEN, you click Deny, Allow for session, or Approve Once](images/approval-gate.png){ .hero }
+<video class="promo" src="images/cmdwarden-promo.mp4" poster="images/cmdwarden-promo-poster.jpg" autoplay muted loop playsinline controls aria-label="CmdWarden in 30 seconds: an AI agent asks for a GitHub token, and you press Deny or Approve Once on the Approval Gate card"></video>
 
 ## Two steps
 
