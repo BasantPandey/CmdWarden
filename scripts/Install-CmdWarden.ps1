@@ -74,7 +74,7 @@ param(
     [string] $Tag,
     [string] $Repo = "BasantPandey/CmdWarden",
     [ValidateSet("portable", "tool", "zip")]
-    [string] $Mode = $(if (Test-Path (Join-Path $PSScriptRoot "app\cw.exe")) { "portable" } else { "tool" }),
+    [string] $Mode,
     [string] $PackagePath,
     [string] $InstallDir = (Join-Path $env:LOCALAPPDATA "CmdWarden\app"),
     [switch] $SkipDoctor,
@@ -85,6 +85,9 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+# Windows PowerShell 5.1 leaves $PSScriptRoot empty in the param defaults of an advanced script.
+if (-not $Mode) { $Mode = if (Test-Path (Join-Path $PSScriptRoot "app\cw.exe")) { "portable" } else { "tool" } }
 
 function Write-Step([string] $Message) {
     Write-Host ""
