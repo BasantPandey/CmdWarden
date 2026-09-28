@@ -31,7 +31,7 @@ It is an **inspired twin** of macOS Automic Vault's *job* (vault + tool×launche
 | Identity | Hybrid L3: Authenticode + process chain preferred; path+SHA-256 fallback; unknown fails closed for auto-approve |
 | Harden | **PATH shims only** - no API hooking / detours |
 | IPC | gRPC over Windows named pipes; CurrentUserOnly ACL |
-| Approvals | WinUI 3 card (out-of-process helper); MessageBox transitional/CI; phone/OOB out of scope; UI detail: [approval-gate-ui.md](./approval-gate-ui.md) |
+| Approvals | WPF card (out-of-process helper); MessageBox transitional/CI; phone/OOB out of scope; UI detail: [Approval Gate](../install.md#approval-gate) |
 | Policy levels | Deny / Read / Trusted / Full |
 | Defaults | AI Harness → Read; Terminal → Trusted; unknown/unenrolled → Deny |
 | Command classes | read / write / secret-reveal / unknown (unknown auto-allows only under Full) |
@@ -129,65 +129,64 @@ Issue: [launcher enrollment UX](https://github.com/BasantPandey/CmdWarden/issues
 - Win32 Cred* GENERIC under targets such as `CmdWarden/secret/<NAME>`.
 - Release only after policy (and optional Approval Gate); audit write first (**fail closed** if audit fails).
 - Short-lived materialization into **child process only** for inject/shim (never leave secrets in parent env).
-- **Credential helper gate ([#202](https://github.com/BasantPandey/CmdWarden/issues/202)):** `HelperCredential { tool, action, server_url, username, secret }` serves `docker` registry credentials from `CmdWarden/docker/<ServerURL>`.
+- **Credential helper gate:** `HelperCredential { tool, action, server_url, username, secret }` serves `docker` registry credentials from `CmdWarden/docker/<ServerURL>`.
   - The Agent derives the vault name and the class: `get` and `list` are read; `store` and `erase` are write.
   - Chain rule: the pinned, signed real tool sits directly above the helper, or one docker plugin (`docker-compose.exe`, `docker-buildx.exe`) sits between them. Any other chain denies `HelperParentMissing`.
   - The launcher resolver skips a file under `shims/`, a pinned tool, and a plugin directly below a pinned tool. A plugin name alone does not count.
   - A live shim grant (`Authorize`) covers helper reads from its chain with reason `RunCovered`. It never covers `store` or `erase`. Policy edits and re-pins clear it.
   - Every action writes a gate row with the URL as the secret name and no value. Docker entries never appear in the Secrets tab.
-  - Helper binary ([#203](https://github.com/BasantPandey/CmdWarden/issues/203)): `docker-credential-cmdwarden.exe` ships in `shim-payload/` and `cw harden docker` copies it to `shims/`. Protocol: one argv action, stdin payload, protocol JSON on stdout. Not found prints `credentials not found in native keychain` and exits 1. A deny prints `CmdWarden: docker registry credential denied (<reason>)` and exits 1. `list` prints URL to username only.
-  - Strong mode ([#204](https://github.com/BasantPandey/CmdWarden/issues/204)): `cw harden docker --strong` reads CredMan for `Docker Credentials` entries and inline `auths`, saves each to `CmdWarden/docker/<ServerURL>` if absent or equal, erases the legacy entries, then writes `config.json` atomically with `credsStore: cmdwarden`. A different vault value or an entry over 2560 bytes fails the whole harden before any change. A failure before the config write puts the originals back and removes the vault copies. The pin document records `mode: strong` and the previous `credsStore`; the shim grant then carries no `DOCKER_AUTH_CONFIG`. Doctor and the Hardened Tools tab report Degraded on `credsStore` drift or a returned legacy entry; re-harden repairs. `cw unharden docker` writes the entries back in wincred layout, deletes `CmdWarden/docker/*`, restores `credsStore`, and removes the pin, shim, and helper.
-  - Strong git ([#207](https://github.com/BasantPandey/CmdWarden/issues/207)): `cw harden git --strong` reads CredMan for `<namespace>:*` entries (`credential.namespace`, default `git`), saves each to `CmdWarden/git/<key>` if absent or equal, erases the legacy entries, then writes the global config through `git config --global`: `--replace-all credential.helper ""` and `--add` the helper path in `sh` form. It fails closed before any write when `credential.credentialStore` is `dpapi` or `plaintext` or when `~\.git-credentials` exists. The previous global `credential.helper` values and every gh host-scoped helper block are saved in the pin document and removed; the system file stays. In strong mode the grant strips `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`, and `GIT_CONFIG_NOSYSTEM` from the child env, and a `credential.*` key in `GIT_CONFIG_KEY_<n>` classifies like `-c`. Doctor reports Degraded on helper chain drift, a returned gh block, or a returned `<namespace>:` entry; re-harden repairs. `cw unharden git` restores the config lines and gh blocks, writes the entries back in GCM layout, deletes `CmdWarden/git/*`, and removes the pin, shim, and helper.
-  - Strong gh store ([#208](https://github.com/BasantPandey/CmdWarden/issues/208)): the vault holds `CmdWarden/gh/<host>` for the active slot and `CmdWarden/gh/<user>@<host>` per user; the active user per host comes from `hosts.yml`; entries are hidden from the Secrets tab. When the gh pin says `mode: strong` the Agent reads `CmdWarden/gh/*` only and ignores the compat `GH_TOKEN`. Injection by host class: `GH_TOKEN` always for the github.com slot; `GH_ENTERPRISE_TOKEN` when the vault holds one GHES slot, or when argv `--hostname`, `-R host/owner/repo`, or env `GH_HOST` names a vaulted GHES slot; two GHES slots and no named host inject none. Each released entry writes its own audit row with the vault name. `MigrateToolStore { tool=gh, argv }` is served only in strong mode from a live granted run: login and refresh enumerate `gh:<host>:<user>` and `oauth_token` lines, verify each with the real `gh auth status --hostname`, save-if-absent-or-equal, delete the stock entries, and strip `oauth_token`; logout drops the vault entries `hosts.yml` no longer lists. The shim calls it when the grant says `migrate_after_run` and the child exits 0.
-  - Strong gh harden ([#209](https://github.com/BasantPandey/CmdWarden/issues/209)): `cw harden gh --strong` runs the same migration as `MigrateToolStore` with the pinned real `gh`; a different vault value or a failed verify fails the whole harden before any delete. No `gh auth logout`. The pin document records `mode: strong` and the host and user list; the compat `GH_TOKEN` import is skipped. `--token` with `--strong` verifies and writes `CmdWarden/gh/<host>` for `--hostname` (default `github.com`). Doctor reports Degraded on a returned `gh:<host>:*` entry or `oauth_token` line ("stock gh token returned") and on a host whose active user has no vault token ("no vault token for <host>"); re-harden repairs the first two. The Hardened Tools row and `cw harden --list` show `Hardened (strong - N hosts, M accounts in vault)`. `cw unharden gh` writes every entry back in stock layout, writes the active user's token to the `gh:<host>:` slot, deletes `CmdWarden/gh/*`, leaves the compat `GH_TOKEN`, and removes the pin and shim. Residual: real `gh auth switch`, and a logout that switches the active user, read the stock keyring and fail in strong mode; log in again through the shim instead.
+  - Helper binary: `docker-credential-cmdwarden.exe` ships in `shim-payload/` and `cw harden docker` copies it to `shims/`. Protocol: one argv action, stdin payload, protocol JSON on stdout. Not found prints `credentials not found in native keychain` and exits 1. A deny prints `CmdWarden: docker registry credential denied (<reason>)` and exits 1. `list` prints URL to username only.
+  - Strong mode: `cw harden docker --strong` reads CredMan for `Docker Credentials` entries and inline `auths`, saves each to `CmdWarden/docker/<ServerURL>` if absent or equal, erases the legacy entries, then writes `config.json` atomically with `credsStore: cmdwarden`. A different vault value or an entry over 2560 bytes fails the whole harden before any change. A failure before the config write puts the originals back and removes the vault copies. The pin document records `mode: strong` and the previous `credsStore`; the shim grant then carries no `DOCKER_AUTH_CONFIG`. Doctor and the Hardened Tools tab report Degraded on `credsStore` drift or a returned legacy entry; re-harden repairs. `cw unharden docker` writes the entries back in wincred layout, deletes `CmdWarden/docker/*`, restores `credsStore`, and removes the pin, shim, and helper.
+  - Strong git: `cw harden git --strong` reads CredMan for `<namespace>:*` entries (`credential.namespace`, default `git`), saves each to `CmdWarden/git/<key>` if absent or equal, erases the legacy entries, then writes the global config through `git config --global`: `--replace-all credential.helper ""` and `--add` the helper path in `sh` form. It fails closed before any write when `credential.credentialStore` is `dpapi` or `plaintext` or when `~\.git-credentials` exists. The previous global `credential.helper` values and every gh host-scoped helper block are saved in the pin document and removed; the system file stays. In strong mode the grant strips `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`, and `GIT_CONFIG_NOSYSTEM` from the child env, and a `credential.*` key in `GIT_CONFIG_KEY_<n>` classifies like `-c`. Doctor reports Degraded on helper chain drift, a returned gh block, or a returned `<namespace>:` entry; re-harden repairs. `cw unharden git` restores the config lines and gh blocks, writes the entries back in GCM layout, deletes `CmdWarden/git/*`, and removes the pin, shim, and helper.
+  - Strong gh store: the vault holds `CmdWarden/gh/<host>` for the active slot and `CmdWarden/gh/<user>@<host>` per user; the active user per host comes from `hosts.yml`; entries are hidden from the Secrets tab. When the gh pin says `mode: strong` the Agent reads `CmdWarden/gh/*` only and ignores the compat `GH_TOKEN`. Injection by host class: `GH_TOKEN` always for the github.com slot; `GH_ENTERPRISE_TOKEN` when the vault holds one GHES slot, or when argv `--hostname`, `-R host/owner/repo`, or env `GH_HOST` names a vaulted GHES slot; two GHES slots and no named host inject none. Each released entry writes its own audit row with the vault name. `MigrateToolStore { tool=gh, argv }` is served only in strong mode from a live granted run: login and refresh enumerate `gh:<host>:<user>` and `oauth_token` lines, verify each with the real `gh auth status --hostname`, save-if-absent-or-equal, delete the stock entries, and strip `oauth_token`; logout drops the vault entries `hosts.yml` no longer lists. The shim calls it when the grant says `migrate_after_run` and the child exits 0.
+  - Strong gh harden: `cw harden gh --strong` runs the same migration as `MigrateToolStore` with the pinned real `gh`; a different vault value or a failed verify fails the whole harden before any delete. No `gh auth logout`. The pin document records `mode: strong` and the host and user list; the compat `GH_TOKEN` import is skipped. `--token` with `--strong` verifies and writes `CmdWarden/gh/<host>` for `--hostname` (default `github.com`). Doctor reports Degraded on a returned `gh:<host>:*` entry or `oauth_token` line ("stock gh token returned") and on a host whose active user has no vault token ("no vault token for <host>"); re-harden repairs the first two. The Hardened Tools row and `cw harden --list` show `Hardened (strong - N hosts, M accounts in vault)`. `cw unharden gh` writes every entry back in stock layout, writes the active user's token to the `gh:<host>:` slot, deletes `CmdWarden/gh/*`, leaves the compat `GH_TOKEN`, and removes the pin and shim. Residual: real `gh auth switch`, and a logout that switches the active user, read the stock keyring and fail in strong mode; log in again through the shim instead.
 
 Research: credential-manager-vault.md.
 
 ### Vault secrets manager UI
 
-**UI source of truth:** [vault-secrets-ui.md](./vault-secrets-ui.md) (map [#83](https://github.com/BasantPandey/CmdWarden/issues/83)).
+**UI source of truth:** [CmdWarden Vault](../vault.md).
 
 Summary for architecture readers:
 
-- **Chrome:** Start-menu WPF window on `net10.0-windows` (`CmdWarden Vault`; the brief targeted WinUI 3, shipped as WPF to match the Approval Gate, see winui-secrets-manager-hosting.md); single-column name list + toolbar (Add / Refresh / Delete); accepted prototype under `docs/prototypes/vault-secrets-manager.*`.
+- **Chrome:** Start-menu WPF window on `net10.0-windows` (`CmdWarden Vault`; the brief targeted WinUI 3, shipped as WPF to match the Approval Gate, see winui-secrets-manager-hosting.md); single-column name list + toolbar (Add / Refresh / Delete).
 - **Host:** **Separate** unpackaged process, gRPC client of the Session Agent over named pipes -- never in-process with the agent or shared with the Approval Gate helper.
 - **Surface:** secret **names only**; never values. Add modal (name + masked value); overwrite confirm-replace; delete confirm-by-name. Agent-down banner disables actions.
 - **Agent contract:** new `ListSecretNames` RPC (names only via `CredEnumerateW` filter); reuses `SaveSecret` / `DeleteSecret`; no Approval Gate on list.
 - **Install:** per-user `.lnk` shortcut under `%APPDATA%\Microsoft\Windows\Start Menu\Programs\`.
 - **Non-goals:** inject/reveal from UI; Windows Hello; full management app; always-on tray.
 
-Issues: [Vault secrets UI map](https://github.com/BasantPandey/CmdWarden/issues/83).
 
 ---
 
 ## 8. Approval Gate
 
-**UI source of truth:** [approval-gate-ui.md](./approval-gate-ui.md) (map [#68](https://github.com/BasantPandey/CmdWarden/issues/68)).
+**UI source of truth:** [Approval Gate](../install.md#approval-gate).
 
 Summary for architecture readers:
 
-- **Chrome:** Automic-style **Deny / Approve Once** card, Windows-native layout (accepted prototype under `docs/prototypes/approval-gate-card.*`). Native caption uses the **Lintel** product mark via `ApplicationIcon`; in-window header is compact mark + `CmdWarden` (8px gap). Detail: [approval-gate-ui.md](./approval-gate-ui.md) (Window chrome).
+- **Chrome:** Automic-style **Deny / Approve Once** card, Windows-native layout. Native caption uses the **Lintel** product mark via `ApplicationIcon`; in-window header is compact mark + `CmdWarden` (8px gap).
 - **Host:** **Out-of-process** Fluent-style helper under `agent/approval-gate/` (default interactive). MessageBox via `CW_APPROVAL_MODE=messagebox` only. Missing helper → **Unavailable** (fail closed).
 - **Surface:** native title bar (Lintel + `CmdWarden`); compact in-window brand row; launcher icon + display name + `wants to run`; command block (invocation, tool path, `cwd`, secret **names**); reason line; Details expander (collapsed); **Deny** / **Approve Once**.
 - **Never:** secret **values**; Always Approve on dialog; full process chain on main surface.
 - **Outcomes:** Approve Once → `AllowOnce`; Deny → `Deny`; cannot show / timeout → `Unavailable` → **fail closed**.
-- **Allow for session ([#132](https://github.com/BasantPandey/CmdWarden/issues/132)):** third button, shown only for enrolled launchers and never for secret-reveal; Approve Once stays the default. Grants the launcher process (pid + start time) the approved class and lower for tool + secret until it exits or is idle 60 minutes (`CW_SESSION_IDLE_SECONDS`). Granting call is audited `session-grant`; covered calls `session-allow` with reason `SessionAllow`. Helper exit code 3; scripted mode `CW_APPROVAL_MODE=session`.
+- **Allow for session:** third button, shown only for enrolled launchers and never for secret-reveal; Approve Once stays the default. Grants the launcher process (pid + start time) the approved class and lower for tool + secret until it exits or is idle 60 minutes (`CW_SESSION_IDLE_SECONDS`). Granting call is audited `session-grant`; covered calls `session-allow` with reason `SessionAllow`. Helper exit code 3; scripted mode `CW_APPROVAL_MODE=session`.
 - **Timed session grants ([#46](https://github.com/BasantPandey/CmdWarden/issues/46)):** the popup offers Until exit, 10 minutes, or 1 hour for Allow for session. Exit code bits 8-9 carry the length (0x100 = 10 minutes, 0x200 = 1 hour); a length on any other answer fails closed. The grant stores an end time. Of two end times the earlier one stays, so a later answer never makes a grant last longer. `cw policy sessions` and the Secret Gates page show the end time. The `session-grant` audit row has `grantLength`: `10m`, `1h`, or `until-exit`.
 - **Deny cooldown:** after a Deny, the same launcher process gets no new popup for that tool for 2 minutes (`CW_DENY_COOLDOWN_SECONDS`). Other arguments do not open a new popup. Each blocked call is audited `deny` with reason `DenyCooldown`. Only one popup shows at a time. A waiting call checks the cooldown before its popup opens.
-- **Approve Once lasts the session ([#205](https://github.com/BasantPandey/CmdWarden/issues/205)):** an Approve Once click grants the launcher process the **one class it showed** for tool + secret, on the same terms as Allow for session (enrolled launcher, never secret-reveal, launcher exit or 60 idle minutes). A higher class prompts again. A later decision **adds** to the live grant, so a narrow answer never takes coverage away. Covered calls audit `session-allow`; the granting call still audits `allow-once`.
+- **Approve Once lasts the session:** an Approve Once click grants the launcher process the **one class it showed** for tool + secret, on the same terms as Allow for session (enrolled launcher, never secret-reveal, launcher exit or 60 idle minutes). A higher class prompts again. A later decision **adds** to the live grant, so a narrow answer never takes coverage away. Covered calls audit `session-allow`; the granting call still audits `allow-once`.
 - **Real input only ([#23](https://github.com/BasantPandey/CmdWarden/issues/23)):** Approve Once and Allow for session accept only keyboard or mouse input that the helper's low-level hooks saw without the injected flag. `SendInput`, `PostMessage`, and UI Automation `Invoke` get no answer, and the popup shows `Use your keyboard or mouse.` Deny accepts every input type.
 - **Approval binds the files ([#30](https://github.com/BasantPandey/CmdWarden/issues/30)):** `cw inject` resolves the program on PATH (with PATHEXT) and finds the script its interpreter runs (`bash x.sh`, `pwsh -File x.ps1`, `python x.py`, `node x.js`, `cmd /c x.cmd`; inline `-c` / `-Command` / `-e` has no file). It locks those files against writes and deletes until the child exits, and sends their paths as `bound_paths`. The Agent hashes them at approval time and returns `bound_files`; `cw inject` checks the hashes again just before the start and does not run on a mismatch. The transient key includes the hashes, and a session grant covers only the files and hashes a person approved. A changed file opens a new popup with the heading `Script changed after approval`, and the decision row gets reason `ScriptChanged`. Each shim locks the pinned binary and checks `real_sha256` just before the start; the lock lasts the run, so a pinned `az.cmd` cannot change while `cmd` reads it.
 - **Hidden PowerShell ([#31](https://github.com/BasantPandey/CmdWarden/issues/31)):** on `Authorize` and `ReleaseSecret`, the Agent reads the command line of each `pwsh.exe` / `powershell.exe` in the caller chain, up to and with the launcher, and parses it with the PowerShell parser (`System.Management.Automation.Language`). Opaque: `-EncodedCommand` (any accepted prefix), `-Command -` (stdin), `Invoke-Expression` / `iex`, `&` or `.` on a name built at run time, `[ScriptBlock]::Create`, `InvokeScript` / `NewScriptBlock` / `ExpandString`, a method name built at run time, a nested PowerShell with an opaque part, code that does not parse, and a `-File` script that cannot be read or holds any of these. An opaque part forces the Approval Gate whatever the policy level. The card heading is `Hidden PowerShell command` with the reason, no transient or session answer covers the call, the card offers no session, and the decision row gets reason `HiddenCommand`. A plain `gh pr list` keeps its normal policy.
 - **Windows Hello ([#24](https://github.com/BasantPandey/CmdWarden/issues/24)):** after a real Approve, the popup asks for Windows Hello (fingerprint, face, or PIN) through `UserConsentVerifier` when the policy says so. `policy.json` field `hello`, set with `cw policy hello off|secret-reveal|write-and-up` (default `secret-reveal`), shown by `cw policy list`. Verified → the approve stands, audit reason `HelloVerified`. Cancel, retries exhausted, or device busy → Deny, audit reason `HelloCanceled`. No Hello device, not set up, or disabled by policy → the plain popup decides, audit reason `HelloUnavailable`. The helper adds a flag to its exit code: `0x10` verified, `0x20` unavailable (on an approve), `0x40` cancelled (on a deny). Any other combination fails closed.
 - **CI:** scripted modes via `CW_APPROVAL_MODE`.
-- **Transient reuse ([#131](https://github.com/BasantPandey/CmdWarden/issues/131)):** a human `AllowOnce` / `Deny` is reused, in memory only, for an exact retry (same launcher pid + start time, tool, class, secret name, command line) while the launcher process lives; `CW_TRANSIENT_REUSE_SECONDS` adds an optional time cap; audited with reason `TransientReuse`. Policy auto-allow and `Unavailable` are recomputed every call.
-- **Invalidation ([#133](https://github.com/BasantPandey/CmdWarden/issues/133)):** all memory clears on agent stop and on workstation lock (`SessionSwitch` / `SessionLock`). `cw policy set` clears entries whose launcher key or tool matches; `cw policy unenroll` clears that launcher key; a `cw harden <tool>` that re-pins the binary clears that tool. Cleared through the existing policy-store and pin-store call sites - no polling.
-- **Visibility / revocation ([#134](https://github.com/BasantPandey/CmdWarden/issues/134)):** `cw policy sessions` lists active session allows (id, launcher key + kind, pid, tool, secret name, class, granted / last-used / idle-expiry); `--revoke <id>` / `--revoke-all` withdraw them and print the count. Backed by `ListSessionAllows` / `RevokeSessionAllow` RPCs - names only, no prompt. Transient entries are never listed. The Secret Gates tab mirrors the list read-only under the Defaults card ([#135](https://github.com/BasantPandey/CmdWarden/issues/135)).
+- **Transient reuse:** a human `AllowOnce` / `Deny` is reused, in memory only, for an exact retry (same launcher pid + start time, tool, class, secret name, command line) while the launcher process lives; `CW_TRANSIENT_REUSE_SECONDS` adds an optional time cap; audited with reason `TransientReuse`. Policy auto-allow and `Unavailable` are recomputed every call.
+- **Invalidation:** all memory clears on agent stop and on workstation lock (`SessionSwitch` / `SessionLock`). `cw policy set` clears entries whose launcher key or tool matches; `cw policy unenroll` clears that launcher key; a `cw harden <tool>` that re-pins the binary clears that tool. Cleared through the existing policy-store and pin-store call sites - no polling.
+- **Visibility / revocation:** `cw policy sessions` lists active session allows (id, launcher key + kind, pid, tool, secret name, class, granted / last-used / idle-expiry); `--revoke <id>` / `--revoke-all` withdraw them and print the count. Backed by `ListSessionAllows` / `RevokeSessionAllow` RPCs - names only, no prompt. Transient entries are never listed. The Secret Gates tab mirrors the list read-only under the Defaults card.
 - **Release signing ([#42](https://github.com/BasantPandey/CmdWarden/issues/42)):** the release signs every exe and dll with the company name CmdWarden, in the zip and inside the nupkg, and the two install scripts. The Session Agent starts only an Approval Gate with its own signer, when it is signed. Every signature check uses WinVerifyTrust, so a copied signature block does not count. See [Release signing](./release-signing.md).
 - **Tray icon ([#43](https://github.com/BasantPandey/CmdWarden/issues/43)):** `CmdWarden.SecretsManager.exe --tray` runs one tray icon per user (own mutex). It polls `ListSessionAllows` every 5 seconds and lists each grant; **Revoke** and **Revoke all** call `RevokeSessionAllow`. It reads new audit rows and shows a notification for `DenyCooldown` and `CanaryHit`, one per launcher, tool, and reason each minute. `cw shortcut install` writes the Startup entry and starts the icon; `cw shortcut remove` and the uninstaller delete the entry.
 - **Policy edits in the Vault ([#44](https://github.com/BasantPandey/CmdWarden/issues/44)):** the Secret Gates page enrolls a launcher (Ctrl+E; the dialog lists unenrolled launchers from the audit), sets a level per tool (click the level pill), and unenrolls a launcher (Unenroll button, or select and Del). Each change has a dialog step and writes the policy file through PolicyStore, the same as `cw policy`. The agent diff on its next load drops the matching approval memory. A kind change now counts as a launcher change too.
 
-Issues: [Approval Gate UI map](https://github.com/BasantPandey/CmdWarden/issues/68), [Windows Hello / step-up](https://github.com/BasantPandey/CmdWarden/issues/24).
+Issues: [Windows Hello / step-up](https://github.com/BasantPandey/CmdWarden/issues/24).
 
 ---
 
@@ -291,7 +290,7 @@ Issue: [scan engine shape](https://github.com/BasantPandey/CmdWarden/issues/19).
 Research: path-shim-patterns.md.
 
 - Per-user shim dir on **user Path** (prepend).
-- Shim first on PATH ([#201](https://github.com/BasantPandey/CmdWarden/issues/201), [#210](https://github.com/BasantPandey/CmdWarden/issues/210)): `HardenedToolStatus.Probe` composes machine then user registry entries and reports Degraded when an earlier entry holds `<tool>.exe|cmd|bat`. `cw harden` never elevates. `cw doctor --fix-path` runs `cw doctor --fix-path --elevated <entry>` once under UAC; that run prepends `%LOCALAPPDATA%\CmdWarden\shims` to the machine PATH as `REG_EXPAND_SZ` (idempotent, vendor entries untouched) and broadcasts `WM_SETTINGCHANGE`. Doctor then reads the logon environment block (`CreateEnvironmentBlock` for the current user); when the block does not expand the entry, a second elevated run writes the literal shims path instead. On success doctor prints `shims first on PATH (machine)` and re-probes. A non-default product root always uses the literal path.
+- Shim first on PATH: `HardenedToolStatus.Probe` composes machine then user registry entries and reports Degraded when an earlier entry holds `<tool>.exe|cmd|bat`. `cw harden` never elevates. `cw doctor --fix-path` runs `cw doctor --fix-path --elevated <entry>` once under UAC; that run prepends `%LOCALAPPDATA%\CmdWarden\shims` to the machine PATH as `REG_EXPAND_SZ` (idempotent, vendor entries untouched) and broadcasts `WM_SETTINGCHANGE`. Doctor then reads the logon environment block (`CreateEnvironmentBlock` for the current user); when the block does not expand the entry, a second elevated run writes the literal shims path instead. On success doctor prints `shims first on PATH (machine)` and re-probes. A non-default product root always uses the literal path.
 - Prefer multiplexed signed shim; tool id from image name.
 - Harden time: absolute real path + SHA-256 (+ optional Authenticode).
 - Runtime: **full-path spawn only** - never re-search PATH for the real tool.
@@ -301,7 +300,7 @@ Research: path-shim-patterns.md.
 
 ## 14. First catalog harden designs
 
-All **compat mode by default**. Strong mode is opt-in per tool with `--strong` for `gh`, `git`, `docker` (map [#185](https://github.com/BasantPandey/CmdWarden/issues/185), plan first-catalog-strong-mode-plan.md), and `az` ([#26](https://github.com/BasantPandey/CmdWarden/issues/26)). Strong mode moves the stock store into the vault and deletes the originals; `cw unharden` writes them back.
+All **compat mode by default**. Strong mode is opt-in per tool with `--strong` for `gh`, `git`, `docker` (plan first-catalog-strong-mode-plan.md), and `az` ([#26](https://github.com/BasantPandey/CmdWarden/issues/26)). Strong mode moves the stock store into the vault and deletes the originals; `cw unharden` writes them back.
 
 ### 14.1 gh
 
@@ -313,7 +312,7 @@ Research: gh-windows-harden.md. Issue: [#22](https://github.com/BasantPandey/Cmd
 | Harden | Pin real `gh.exe`; PATH shim; **import active token** into CmdWarden vault |
 | Runtime | On allow: child **always** gets `GH_TOKEN` from vault |
 | Classes | export (`auth token`, show-token, git-credential get) → **secret-reveal**; side effects / most auth → **write**; read-mostly → **read**; unmatched → **unknown** |
-| Strong | `cw harden gh --strong` ([#208](https://github.com/BasantPandey/CmdWarden/issues/208), [#209](https://github.com/BasantPandey/CmdWarden/issues/209)): stock `gh:<host>:<user>` entries and `oauth_token` lines move to `CmdWarden/gh/*` and are deleted; per-host `GH_TOKEN` / `GH_ENTERPRISE_TOKEN` injection; `auth login` / `refresh` / `logout` / `switch` get no token env and migrate after exit 0 |
+| Strong | `cw harden gh --strong`: stock `gh:<host>:<user>` entries and `oauth_token` lines move to `CmdWarden/gh/*` and are deleted; per-host `GH_TOKEN` / `GH_ENTERPRISE_TOKEN` injection; `auth login` / `refresh` / `logout` / `switch` get no token env and migrate after exit 0 |
 | Residual | Absolute path; leftover `gh:` keyring (compat only); parent ambient env; `gh auth switch` fails in strong mode |
 
 Spike implement shipped: issues #7 (shim pin), #8 (harden gh), #9 (classifier table), #10 (audit wiring).
@@ -328,7 +327,7 @@ Research: git-windows-harden.md. Issue: [#23](https://github.com/BasantPandey/Cm
 | Harden | Pin real `git.exe`; PATH shim; **leave GCM** in place |
 | Runtime | **No** GH_TOKEN-style inject; gate process only; allowed ops still use ambient GCM |
 | Classes | `credential fill` → **secret-reveal**; `push` → **write**; `fetch`/`clone`/local read → **read** |
-| Strong | `cw harden git --strong` ([#205](https://github.com/BasantPandey/CmdWarden/issues/205), [#206](https://github.com/BasantPandey/CmdWarden/issues/206), [#207](https://github.com/BasantPandey/CmdWarden/issues/207)): GCM entries move to `CmdWarden/git/*` and are deleted; `git-credential-cmdwarden.exe` is the only global `credential.helper`; the Agent checks the signer walk up to the pinned `git.exe`; `store` equal is a no-op, `erase` needs an equal value |
+| Strong | `cw harden git --strong`: GCM entries move to `CmdWarden/git/*` and are deleted; `git-credential-cmdwarden.exe` is the only global `credential.helper`; the Agent checks the signer walk up to the pinned `git.exe`; `store` equal is a no-op, `erase` needs an equal value |
 | Residual | Absolute path; IDE git; allowed AI push uses full GCM tokens (compat only); SSH; WSL |
 
 **Independent of gh harden** - both required for first catalog.
@@ -356,8 +355,8 @@ Research: docker-windows-harden.md. Issue: [#25](https://github.com/BasantPandey
 | Harden | Pin real `docker.exe`; PATH shim; leave Desktop store |
 | Runtime | Optional **child `DOCKER_AUTH_CONFIG`** from vault on allow; never leave in parent |
 | Classes | login/push → **write**; pull → **read** |
-| Helpers | `docker-credential-cmdwarden.exe` gates registry credentials when `credsStore` is `cmdwarden` ([#203](https://github.com/BasantPandey/CmdWarden/issues/203)); the pinned `docker.exe` must sit at depth 1, or at depth 2 behind compose or buildx |
-| Strong | `cw harden docker --strong` ([#204](https://github.com/BasantPandey/CmdWarden/issues/204)): `Docker Credentials` entries and inline `auths` move to `CmdWarden/docker/*` and are deleted; `credsStore: cmdwarden`; no `DOCKER_AUTH_CONFIG` overlay; foreign `credHelpers` stay with a warning |
+| Helpers | `docker-credential-cmdwarden.exe` gates registry credentials when `credsStore` is `cmdwarden`; the pinned `docker.exe` must sit at depth 1, or at depth 2 behind compose or buildx |
+| Strong | `cw harden docker --strong`: `Docker Credentials` entries and inline `auths` move to `CmdWarden/docker/*` and are deleted; `credsStore: cmdwarden`; no `DOCKER_AUTH_CONFIG` overlay; foreign `credHelpers` stay with a warning |
 | Residual | Absolute path; foreign `credHelpers`; ambient env; WSL |
 
 ---
@@ -391,7 +390,7 @@ Broader Automic comparison: automic-vault-architecture.md.
 - Enterprise MDM / multi-user org as first-class driver
 - Polished tray Settings app
 - Windows **bless** / capability-bundled scripts (future note only)
-- Timed session grants ("allow write for 10 minutes") and a live management strip in the shell; persisting approval memory across agent restarts (approval memory v1, [#130](https://github.com/BasantPandey/CmdWarden/issues/130))
+- Timed session grants ("allow write for 10 minutes") and a live management strip in the shell; persisting approval memory across agent restarts (approval memory v1)
 - Downloadable scan rule packs; continuous scan watcher
 - Machine-wide install, winget/MSIX as primary, auto-update, nuget.org requirement
 - Strong-mode store strip as default for git/az/docker
@@ -405,12 +404,12 @@ Broader Automic comparison: automic-vault-architecture.md.
 - Spike foundation: bootstrap, Session Agent health, vault save/inject, hybrid identity, policy gate, Approval Gate (#1 to #6).
 - Spike vertical: gh shim, `cw harden gh`, gh classifier, audit trail (#7 to #10).
 - First-catalog compat harden for `git` / `az` / `docker`, scan detectors, dotnet tool packaging, management shell tabs.
-- Approval memory ([#129](https://github.com/BasantPandey/CmdWarden/issues/129)) and the shipped steps of the Windows gaps plan.
+- Approval memory and the shipped steps of the Windows gaps plan.
 - First-catalog strong mode, every slice (first-catalog-strong-mode-plan.md section 4).
 
 ### Next build work
 
-The open steps of automic-windows-gaps-plan.md section 4. Open bug: [#211](https://github.com/BasantPandey/CmdWarden/issues/211).
+The open steps of automic-windows-gaps-plan.md section 4.
 
 ### Decision index (wayfinder)
 
@@ -423,12 +422,9 @@ See map [CmdWarden product handoff (beyond spike)](https://github.com/BasantPand
 | Doc | Role |
 |-----|------|
 | [the Glossary](../glossary.md) | Ubiquitous language |
-| [docs/spec/approval-gate-ui.md](./approval-gate-ui.md) | Approval Gate WinUI card implement handoff |
-| [docs/spec/vault-secrets-ui.md](./vault-secrets-ui.md) | Vault secrets manager (Secrets tab) implement handoff |
-| [docs/spec/management-shell-tabs.md](./management-shell-tabs.md) | Management shell tabs implement plan (Doctor, Hardened Tools, Secret Usage, Detectors, Secret Gates) |
 | [Home](../index.md) | Build and run |
 | [docs/user-guide.md](../user-guide.md) | End-user guide |
-| Git history before `14e5e6b` | Research notes, prototypes, and the implement plans |
+| Git history before `14e5e6b` | Research notes and prototypes. The UI implement plans are in the history of `docs/spec/` |
 | GitHub issues | Spike implement + closed decision tickets |
 
 ---

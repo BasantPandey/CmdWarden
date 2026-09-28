@@ -1,4 +1,4 @@
-# Package managers (winget, Scoop, Chocolatey)
+# Package managers (winget, Scoop)
 
 The release makes the winget and Scoop manifests for you. Each release has `CmdWarden.<version>-packages.zip` with manifests that carry the real sha256 of the portable zip.
 
@@ -8,7 +8,6 @@ The portable zip `CmdWarden.<version>-win-x64.zip` carries its own .NET runtime.
 |---------|--------|----------------------|
 | **winget** | `winget/` in the packages zip | `winget install BasantPandey.CmdWarden` |
 | **Scoop** | `scoop/cmdwarden.json` in the packages zip | `scoop install cmdwarden` (from a bucket) |
-| **Chocolatey** | [chocolatey/](chocolatey/) template | `choco install cmdwarden` |
 
 Make the manifests by hand for any zip:
 
@@ -39,17 +38,6 @@ scoop install cmdwarden
 ```
 
 The manifest has `checkver` and `autoupdate`, so a bucket bot can follow new releases.
-
-## Chocolatey (quick local)
-
-```powershell
-cd packaging\chocolatey\cmdwarden
-choco pack
-choco install cmdwarden -y -s .
-cw version
-```
-
-See [chocolatey/README.md](chocolatey/README.md).
 
 ## Release secrets
 
