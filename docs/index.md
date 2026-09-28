@@ -9,10 +9,12 @@ description: CmdWarden stops AI agents and install scripts from using your gh, g
 
 ![Approval Gate card: an AI harness asks for GH_TOKEN, you click Deny, Allow for session, or Approve Once](images/approval-gate.png){ .hero }
 
-## Two commands
+## Two steps
+
+1. Download `CmdWarden.<version>-setup.zip` from the [latest release](https://github.com/BasantPandey/CmdWarden/releases/latest). Extract it, and double-click **`install.cmd`**.
+2. Open a new terminal and run:
 
 ```powershell
-winget install BasantPandey.CmdWarden
 cw setup
 ```
 

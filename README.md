@@ -15,16 +15,18 @@ CLI: **`cw`** (alias `cmdwarden`). Desktop app: **CmdWarden Vault**. Free and op
 
 Watch the [30 second video](docs/images/cmdwarden-promo.mp4).
 
-## Two commands
+## Two steps
+
+1. Download `CmdWarden.<version>-setup.zip` from the [latest release](https://github.com/BasantPandey/CmdWarden/releases/latest). Extract it, and double-click **`install.cmd`**.
+2. Open a new terminal and run:
 
 ```powershell
-winget install BasantPandey.CmdWarden
 cw setup
 ```
 
 No .NET install and no admin prompt: CmdWarden carries its own runtime. `cw setup` enrolls your terminal, hardens the tools it finds, wires Claude Code, Cursor, and Codex, and shows you a real card. Each step asks first.
 
-No winget? Download `CmdWarden.<version>-setup.zip` from the [latest release](https://github.com/BasantPandey/CmdWarden/releases/latest), extract it, and double-click **`install.cmd`**. .NET developers can run `dotnet tool install -g CmdWarden`.
+The winget package and the NuGet.org package come soon ([#64](https://github.com/BasantPandey/CmdWarden/issues/64)). Until then, `winget install` does not find CmdWarden.
 
 See the card with no risk at any time: `cw try`. **Uninstall:** `cw uninstall`.
 
@@ -87,7 +89,7 @@ pwsh ./scripts/Test-Portable.ps1 -Folder artifacts/portable   # runs it with no 
 | `src/CmdWarden.TryAgent` | The stand-in agent of `cw try` |
 | `src/CmdWarden.Helper.*` | Credential helpers for strong mode (`git`, `docker`) |
 | `tests/CmdWarden.Tests` | Unit and process tests |
-| `packaging/` | Chocolatey template; the release makes the winget and Scoop manifests |
+| `packaging/` | Notes on the winget and Scoop manifests that the release makes |
 
 Durable state lives under `%LOCALAPPDATA%\CmdWarden\`.
 
