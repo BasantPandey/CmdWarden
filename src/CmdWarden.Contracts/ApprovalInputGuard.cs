@@ -14,15 +14,17 @@ public sealed class ApprovalInputGuard
     public const int VkReturn = 0x0D;
     public const int VkSpace = 0x20;
     public const int VkA = 0x41;
+    public const int Vk1 = 0x31;
+    public const int VkNumPad1 = 0x61;
 
     private DateTime? _creditUtc;
 
-    /// <summary>A key went down. Only Enter, Space, and A to our window count.</summary>
+    /// <summary>A key went down. Only Enter, Space, A, and 1 to our window count.</summary>
     public void OnKeyDown(int virtualKey, bool injected, bool windowIsForeground, DateTime nowUtc)
     {
         if (injected || !windowIsForeground)
             return;
-        if (virtualKey is VkReturn or VkSpace or VkA)
+        if (virtualKey is VkReturn or VkSpace or VkA or Vk1 or VkNumPad1)
             _creditUtc = nowUtc;
     }
 

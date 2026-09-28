@@ -12,7 +12,8 @@ artifacts/
 agent-out.txt
 agent-err.txt
 
-# Generated package manager packages
-packaging/chocolatey/**/*.nupkg
 
 site/
+
+# Local knowledge graph (graphify)
+graphify-out/

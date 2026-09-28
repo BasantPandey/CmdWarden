@@ -73,11 +73,8 @@ nav:
       - Glossary: glossary.md
   - Internals:
       - Architecture: spec/cmdwarden.md
-      - Approval Gate UI: spec/approval-gate-ui.md
-      - Vault secrets UI: spec/vault-secrets-ui.md
-      - Management shell tabs: spec/management-shell-tabs.md
-      - CLI TUI: spec/cli-tui.md
       - Release signing: spec/release-signing.md
+      - Test plan: spec/test-plan.md
 
 exclude_docs: |
   plan/

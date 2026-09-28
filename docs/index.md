@@ -9,10 +9,12 @@ description: CmdWarden stops AI agents and install scripts from using your gh, g
 
 <video class="promo" src="images/cmdwarden-promo.mp4" poster="images/cmdwarden-promo-poster.jpg" autoplay muted loop playsinline controls aria-label="CmdWarden in 30 seconds: an AI agent asks for a GitHub token, and you press Deny or Approve Once on the Approval Gate card"></video>
 
-## Two commands
+## Two steps
+
+1. Download `CmdWarden.<version>-setup.zip` from the [latest release](https://github.com/BasantPandey/CmdWarden/releases/latest). Extract it, and double-click **`install.cmd`**.
+2. Open a new terminal and run:
 
 ```powershell
-winget install BasantPandey.CmdWarden
 cw setup
 ```
 
