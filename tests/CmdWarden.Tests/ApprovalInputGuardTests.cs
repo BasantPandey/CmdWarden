@@ -14,6 +14,8 @@ public class ApprovalInputGuardTests
     [InlineData(ApprovalInputGuard.VkReturn)]
     [InlineData(ApprovalInputGuard.VkSpace)]
     [InlineData(ApprovalInputGuard.VkA)]
+    [InlineData(ApprovalInputGuard.Vk1)]
+    [InlineData(ApprovalInputGuard.VkNumPad1)]
     public void Real_key_to_the_popup_gives_one_credit(int vk)
     {
         var guard = new ApprovalInputGuard();
