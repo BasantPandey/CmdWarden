@@ -20,7 +20,7 @@ Use one of the three ways. When more than one is set, the workflow uses SignPath
 
 ### SignPath Foundation (free for open source)
 
-1. Apply at [signpath.org](https://signpath.org) for the CmdWarden project. SignPath Foundation gives open-source projects a code signing certificate at no cost.
+1. Apply at [signpath.org](https://signpath.org) for the CmdWarden project. The [Code signing policy](../code-signing-policy.md) page meets the SignPath rules for the project site. SignPath Foundation gives open-source projects a code signing certificate at no cost.
 2. In SignPath, add a project with an artifact configuration that signs `**/*.exe`, `**/*.dll`, and `**/*.ps1` in the uploaded zip, and a signing policy.
 3. Add the repository secret `SIGNPATH_API_TOKEN` and the repository variables `SIGNPATH_ORGANIZATION_ID`, `SIGNPATH_PROJECT_SLUG`, and `SIGNPATH_SIGNING_POLICY_SLUG`.
 

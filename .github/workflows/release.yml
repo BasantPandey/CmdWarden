@@ -247,6 +247,10 @@ jobs:
 
           ``cw update`` installs the newest release after a sha256 check. A winget install updates with ``winget upgrade BasantPandey.CmdWarden``.
           ``cw uninstall`` removes CmdWarden and every change it made.
+
+          ### Code signing policy
+
+          Read the [Code signing policy](https://basantpandey.github.io/CmdWarden/code-signing-policy/): who signs CmdWarden, and how.
           "@
           $notes = ($notes -split "`n" | ForEach-Object { $_ -replace '^          ', '' }) -join "`n"
           $notesPath = Join-Path $env:RUNNER_TEMP "release-notes.md"
