@@ -68,7 +68,7 @@ public static class AgentHost
 
         var approvalGate = ApprovalGateFactory.CreateFromEnvironment();
         var pins = new ToolPinStore(productRoot);
-        var audit = new AuditLog(productRoot);
+        var audit = new AuditLog(productRoot, eventLog: true);
         // Housekeeping only; never blocks agent start or fail-closed grant audit writes (#38).
         audit.PruneOlderThan();
 

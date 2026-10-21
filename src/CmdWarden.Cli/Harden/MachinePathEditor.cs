@@ -60,7 +60,10 @@ public static class MachinePathEditor
     }
 
     /// <summary>One UAC prompt: cw doctor --fix-path --elevated &lt;entry&gt;. Returns the exit code; null when the prompt was refused.</summary>
-    public static int? RunElevated(string entry)
+    public static int? RunElevated(string entry) => RunCwElevated("doctor", "--fix-path", ElevatedFlag, entry);
+
+    /// <summary>One UAC prompt that runs cw with <paramref name="args"/>. Returns the exit code; null when the prompt was refused.</summary>
+    public static int? RunCwElevated(params string[] args)
     {
         var exe = Environment.ProcessPath ?? throw new InvalidOperationException("cannot find the cw executable");
         var psi = new ProcessStartInfo
@@ -71,7 +74,7 @@ public static class MachinePathEditor
             CreateNoWindow = true,
             WindowStyle = ProcessWindowStyle.Hidden,
         };
-        foreach (var a in new[] { "doctor", "--fix-path", ElevatedFlag, entry })
+        foreach (var a in args)
             psi.ArgumentList.Add(a);
         try
         {

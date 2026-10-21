@@ -45,6 +45,7 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw canary install [--env <file>]...\|remove\|status` | Fake tokens that block the launcher and show an alarm when used |
 | `cw protect install\|uninstall claude\|codex` | Turn on the secret protections of the harness: Claude Code deny rules and env scrub, the Codex shell environment policy. `uninstall` removes only what cw added. See [Trust](trust.md) |
 | `cw audit [-n N]` | Recent gate decisions |
+| `cw audit eventlog on\|off\|status` | Also write each gate decision to the Windows Application log, source `CmdWarden`. `on` and `off` ask for admin once |
 | `cw shortcut install [--desktop]\|remove\|status` | Start Menu (and Desktop) entry for CmdWarden Vault, a `cw launch` entry per harness on this PC, and the tray icon at logon |
 
 ## Screens
