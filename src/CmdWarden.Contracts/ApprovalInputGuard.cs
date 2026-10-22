@@ -5,6 +5,8 @@ namespace CmdWarden.Contracts;
 /// feeds this guard from its low-level hooks, which see each hardware event before the window does.
 /// Injected input (SendInput) carries the injected flag. Posted messages and UI Automation Invoke
 /// never pass the hooks. So neither leaves a credit, and a click without a credit is ignored.
+/// A program can also move the pointer with no input (SetCursorPos) onto Approve, so the next
+/// real click lands there. A click counts only when real moves brought the pointer onto the window.
 /// </summary>
 public sealed class ApprovalInputGuard
 {
@@ -18,6 +20,8 @@ public sealed class ApprovalInputGuard
     public const int VkNumPad1 = 0x61;
 
     private DateTime? _creditUtc;
+    private (int X, int Y)? _lastPoint;
+    private bool _pointerReal;
 
     /// <summary>A key went down. Only Enter, Space, A, and 1 to our window count.</summary>
     public void OnKeyDown(int virtualKey, bool injected, bool windowIsForeground, DateTime nowUtc)
@@ -28,10 +32,20 @@ public sealed class ApprovalInputGuard
             _creditUtc = nowUtc;
     }
 
-    /// <summary>The left mouse button went up. Only a release over our window counts.</summary>
-    public void OnLeftButtonUp(bool injected, bool overWindow, DateTime nowUtc)
+    /// <summary>
+    /// Each mouse event, in physical pixels. <paramref name="before"/> is the pointer when the event
+    /// came. When it is not where the last event put it, a program moved the pointer. Then the
+    /// pointer must leave the window and come back by real moves. Only a real release over the window counts.
+    /// </summary>
+    public void OnMouse(bool injected, bool overWindow, (int X, int Y) before, (int X, int Y) at, bool leftButtonUp, DateTime nowUtc)
     {
-        if (!injected && overWindow)
+        var jumped = _lastPoint != before;
+        _lastPoint = at;
+        if (injected || (jumped && overWindow))
+            _pointerReal = false;
+        else if (!overWindow)
+            _pointerReal = true;
+        if (leftButtonUp && !injected && overWindow && _pointerReal)
             _creditUtc = nowUtc;
     }
 
@@ -43,5 +57,5 @@ public sealed class ApprovalInputGuard
         return credit is { } at && nowUtc >= at && nowUtc - at <= CreditWindow;
     }
 
-    public const string IgnoredInputLine = "Use your keyboard or mouse.";
+    public const string IgnoredInputLine = "Use your keyboard, or move the mouse off this card and back.";
 }

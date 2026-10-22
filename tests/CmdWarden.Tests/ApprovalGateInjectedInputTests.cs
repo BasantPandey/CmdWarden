@@ -25,6 +25,21 @@ public class ApprovalGateInjectedInputTests(ITestOutputHelper output)
         if (!OperatingSystem.IsWindows() || !Environment.UserInteractive)
             return;
 
+        // The test moves the real pointer and sends keys. A person at this PC can answer the popup for real.
+        using var person = new RealInputWatch();
+        try
+        {
+            await InjectedApproveAttemptsAsync();
+            output.WriteLine($"Real input from a person: {(person.Seen ? "yes" : "no")}");
+        }
+        catch (Exception ex) when (person.Seen)
+        {
+            output.WriteLine("Inconclusive: a person used the keyboard or mouse during the test. " + ex.Message);
+        }
+    }
+
+    private async Task InjectedApproveAttemptsAsync()
+    {
         await using var gate = await GateProcess.StartAsync();
 
         // PostMessage: Enter (default button) and A (Allow for session).
@@ -243,6 +258,95 @@ public class ApprovalGateInjectedInputTests(ITestOutputHelper output)
             return ValueTask.CompletedTask;
         }
     }
+
+    /// <summary>Low-level hooks on their own thread. Seen is true after a real key or a real mouse button.</summary>
+    private sealed class RealInputWatch : IDisposable
+    {
+        private const int WmMouseMove = 0x0200;
+        private const int WmMouseWheel = 0x020A;
+        private const uint WmQuit = 0x0012;
+        private readonly Thread _thread;
+        private readonly HookProc _mouse;
+        private readonly HookProc _keyboard;
+        private uint _threadId;
+        private volatile bool _seen;
+
+        public RealInputWatch()
+        {
+            // MSLLHOOKSTRUCT flags are at offset 12 (bit 0x01 injected); KBDLLHOOKSTRUCT flags at offset 8 (bit 0x10).
+            _mouse = (code, message, data) =>
+            {
+                if (code >= 0 && (int)message != WmMouseMove && (int)message != WmMouseWheel && (Marshal.ReadInt32(data, 12) & 0x01) == 0)
+                    _seen = true;
+                return CallNextHookEx(IntPtr.Zero, code, message, data);
+            };
+            _keyboard = (code, message, data) =>
+            {
+                if (code >= 0 && (Marshal.ReadInt32(data, 8) & 0x10) == 0)
+                    _seen = true;
+                return CallNextHookEx(IntPtr.Zero, code, message, data);
+            };
+            using var ready = new ManualResetEventSlim();
+            _thread = new Thread(() =>
+            {
+                _threadId = GetCurrentThreadId();
+                var module = GetModuleHandle(null);
+                var mouseHook = SetWindowsHookEx(14, _mouse, module, 0);
+                var keyboardHook = SetWindowsHookEx(13, _keyboard, module, 0);
+                ready.Set();
+                while (GetMessage(out _, IntPtr.Zero, 0, 0) > 0)
+                {
+                }
+                UnhookWindowsHookEx(mouseHook);
+                UnhookWindowsHookEx(keyboardHook);
+            }) { IsBackground = true };
+            _thread.Start();
+            ready.Wait();
+        }
+
+        public bool Seen => _seen;
+
+        public void Dispose()
+        {
+            PostThreadMessage(_threadId, WmQuit, IntPtr.Zero, IntPtr.Zero);
+            _thread.Join(2000);
+        }
+    }
+
+    private delegate IntPtr HookProc(int code, IntPtr message, IntPtr data);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Msg
+    {
+        public IntPtr Hwnd;
+        public uint Message;
+        public IntPtr WParam;
+        public IntPtr LParam;
+        public uint Time;
+        public int X;
+        public int Y;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr SetWindowsHookEx(int idHook, HookProc lpfn, IntPtr hMod, uint dwThreadId);
+
+    [DllImport("user32.dll")]
+    private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr CallNextHookEx(IntPtr hhk, int code, IntPtr message, IntPtr data);
+
+    [DllImport("user32.dll")]
+    private static extern int GetMessage(out Msg msg, IntPtr hwnd, uint min, uint max);
+
+    [DllImport("user32.dll")]
+    private static extern bool PostThreadMessage(uint threadId, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr GetModuleHandle(string? moduleName);
 
     private static void SendKey(int vk)
     {
