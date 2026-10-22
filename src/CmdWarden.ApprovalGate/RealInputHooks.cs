@@ -20,6 +20,7 @@ internal sealed class RealInputHooks : IDisposable
     private const uint LlkhfInjected = 0x10;
     private const uint LlmhfInjected = 0x01;
     private const uint GaRoot = 2;
+    private static readonly IntPtr DpiAwarenessPerMonitorV2 = new(-4);
 
     private readonly ApprovalInputGuard _guard;
     private readonly Func<IntPtr> _window;
@@ -55,15 +56,31 @@ internal sealed class RealInputHooks : IDisposable
 
     private IntPtr OnMouse(int code, IntPtr message, IntPtr data)
     {
-        if (code >= 0 && message == WmLButtonUp)
+        if (code >= 0)
         {
             var info = Marshal.PtrToStructure<MsLlHookStruct>(data);
             // The hook point is in physical pixels, so WindowFromPhysicalPoint needs no DPI math.
             var hit = WindowFromPhysicalPoint(info.Pt);
             var overWindow = hit != IntPtr.Zero && GetAncestor(hit, GaRoot) == _window();
-            _guard.OnLeftButtonUp((info.Flags & LlmhfInjected) != 0, overWindow, DateTime.UtcNow);
+            _guard.OnMouse((info.Flags & LlmhfInjected) != 0, overWindow, PointerNow(), (info.Pt.X, info.Pt.Y),
+                message == WmLButtonUp, DateTime.UtcNow);
         }
         return CallNextHookEx(IntPtr.Zero, code, message, data);
+    }
+
+    /// <summary>The pointer before the hooked event, in physical pixels for any DPI mode of this process.</summary>
+    private static (int X, int Y) PointerNow()
+    {
+        var old = SetThreadDpiAwarenessContext(DpiAwarenessPerMonitorV2);
+        try
+        {
+            GetCursorPos(out var p);
+            return (p.X, p.Y);
+        }
+        finally
+        {
+            SetThreadDpiAwarenessContext(old);
+        }
     }
 
     public void Dispose()
@@ -118,6 +135,12 @@ internal sealed class RealInputHooks : IDisposable
 
     [DllImport("user32.dll")]
     private static extern IntPtr WindowFromPhysicalPoint(Point point);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out Point point);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetAncestor(IntPtr hwnd, uint flags);
