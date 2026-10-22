@@ -35,6 +35,12 @@ public static partial class CliApp
             Console.Error.WriteLine($"{ProductInfo.Name}: {ex.Status.Detail}");
             return 3;
         }
+        catch (InvalidDataException ex)
+        {
+            // For example #47: a damaged team rules file names itself and its fix.
+            Console.Error.WriteLine($"{ProductInfo.Name}: {ex.Message}");
+            return 1;
+        }
     }
 
     private static async Task<int> DispatchAsync(string cmd, string[] args)
@@ -1029,6 +1035,7 @@ public static partial class CliApp
             "sessions" => await PolicySessionsAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "hello" => PolicyHello(args.AsSpan(1).ToArray()),
             "low-risk" => PolicyLowRisk(args.AsSpan(1).ToArray()),
+            "sync" => TeamPolicyCommands.Sync(args.AsSpan(1).ToArray()),
             _ => UnknownPolicy(sub),
         };
     }
@@ -1048,6 +1055,17 @@ public static partial class CliApp
                           $"Terminal → {PolicyLevelNames.Format(store.DefaultTerminalLevel)}");
         Ui.Kv("hello", $"{store.HelloMode} (Windows Hello after Approve; change: cw policy hello)");
         Ui.Kv("low-risk", $"{(store.LowRiskWritesAllowed ? LowRiskModes.Allow : LowRiskModes.Ask)} (low-risk writes such as a push to a feature branch; change: cw policy low-risk)");
+        if (store.Team is { } team)
+        {
+            var commit = team.Commit is { Length: > 12 } c ? c[..12] : team.Commit;
+            Ui.Kv("team", $"{team.Source} {team.File} at {commit} (update: cw policy sync)");
+            foreach (var line in team.Lines())
+                Ui.Line($"  {Ui.Dim("team rule:")} {Ui.E(line)}");
+        }
+        else
+        {
+            Ui.Kv("team", "(none; add: cw policy sync <git repo>)");
+        }
         if (store.Launchers.Count == 0)
         {
             Ui.Kv("launchers", "(none enrolled)");
@@ -1058,9 +1076,16 @@ public static partial class CliApp
         var table = Ui.Table("launcher", "kind", "levels");
         foreach (var (key, entry) in store.Launchers.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
         {
-            var levels = entry.Levels is { Count: > 0 }
-                ? string.Join("\n", entry.Levels.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase).Select(kv => $"{kv.Key}: {kv.Value}"))
-                : "(kind default)";
+            // #47: each line names its source: the local policy, or a team rule that lowered it.
+            var tools = entry.Levels is { Count: > 0 } ? entry.Levels.Keys.ToList() : ["*"];
+            var levels = string.Join("\n", tools.OrderBy(t => t, StringComparer.OrdinalIgnoreCase).Select(tool =>
+            {
+                var local = entry.Levels?.GetValueOrDefault(tool) ?? "kind default";
+                var resolved = store.ResolveLevel(tool, key, autoApproveEligible: true);
+                return resolved.TeamCapped
+                    ? $"{tool}: {PolicyLevelNames.Format(resolved.Level)} (team; local {local})"
+                    : entry.Levels is { Count: > 0 } ? $"{tool}: {local}" : "(kind default)";
+            }));
             var name = key.StartsWith(AgentAccounts.PolicyKeyPrefix, StringComparison.OrdinalIgnoreCase) && entry.Path is { } account
                 ? $"{key}\n{account} (agent account)"
                 : key;
@@ -1411,6 +1436,7 @@ public static partial class CliApp
         Console.WriteLine("  sessions [--revoke <id> | --revoke-all]   List/withdraw active session allows");
         Console.WriteLine("  hello <off|secret-reveal|write-and-up>    When the Approval Gate asks for Windows Hello (default secret-reveal)");
         Console.WriteLine("  low-risk <ask|allow>                      allow: a low-risk write, like a push to a feature branch, runs with no popup (default ask)");
+        Console.WriteLine("  sync [<git repo>] [--file F] [--ref R] | --remove   Team rules from a git repo; they only lower a level");
         Console.WriteLine();
         Console.WriteLine("Defaults: AI Harness → Read; Terminal → Trusted; unknown/unenrolled → Deny.");
         Console.WriteLine("Secret release auto-allows only when level × command class permits (see CONTEXT.md).");
