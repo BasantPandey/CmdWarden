@@ -19,6 +19,7 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw policy unenroll <key>` | Remove enrollment |
 | `cw policy sessions [--revoke <id> \| --revoke-all]` | List or revoke active session allows |
 | `cw policy hello off\|secret-reveal\|write-and-up` | When the Approval Gate asks for Windows Hello after Approve (default `secret-reveal`) |
+| `cw policy sync [<git repo>] [--file F] [--ref R] \| --remove` | Read team rules from a git repo (default file `cmdwarden-team.json`). A team rule sets a maximum level, so it only lowers a level |
 | `cw policy low-risk ask\|allow` | `allow`: a low-risk write of an enrolled launcher, like a push to a feature branch, runs with no popup. A new policy file starts with `allow`; an older one keeps its setting |
 | `cw harden gh\|git\|az\|docker` | Pin + PATH shim (+ gh token import) |
 | `cw harden npm\|aws\|kubectl\|<pack tool>` | Pin + PATH shim from a [tool pack](tool-packs.md) |

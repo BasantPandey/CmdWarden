@@ -19,6 +19,7 @@ public sealed class PolicyStore
 
     private readonly string _path;
     private PolicyDocument _doc = PolicyDocument.CreateDefault();
+    private TeamPolicy? _team;
 
     public PolicyStore(string path)
     {
@@ -83,18 +84,33 @@ public sealed class PolicyStore
     public IReadOnlyList<PolicyChange> Load()
     {
         var previous = _doc;
+        var previousTeam = _team;
+        _team = TeamPolicy.Load(TeamPolicy.PathFor(_path));
+        LoadDocument();
+        var changes = DiffLaunchers(previous.Launchers, _doc.Launchers);
+        if ((previousTeam?.Lines() ?? []).SequenceEqual(_team?.Lines() ?? []))
+            return changes;
+        // #47: new team rules can lower any level, so drop the approval memory of every launcher.
+        return previous.Launchers.Keys.Union(_doc.Launchers.Keys, StringComparer.OrdinalIgnoreCase)
+            .Select(k => new PolicyChange(k, null)).ToList();
+    }
 
+    /// <summary>#47: the team rules from cw policy sync, or null.</summary>
+    public TeamPolicy? Team => _team;
+
+    private void LoadDocument()
+    {
         if (!File.Exists(_path))
         {
             _doc = PolicyDocument.CreateDefault();
-            return DiffLaunchers(previous.Launchers, _doc.Launchers);
+            return;
         }
 
         var json = File.ReadAllText(_path);
         if (string.IsNullOrWhiteSpace(json))
         {
             _doc = PolicyDocument.CreateDefault();
-            return DiffLaunchers(previous.Launchers, _doc.Launchers);
+            return;
         }
 
         _doc = JsonSerializer.Deserialize<PolicyDocument>(json, JsonOptions) ?? PolicyDocument.CreateDefault();
@@ -117,7 +133,6 @@ public sealed class PolicyStore
         }
 
         _doc.Launchers = launchers;
-        return DiffLaunchers(previous.Launchers, _doc.Launchers);
     }
 
     /// <summary>One launcher's enrollment vanished or changed kind (<see cref="Tool"/> null, e.g. unenroll) or one
@@ -283,6 +298,11 @@ public sealed class PolicyStore
                 : DefaultTerminalLevel;
         }
 
+        var cap = _team?.CapFor(kind, tool);
+        var teamCapped = cap < level;
+        if (teamCapped)
+            level = cap!.Value;
+
         return new PolicyResolveResult
         {
             Level = level,
@@ -291,6 +311,7 @@ public sealed class PolicyStore
             ReasonCode = null,
             Tool = tool,
             LauncherPolicyKey = key,
+            TeamCapped = teamCapped,
         };
     }
 }
@@ -303,6 +324,8 @@ public sealed class PolicyResolveResult
     public string? ReasonCode { get; init; }
     public required string Tool { get; init; }
     public required string LauncherPolicyKey { get; init; }
+    /// <summary>#47: a team rule lowered the local level.</summary>
+    public bool TeamCapped { get; init; }
 }
 
 internal sealed class PolicyDocument

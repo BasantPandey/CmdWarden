@@ -175,7 +175,7 @@ public static class AgentLifecycle
                     false,
                     null,
                     pipe,
-                    $"Session Agent exited immediately (code {process.ExitCode}). Check CW_PIPE_NAME / policy path.");
+                    $"Session Agent exited immediately (code {process.ExitCode}). Check CW_PIPE_NAME / policy path. cw policy list names a damaged team rules file.");
             }
 
             var st = await StatusAsync(pipe, TimeSpan.FromMilliseconds(500), cancellationToken)

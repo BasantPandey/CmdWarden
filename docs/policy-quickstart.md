@@ -192,6 +192,34 @@ cw policy set account:<SID> git Trusted
 - An agent account can use the gate: tool runs, `cw inject`, and credential reads. It cannot save, delete, or list vault secrets, or change grants.
 - `cw policy list` names each known agent account on this PC that is not enrolled yet.
 
+### Team rules from a git repo
+
+A team can keep one set of rules for every PC. Put a file `cmdwarden-team.json` in a git repo:
+
+```json
+{
+  "maxLevels": {
+    "ai-harness": { "*": "Read", "az": "Deny" },
+    "terminal": { "gh": "Trusted" }
+  }
+}
+```
+
+Each rule is the **maximum** level for a launcher kind and a tool. `*` means every tool. A rule for a tool comes before `*`. Then each person runs:
+
+```powershell
+cw policy sync https://github.com/my-team/cmdwarden-policy.git
+cw policy list
+```
+
+*Expect:* `cw policy list` shows each team rule and its commit. A level that a team rule lowers shows `(team; local <level>)`. The Session Agent uses the new rules at the next call.
+
+- A team rule only lowers a level. It never raises one, so a changed repo cannot open the gate.
+- Enrollments stay local. Each PC enrolls its own launchers.
+- `cw policy sync` with no repo reads the file again. `--file <path>` and `--ref <branch>` pick another file or branch.
+- `cw policy sync --remove` removes the team rules.
+- A damaged team file stops the gate until you sync again or remove it.
+
 ## 5. Other tools and scripts
 
 Any script or CLI can get a vault secret through `cw inject`. The default tool name is `inject` and the default class is **write**. An agent at **Read** always gets a prompt for inject. That is on purpose.
