@@ -7,7 +7,7 @@ description: Free code signing provided by SignPath.io, certificate by SignPath 
 
 Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
 
-**Status:** the application to SignPath Foundation is open ([#64](https://github.com/BasantPandey/CmdWarden/issues/64)). Releases up to v0.8.1 are not signed.
+**Status:** the application to SignPath Foundation is open ([#64](https://github.com/BasantPandey/CmdWarden/issues/64)). Releases are not signed yet.
 
 ## What we sign
 
