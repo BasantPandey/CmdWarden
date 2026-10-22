@@ -1465,6 +1465,9 @@ public static partial class CliApp
 
     private static int AuditAsync(string[] args)
     {
+        if (args.Length > 0 && args[0] == "eventlog")
+            return AuditEventLog(args.AsSpan(1).ToArray());
+
         var max = 50;
         for (var i = 0; i < args.Length; i++)
         {
@@ -1473,6 +1476,8 @@ public static partial class CliApp
                 Console.WriteLine("Usage: cw audit [-n <count>]");
                 Console.WriteLine("  Show recent gate decisions from the local audit trail.");
                 Console.WriteLine($"  Default count: 50. Product root: {ProductPaths.Root()}");
+                Console.WriteLine("Usage: cw audit eventlog on|off|status");
+                Console.WriteLine("  Also write each gate decision to the Windows Application log. on and off ask for admin once.");
                 return 0;
             }
 
@@ -1523,6 +1528,68 @@ public static partial class CliApp
                 Ui.Line($"      {Ui.Dim(Ui.E($"{AgentReason.Label} “{says}”"))}");
         }
 
+        return 0;
+    }
+
+    /// <summary>
+    /// cw audit eventlog on|off|status (#48): one elevated run of cw registers or removes the
+    /// machine-wide event source. The Session Agent writes events while the source is registered.
+    /// </summary>
+    private static int AuditEventLog(string[] args)
+    {
+        var action = args.Length > 0 ? args[0] : "status";
+        if (IsHelp(action) || action is not ("on" or "off" or "status"))
+        {
+            Console.WriteLine("Usage: cw audit eventlog on|off|status");
+            Console.WriteLine($"  on      Register the event source {GateEventLog.Source} in the {GateEventLog.LogName} log (one admin prompt).");
+            Console.WriteLine("          The Session Agent then writes each gate decision there too. Secret values never go in.");
+            Console.WriteLine("  off     Remove the event source (one admin prompt). Events already written stay.");
+            Console.WriteLine("  status  Say if gate decisions go to the Event Log.");
+            return IsHelp(action) ? 0 : 1;
+        }
+
+        if (args.Length == 2 && args[1] == MachinePathEditor.ElevatedFlag)
+        {
+            try
+            {
+                if (action == "on")
+                    GateEventLog.Register();
+                else
+                    GateEventLog.Unregister();
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"event source write failed: {ex.Message}");
+                return 1;
+            }
+        }
+
+        var on = GateEventLog.IsRegistered();
+        if (action == "status" || on == (action == "on"))
+        {
+            Console.WriteLine($"{ProductInfo.Name} audit eventlog: {(on ? "on" : "off")}");
+            Console.WriteLine(on
+                ? $"  Event Viewer > Windows Logs > {GateEventLog.LogName}, source {GateEventLog.Source}."
+                : "  Turn it on with: cw audit eventlog on");
+            return 0;
+        }
+
+        var exit = MachinePathEditor.RunCwElevated("audit", "eventlog", action, MachinePathEditor.ElevatedFlag);
+        if (exit is null)
+        {
+            Console.Error.WriteLine("elevation refused; the Event Log setting is unchanged.");
+            return 1;
+        }
+        if (exit != 0 || GateEventLog.IsRegistered() != (action == "on"))
+        {
+            Console.Error.WriteLine($"elevated write failed (exit {exit}).");
+            return 1;
+        }
+        Console.WriteLine($"{ProductInfo.Name} audit eventlog: {action}");
+        Console.WriteLine(action == "on"
+            ? $"  Event Viewer > Windows Logs > {GateEventLog.LogName}, source {GateEventLog.Source}. Event ids: 1001-1004 allow, 2001 deny, 2002 unavailable, 3001 redact."
+            : "  Gate decisions go only to the local audit trail.");
         return 0;
     }
 
@@ -2015,6 +2082,7 @@ public static partial class CliApp
         Row("proxy setup|add|remove|list|strict|uninstall", "Put a vault key in place of cw://NAME for listed hosts (API keys)");
         Row("github app setup|status|remove", "gh gets a GitHub App token for one repo that ends in one hour");
         Row("audit [-n N]", "Show recent gate decisions (local audit trail)");
+        Row("audit eventlog on|off|status", "Also write gate decisions to the Windows Application log (one admin prompt)");
         Row("scan", "First-catalog residual risk detectors (read-only)");
         Row("launch claude|codex|cursor [-- args]", "Start an AI harness without token variables; enroll it if needed");
         Row("leak-guard install|uninstall claude|cursor|codex", "Hide vaulted secret values in tool output from the model");

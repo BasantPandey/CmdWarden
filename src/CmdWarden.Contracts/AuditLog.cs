@@ -23,12 +23,15 @@ public sealed class AuditLog
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     private readonly string _dir;
+    private readonly bool _eventLog;
     private readonly object _gate = new();
 
-    public AuditLog(string? productRoot = null)
+    /// <param name="eventLog">#48: also copy each row to the Windows Event Log when its source is registered.</param>
+    public AuditLog(string? productRoot = null, bool eventLog = false)
     {
         var root = productRoot ?? ProductPaths.Root();
         _dir = Path.Combine(root, "audit");
+        _eventLog = eventLog;
     }
 
     public string DirectoryPath => _dir;
@@ -42,6 +45,8 @@ public sealed class AuditLog
         {
             File.AppendAllText(file, line + Environment.NewLine);
         }
+        if (_eventLog)
+            GateEventLog.TryWrite(record);
     }
 
     /// <summary>

@@ -260,6 +260,19 @@ if ($machine.Count -gt 0) {
     }
 }
 
+$EventSourceKey = "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\CmdWarden"
+if (Test-Path $EventSourceKey) {
+    Write-Step "Remove the CmdWarden Event Log source"
+    if (-not $Quiet -and (Confirm-Step "Remove the CmdWarden event source (one admin prompt)? Events already written stay." $true)) {
+        try {
+            Start-Process powershell.exe -Verb RunAs -Wait -ArgumentList "-NoProfile", "-Command", "Remove-Item -Recurse -Force '$EventSourceKey'"
+        }
+        catch { }
+    }
+    if (Test-Path $EventSourceKey) { Write-Warn "The CmdWarden event source stays. Remove it as admin: Remove-Item '$EventSourceKey'" }
+    else { Write-Ok "Event source: removed" }
+}
+
 Write-Step "Local data"
 if ($KeepData) {
     Write-Ok "Kept $ProductRoot (-KeepData)."
