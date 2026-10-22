@@ -51,6 +51,7 @@ The full site is at **[basantpandey.github.io/CmdWarden](https://basantpandey.gi
 |------|--------------|
 | [Install](docs/install.md) | You install, update, or remove CmdWarden |
 | [Trust](docs/trust.md) | You want to know what CmdWarden sends and what an agent can do to it |
+| [Code signing policy](docs/code-signing-policy.md) | You want to know who signs the release files and how |
 | [Policy quick start](docs/policy-quickstart.md) | You want good policy for `gh`, `git`, `az`, `docker`, and scripts in one page |
 | [Use cases](docs/use-cases/index.md) | You want a step-by-step guide for one goal, UC1 to UC16 |
 | [How it works](docs/concepts.md) | You want the model: launchers, policy, shims, the Vault, the Approval Gate |

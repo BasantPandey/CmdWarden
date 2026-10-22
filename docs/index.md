@@ -73,7 +73,7 @@ See it yourself with no risk: `cw try` starts a stand-in agent that nobody enrol
 
     ---
 
-    What CmdWarden sends (nothing about you), how to check the files, and what an agent can do.
+    What CmdWarden sends (nothing about you), how to check the files, and what an agent can do. Read the [Code signing policy](code-signing-policy.md).
 
     [:octicons-arrow-right-24: Trust](trust.md)
 
