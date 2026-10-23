@@ -40,6 +40,7 @@ public static class ProxyCommands
         Console.WriteLine("                                 --trust also adds the CA to your Windows root store (Windows asks)");
         Console.WriteLine("  add <NAME> --host <host> ...   Put the vault entry NAME in place of cw://NAME for these hosts");
         Console.WriteLine("      [--body <path> --field <f>]  A sign-in key: only the body field f on that path gets it; always asks");
+        Console.WriteLine("      [--totp]                     The entry is a TOTP key: the field gets its current one-time code");
         Console.WriteLine("  remove <NAME>                  Stop using NAME in the proxy");
         Console.WriteLine("  list                           Show the port, the CA, the keys and their hosts");
         Console.WriteLine("  strict on|off                  on: a host that no key lists gets 403");
@@ -95,9 +96,12 @@ public static class ProxyCommands
         VaultNames.TargetName(name);
         var hosts = new List<string>();
         var bodies = new List<ProxyBodyField>();
+        var totp = false;
         for (var i = 0; i < args.Length; i++)
         {
-            if (args[i] is "--host" && i + 1 < args.Length && !string.IsNullOrWhiteSpace(args[i + 1]))
+            if (args[i] is "--totp")
+                totp = true;
+            else if (args[i] is "--host" && i + 1 < args.Length && !string.IsNullOrWhiteSpace(args[i + 1]))
                 hosts.Add(args[++i].Trim().ToLowerInvariant());
             else if (args[i] is "--body" && i + 3 < args.Length && args[i + 1].StartsWith('/') && args[i + 2] is "--field"
                      && !string.IsNullOrWhiteSpace(args[i + 3]))
@@ -114,9 +118,13 @@ public static class ProxyCommands
         }
         if (hosts.Count == 0)
             return Usage();
-        var key = config.Keys.TryGetValue(name, out var existing) ? existing : config.Keys[name] = new ProxyKey();
+        if (totp && bodies.Count == 0)
+            throw new InvalidOperationException("--totp needs --body <path> --field <name>: a one-time code goes only in a sign-in field.");
+        var key = config.Keys.TryGetValue(name, out var existing) ? existing : config.Keys[name] = new ProxyKey { Totp = totp };
         if (existing is not null && (key.Bodies.Count > 0) != (bodies.Count > 0))
             throw new InvalidOperationException($"cw://{name} is {(bodies.Count > 0 ? "a header key" : "a sign-in key")}. Run cw proxy remove {name} first.");
+        if (existing is not null && existing.Totp != totp)
+            throw new InvalidOperationException($"cw://{name} is {(existing.Totp ? "a one-time code key" : "a password key")}. Run cw proxy remove {name} first.");
         key.Hosts = key.Hosts.Union(hosts, StringComparer.OrdinalIgnoreCase).ToList();
         foreach (var body in bodies.Where(b => !key.Bodies.Any(k => k.Path == b.Path && k.Field == b.Field)))
             key.Bodies.Add(body);
@@ -156,7 +164,8 @@ public static class ProxyCommands
 
     private static string Describe(ProxyKey key) =>
         string.Join(", ", key.Hosts)
-        + (key.Bodies.Count == 0 ? "" : "; only in " + string.Join(", ", key.Bodies.Select(b => $"{b.Path} field {b.Field}")));
+        + (key.Bodies.Count == 0 ? "" : "; only in " + string.Join(", ", key.Bodies.Select(b => $"{b.Path} field {b.Field}")))
+        + (key.Totp ? "; fills the one-time code" : "");
 
     private static int Strict(bool on)
     {

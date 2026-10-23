@@ -11,6 +11,8 @@ public sealed class ProxyKey
     public List<string> Hosts { get; set; } = [];
     /// <summary>#85: the sign-in fields that may get the key. A key with fields never goes in a header.</summary>
     public List<ProxyBodyField> Bodies { get; set; } = [];
+    /// <summary>#93: the vault entry is a TOTP key; the fields get its current code, not the entry.</summary>
+    public bool Totp { get; set; }
 }
 
 /// <summary>A request path on the hosts of a key, and the body field there whose value is cw://NAME.</summary>
