@@ -42,6 +42,25 @@ The files in `runtime\` are the .NET runtime of Microsoft, with the signature of
 
 Check a download before you run it: compare `Get-FileHash <zip>` with the sha256 on the [release page](https://github.com/BasantPandey/CmdWarden/releases). `cw update` does this check for you.
 
+From v0.11.0, GitHub signs a build provenance record for each release file. Check that a file came from this repo and its release workflow:
+
+```powershell
+gh attestation verify CmdWarden.<version>-setup.zip --repo BasantPandey/CmdWarden
+```
+
+## How the code is checked
+
+| Check | When |
+|-------|------|
+| Unit tests, a test of the portable folder with no .NET, and an install test | Each PR and each push to `main` |
+| CodeQL code scanning of the C# code and the workflows | Each PR, each push to `main`, and each week |
+| Dependency review: a new package with a known high-severity flaw fails the PR | Each PR |
+| A check for packages with a known flaw, direct or transitive | Each build |
+| Dependabot updates for NuGet packages and GitHub Actions | Each week |
+| [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/BasantPandey/CmdWarden) | Each push to `main`, and each week |
+| Each action is pinned to a commit SHA, and each workflow starts with read-only permissions | Always |
+| Secret scanning and push protection on the repo | Always |
+
 CmdWarden is open source under the MIT license. Read the code, or build it yourself: `pwsh ./scripts/Build-Portable.ps1`.
 
 ## What an AI agent can do to CmdWarden
@@ -67,4 +86,4 @@ An agent runs commands on your PC. So the fair question is: can it turn CmdWarde
 
 ## Report a problem
 
-Found a way around CmdWarden? Open a [security advisory](https://github.com/BasantPandey/CmdWarden/security/advisories/new) instead of a public issue.
+Found a way around CmdWarden? Open a [private security advisory](https://github.com/BasantPandey/CmdWarden/security/advisories/new) instead of a public issue. The [security policy](https://github.com/BasantPandey/CmdWarden/blob/main/SECURITY.md) says what is in scope and when we answer.
