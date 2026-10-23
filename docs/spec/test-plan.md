@@ -102,6 +102,7 @@ Each use case page has the steps and the expected result. Do the steps and compa
 | T11 | [UC14 Short-lived GitHub tokens](../use-cases/short-lived-github-tokens.md) | |
 | T12 | [UC15 Keep API keys out of the agent](../use-cases/api-keys-through-proxy.md) | |
 | T13 | [UC16 Keep .env secrets out of the agent](../use-cases/env-files.md) | |
+| T14 | [UC17 Let an agent sign in without the password](../use-cases/web-sign-in-through-proxy.md) | |
 
 ### 2.5 CmdWarden Vault app and tray icon
 

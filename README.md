@@ -38,6 +38,7 @@ Details, other install ways, and update: **[docs/install.md](docs/install.md)**.
 - **Knows who asks.** Policy follows the real app behind the command: your terminal, Claude Code, Cursor, Codex, or an unknown install script.
 - **Asks only when it matters.** Reads and low-risk writes of an enrolled harness run with no card. Secret reads, unknown commands, and risky writes ask. One **Allow for session** covers the task.
 - **Guards `.env` files.** `cw env import` moves the values into the vault. `cw inject --env-file .env -- npm run dev` gives them only to your program, and the output shows `[CmdWarden: NAME]`.
+- **Signs in for the agent.** The agent types `cw://NAME` in a sign-in form. You approve, and only the site gets the password ([UC17](docs/use-cases/web-sign-in-through-proxy.md)).
 - **Works with your harness.** A policy hook, a leak guard, and an MCP server for Claude Code, Cursor, and Codex.
 - **Fails closed.** No desktop means no card, and no card means no secret. Every release writes an audit row first.
 
@@ -53,7 +54,7 @@ The full site is at **[basantpandey.github.io/CmdWarden](https://basantpandey.gi
 | [Trust](docs/trust.md) | You want to know what CmdWarden sends and what an agent can do to it |
 | [Code signing policy](docs/code-signing-policy.md) | You want to know who signs the release files and how |
 | [Policy quick start](docs/policy-quickstart.md) | You want good policy for `gh`, `git`, `az`, `docker`, and scripts in one page |
-| [Use cases](docs/use-cases/index.md) | You want a step-by-step guide for one goal, UC1 to UC16 |
+| [Use cases](docs/use-cases/index.md) | You want a step-by-step guide for one goal, UC1 to UC17 |
 | [How it works](docs/concepts.md) | You want the model: launchers, policy, shims, the Vault, the Approval Gate |
 | [CmdWarden Vault app](docs/vault.md) | You want every page of the desktop app explained |
 | [Troubleshooting](docs/troubleshooting.md) | Something is blocked, missing, or down |

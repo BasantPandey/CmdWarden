@@ -74,6 +74,26 @@ public class KeyProxyProcessTests
             Assert.Equal(HttpStatusCode.Forbidden, wrongHost.Status);
             Assert.Contains("not allowed for localhost", wrongHost.Body, StringComparison.Ordinal);
 
+            // An upstream that closes with no answer: the client sees the close and does not wait.
+            var closer = new TcpListener(IPAddress.Loopback, 0);
+            closer.Start();
+            using var closerStop = new CancellationTokenSource();
+            var closes = Task.Run(async () =>
+            {
+                while (true)
+                {
+                    using var c = await closer.AcceptTcpClientAsync(closerStop.Token);
+                    await c.GetStream().ReadAtLeastAsync(new byte[4096], 1, throwOnEndOfStream: false, closerStop.Token);
+                }
+            });
+            var started = DateTime.UtcNow;
+            await Assert.ThrowsAsync<HttpRequestException>(() =>
+                http.GetAsync($"http://localhost:{((IPEndPoint)closer.LocalEndpoint).Port}/x"));
+            Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(10));
+            await closerStop.CancelAsync();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => closes);
+            closer.Stop();
+
             // Off the list: passes through untouched; in strict mode, 403.
             var offList = $"https://127.0.0.1:{api.Port}/v1/echo";
             var passed = await Send(HttpMethod.Get, offList, "Bearer cw://TEST_API_KEY");
@@ -94,6 +114,92 @@ public class KeyProxyProcessTests
             var audit = string.Join("\n", Directory.GetFiles(Path.Combine(root, "audit"), "gates-*.ndjson").Select(File.ReadAllText));
             Assert.Contains("\"tool\":\"proxy\"", audit, StringComparison.Ordinal);
             Assert.DoesNotContain(secret, audit, StringComparison.Ordinal);
+        }
+        finally
+        {
+            ProxyCa.Remove(caCert.Thumbprint);
+            try { Directory.Delete(root, recursive: true); } catch { /* the agent may still hold a file */ }
+        }
+    }
+
+    /// <summary>
+    /// #85: a browser posts cw://NAME in a sign-in form. Only the named field on the named path gets
+    /// the value, and only after the card, even for a Trusted terminal. Approval off fails closed.
+    /// </summary>
+    [Theory]
+    [InlineData("allow")]
+    [InlineData("deny")]
+    [InlineData("off")]
+    public async Task A_sign_in_field_gets_the_password_only_after_the_card(string approval)
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var root = Path.Combine(Path.GetTempPath(), "cw-prod-" + Guid.NewGuid().ToString("N"));
+        var port = FreePort();
+        using var caCert = ProxyCa.Create();
+        using var ca = ProxyCa.Open(caCert.Thumbprint, port)!;
+        try
+        {
+            var config = new KeyProxyConfig { Port = port, CaThumbprint = caCert.Thumbprint };
+            config.Keys["WEB_PASSWORD"] = new ProxyKey
+            {
+                Hosts = ["localhost"],
+                Bodies = [new ProxyBodyField { Path = "/session", Field = "password" }],
+            };
+            KeyProxy.Save(config, root);
+            var caPem = Path.Combine(root, "test-ca.pem");
+            await File.WriteAllTextAsync(caPem, caCert.ExportCertificatePem());
+
+            await using var site = new EchoApi(ca.LeafFor("localhost"));
+            await using var agent = await TestAgent.StartAsync(approval, productRoot: root,
+                env: new Dictionary<string, string> { [KeyProxyServer.UpstreamCaEnv] = caPem });
+            if (agent is null)
+                return;
+            agent.Enroll(LauncherEnrollmentKind.Terminal);
+            var password = "pw&" + Guid.NewGuid().ToString("N");
+            await AgentVaultClient.SaveAsync("WEB_PASSWORD", Encoding.UTF8.GetBytes(password), agent.PipeName);
+            await WaitForPortAsync(port);
+
+            using var http = Client(port, caCert);
+            async Task<(HttpStatusCode Status, string Body)> Post(string path, HttpContent content, string? auth = null)
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Post, $"https://localhost:{site.Port}{path}") { Content = content };
+                if (auth is not null)
+                    request.Headers.TryAddWithoutValidation("Authorization", auth);
+                using var response = await http.SendAsync(request);
+                return (response.StatusCode, await response.Content.ReadAsStringAsync());
+            }
+            FormUrlEncodedContent Form(string login, string pw) => new([new("login", login), new("password", pw)]);
+
+            var signIn = await Post("/session", Form("me", "cw://WEB_PASSWORD"));
+            if (approval == "allow")
+            {
+                Assert.Equal(HttpStatusCode.OK, signIn.Status);
+                Assert.Equal($"login=me&password={Uri.EscapeDataString(password)}", JsonNode.Parse(signIn.Body)!["body"]!.GetValue<string>());
+                var json = await Post("/session", new StringContent("""{"login":"me","password":"cw://WEB_PASSWORD"}""", Encoding.UTF8, "application/json"));
+                Assert.Equal(password, JsonNode.Parse(JsonNode.Parse(json.Body)!["body"]!.GetValue<string>())!["password"]!.GetValue<string>());
+            }
+            else
+            {
+                Assert.Equal(HttpStatusCode.Forbidden, signIn.Status);
+            }
+
+            // The wrong field, a header, and a path the key does not name: never the value.
+            var login = await Post("/session", Form("cw://WEB_PASSWORD", "x"));
+            Assert.Equal(HttpStatusCode.Forbidden, login.Status);
+            Assert.Contains("not allowed in the field login", login.Body, StringComparison.Ordinal);
+            var header = await Post("/session", Form("me", "x"), "Basic cw://WEB_PASSWORD");
+            Assert.Contains("not in a header", header.Body, StringComparison.Ordinal);
+            var gist = await Post("/gist", Form("me", "cw://WEB_PASSWORD"));
+            Assert.Equal(HttpStatusCode.OK, gist.Status);
+            Assert.Contains("password=cw%3A%2F%2FWEB_PASSWORD", JsonNode.Parse(gist.Body)!["body"]!.GetValue<string>(), StringComparison.Ordinal);
+
+            var sent = string.Join("\n", site.Bodies);
+            Assert.Equal(approval == "allow", sent.Contains(Uri.EscapeDataString(password), StringComparison.Ordinal));
+            var audit = string.Join("\n", Directory.GetFiles(Path.Combine(root, "audit"), "gates-*.ndjson").Select(File.ReadAllText));
+            Assert.Contains("\"tool\":\"proxy\"", audit, StringComparison.Ordinal);
+            Assert.DoesNotContain(password, audit, StringComparison.Ordinal);
         }
         finally
         {
@@ -150,7 +256,7 @@ public class KeyProxyProcessTests
         Assert.Fail($"The proxy did not listen on {port}.");
     }
 
-    /// <summary>An HTTPS API on 127.0.0.1 that answers with the Authorization header and the body length.</summary>
+    /// <summary>An HTTPS API on 127.0.0.1 that answers with the Authorization header and the body. It keeps each body it gets.</summary>
     private sealed class EchoApi : IAsyncDisposable
     {
         private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
@@ -159,6 +265,7 @@ public class KeyProxyProcessTests
         private readonly Task _loop;
 
         public int Port { get; }
+        public System.Collections.Concurrent.ConcurrentQueue<string> Bodies { get; } = new();
 
         public EchoApi(X509Certificate2 cert)
         {
@@ -192,7 +299,9 @@ public class KeyProxyProcessTests
                         await reader.CopyChunkedAsync(body, _stop.Token);
                     else if (head.ContentLength is > 0 and var n)
                         await reader.CopyAsync(body, n, _stop.Token);
-                    var json = new JsonObject { ["authorization"] = head.Header("Authorization"), ["length"] = (int)body.Length }.ToJsonString();
+                    var text = Encoding.UTF8.GetString(body.ToArray());
+                    Bodies.Enqueue(text);
+                    var json = new JsonObject { ["authorization"] = head.Header("Authorization"), ["length"] = (int)body.Length, ["body"] = text }.ToJsonString();
                     var bytes = Encoding.UTF8.GetBytes(json);
                     await tls.WriteAsync(Encoding.ASCII.GetBytes($"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {bytes.Length}\r\n\r\n"));
                     await tls.WriteAsync(bytes);

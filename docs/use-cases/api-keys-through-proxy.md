@@ -79,3 +79,7 @@ cw proxy uninstall                # remove the CA and the proxy config
 ```
 
 `cw proxy uninstall` removes the CA from your user stores and turns the proxy off. If you trusted the CA, Windows asks you to confirm. The keys stay in the vault. Start the harness again with `cw launch` to clear the proxy variables.
+
+## Passwords in sign-in forms
+
+An agent that drives a browser can sign in with `cw://NAME` too. The proxy then fills one form field, after the card. See [UC17](web-sign-in-through-proxy.md).

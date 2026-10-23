@@ -52,7 +52,7 @@ An agent runs commands on your PC. So the fair question is: can it turn CmdWarde
 
 | Protection | What it does |
 |------------|--------------|
-| The policy hook | A harness that runs a `cw` command that weakens protection gets a deny with "Ask the user". This covers `cw policy set`, `enroll`, `unenroll`, `low-risk`, and `hello`; `cw unharden`; `cw uninstall`; `cw delete`; `cw agent stop`; the `uninstall` of `hook`, `leak-guard`, `mcp`, and `protect`; `cw canary remove`; and the `proxy` changes. |
+| The policy hook | A harness that runs a `cw` command that weakens protection gets a deny with "Ask the user". This covers `cw policy set`, `enroll`, `unenroll`, `low-risk`, and `hello`; `cw unharden`; `cw uninstall`; `cw delete`; `cw agent stop`; the `uninstall` of `hook`, `leak-guard`, `mcp`, and `protect`; `cw canary remove`; and the `proxy` changes, `add` too. |
 | Claude Code deny rules | `cw setup` adds `Edit` and `Write` deny rules for `~/AppData/Local/CmdWarden/**`, so the file tools of Claude Code cannot change the policy file. |
 | Real input only | The Approval Gate accepts Approve only from real keyboard or mouse input. A program that sends keys or clicks to the card gets nothing. |
 | Windows Hello | A secret read asks for Windows Hello after Approve (`cw policy hello`). |
