@@ -108,8 +108,7 @@ public sealed class KeyProxyServer(SessionAgentService gate, CredentialVault vau
                 await ReplyAsync(client, 403, $"{ProductInfo.Name}: {host} is not on the proxy list.", ct).ConfigureAwait(false);
                 return;
             }
-            using var tunnel = new TcpClient();
-            await tunnel.ConnectAsync(host, port, ct).ConfigureAwait(false);
+            using var tunnel = await DialAsync(host, port, ct).ConfigureAwait(false);
             await client.WriteAsync("HTTP/1.1 200 Connection Established\r\n\r\n"u8.ToArray(), ct).ConfigureAwait(false);
             var upstream = tunnel.GetStream();
             await Task.WhenAny(reader.CopyRestAsync(upstream, ct), upstream.CopyToAsync(client, ct)).ConfigureAwait(false);
@@ -124,8 +123,7 @@ public sealed class KeyProxyServer(SessionAgentService gate, CredentialVault vau
             ApplicationProtocols = [SslApplicationProtocol.Http11],
         }, ct).ConfigureAwait(false);
 
-        using var remote = new TcpClient();
-        await remote.ConnectAsync(host, port, ct).ConfigureAwait(false);
+        using var remote = await DialAsync(host, port, ct).ConfigureAwait(false);
         await using var upstreamTls = new SslStream(remote.GetStream(), false, ValidateUpstream);
         await upstreamTls.AuthenticateAsClientAsync(new SslClientAuthenticationOptions
         {
@@ -148,8 +146,7 @@ public sealed class KeyProxyServer(SessionAgentService gate, CredentialVault vau
             await ReplyAsync(client, 403, $"{ProductInfo.Name}: {uri.Host} is not on the proxy list.", ct).ConfigureAwait(false);
             return;
         }
-        using var remote = new TcpClient();
-        await remote.ConnectAsync(uri.Host, uri.Port, ct).ConfigureAwait(false);
+        using var remote = await DialAsync(uri.Host, uri.Port, ct).ConfigureAwait(false);
         await RelayAsync(pid, uri.Host, "http", reader, client, remote.GetStream(), config, ct, first).ConfigureAwait(false);
     }
 
@@ -262,7 +259,8 @@ public sealed class KeyProxyServer(SessionAgentService gate, CredentialVault vau
             if (!config.Allows(name, host))
                 return ($"{ProductInfo.Name}: cw://{name} is not allowed for {host}.", null);
         }
-        var fields = scan.Fields.Count == 0 ? null : string.Join(", ", scan.Fields.Select(f => f.Field).Distinct(StringComparer.Ordinal));
+        var fields = scan.Fields.Count == 0 ? null : string.Join(", ", scan.Fields
+            .Select(f => config.Keys[f.Name].Totp ? $"{f.Field} (one-time code)" : f.Field).Distinct(StringComparer.Ordinal));
         if (!gate.AuthorizeProxyUse(pid, names, head.Method, $"{scheme}://{host}{head.Target}", fields))
             return ($"{ProductInfo.Name}: the use of {string.Join(", ", names)} was denied.", null);
 
@@ -272,12 +270,17 @@ public sealed class KeyProxyServer(SessionAgentService gate, CredentialVault vau
             try
             {
                 var bytes = vault.Read(name);
-                values[name] = Encoding.UTF8.GetString(bytes);
+                var value = Encoding.UTF8.GetString(bytes);
                 Array.Clear(bytes);
+                values[name] = config.Keys[name].Totp ? OneTimeCode.From(value, DateTimeOffset.UtcNow) : value;
             }
             catch (KeyNotFoundException)
             {
                 return ($"{ProductInfo.Name}: {name} is not in the vault. Save it: cw save {name}", null);
+            }
+            catch (FormatException ex)
+            {
+                return ($"{ProductInfo.Name}: {name} is not a TOTP key: {ex.Message} Save the base32 key or the otpauth:// link: cw save {name}", null);
             }
         }
         head.Rewrite(text => KeyProxy.Placeholder().Replace(text, m => values[m.Groups[1].Value]));
@@ -297,6 +300,54 @@ public sealed class KeyProxyServer(SessionAgentService gate, CredentialVault vau
         custom.ChainPolicy.CustomTrustStore.Add(_extraUpstreamCa);
         custom.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
         return custom.Build(X509CertificateLoader.LoadCertificate(certificate.GetRawCertData()));
+    }
+
+    /// <summary>
+    /// Connect to each address of the host at the same time, and keep the first that answers.
+    /// "localhost" gives ::1 first, and Windows needs about 2 s to give up on a port that nobody
+    /// listens on, so a try of one address after the other is slow.
+    /// </summary>
+    private static async Task<TcpClient> DialAsync(string host, int port, CancellationToken ct)
+    {
+        var addresses = await Dns.GetHostAddressesAsync(host, ct).ConfigureAwait(false);
+        if (addresses.Length == 0)
+            throw new SocketException((int)SocketError.HostNotFound);
+        using var won = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var attempts = addresses.Select(async address =>
+        {
+            var client = new TcpClient(address.AddressFamily);
+            try
+            {
+                await client.ConnectAsync(address, port, won.Token).ConfigureAwait(false);
+                return client;
+            }
+            catch
+            {
+                client.Dispose();
+                throw;
+            }
+        }).ToList();
+        Exception? last = null;
+        while (attempts.Count > 0)
+        {
+            var done = await Task.WhenAny(attempts).ConfigureAwait(false);
+            attempts.Remove(done);
+            try
+            {
+                var client = await done.ConfigureAwait(false);
+                await won.CancelAsync().ConfigureAwait(false);
+                foreach (var other in attempts)
+                    _ = other.ContinueWith(t => t.Result.Dispose(), CancellationToken.None,
+                        TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+                return client;
+            }
+            catch (Exception ex) when (ex is SocketException or OperationCanceledException)
+            {
+                last = ex;
+            }
+        }
+        ct.ThrowIfCancellationRequested();
+        throw last!;
     }
 
     private static (string Host, int Port) SplitHostPort(string target, int defaultPort)

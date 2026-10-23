@@ -147,6 +147,18 @@ public class KeyProxyProcessTests
                 Hosts = ["localhost"],
                 Bodies = [new ProxyBodyField { Path = "/session", Field = "password" }],
             };
+            config.Keys["WEB_TOTP"] = new ProxyKey
+            {
+                Hosts = ["localhost"],
+                Bodies = [new ProxyBodyField { Path = "/session/two-factor", Field = "otp" }],
+                Totp = true,
+            };
+            config.Keys["BAD_TOTP"] = new ProxyKey
+            {
+                Hosts = ["localhost"],
+                Bodies = [new ProxyBodyField { Path = "/session/two-factor", Field = "otp" }],
+                Totp = true,
+            };
             KeyProxy.Save(config, root);
             var caPem = Path.Combine(root, "test-ca.pem");
             await File.WriteAllTextAsync(caPem, caCert.ExportCertificatePem());
@@ -159,6 +171,9 @@ public class KeyProxyProcessTests
             agent.Enroll(LauncherEnrollmentKind.Terminal);
             var password = "pw&" + Guid.NewGuid().ToString("N");
             await AgentVaultClient.SaveAsync("WEB_PASSWORD", Encoding.UTF8.GetBytes(password), agent.PipeName);
+            const string totpKey = "otpauth://totp/Test:me?secret=GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ&issuer=Test";
+            await AgentVaultClient.SaveAsync("WEB_TOTP", Encoding.UTF8.GetBytes(totpKey), agent.PipeName);
+            await AgentVaultClient.SaveAsync("BAD_TOTP", "not base32!"u8.ToArray(), agent.PipeName);
             await WaitForPortAsync(port);
 
             using var http = Client(port, caCert);
@@ -179,6 +194,16 @@ public class KeyProxyProcessTests
                 Assert.Equal($"login=me&password={Uri.EscapeDataString(password)}", JsonNode.Parse(signIn.Body)!["body"]!.GetValue<string>());
                 var json = await Post("/session", new StringContent("""{"login":"me","password":"cw://WEB_PASSWORD"}""", Encoding.UTF8, "application/json"));
                 Assert.Equal(password, JsonNode.Parse(JsonNode.Parse(json.Body)!["body"]!.GetValue<string>())!["password"]!.GetValue<string>());
+
+                // #93: a one-time code key gives the site the current code, never the key.
+                var before = OneTimeCode.From(totpKey, DateTimeOffset.UtcNow);
+                var twoFactor = await Post("/session/two-factor", new FormUrlEncodedContent([new("otp", "cw://WEB_TOTP")]));
+                var after = OneTimeCode.From(totpKey, DateTimeOffset.UtcNow);
+                Assert.Equal(HttpStatusCode.OK, twoFactor.Status);
+                Assert.Contains(JsonNode.Parse(twoFactor.Body)!["body"]!.GetValue<string>(), new[] { $"otp={before}", $"otp={after}" });
+                var bad = await Post("/session/two-factor", new FormUrlEncodedContent([new("otp", "cw://BAD_TOTP")]));
+                Assert.Equal(HttpStatusCode.Forbidden, bad.Status);
+                Assert.Contains("BAD_TOTP is not a TOTP key", bad.Body, StringComparison.Ordinal);
             }
             else
             {
@@ -197,6 +222,7 @@ public class KeyProxyProcessTests
 
             var sent = string.Join("\n", site.Bodies);
             Assert.Equal(approval == "allow", sent.Contains(Uri.EscapeDataString(password), StringComparison.Ordinal));
+            Assert.DoesNotContain("GEZDGNBV", sent, StringComparison.Ordinal);
             var audit = string.Join("\n", Directory.GetFiles(Path.Combine(root, "audit"), "gates-*.ndjson").Select(File.ReadAllText));
             Assert.Contains("\"tool\":\"proxy\"", audit, StringComparison.Ordinal);
             Assert.DoesNotContain(password, audit, StringComparison.Ordinal);

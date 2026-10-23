@@ -111,6 +111,30 @@ Never ask me for the password.
 
 *Expect:* The agent clicks **Sign in**. You get the Approval Gate card. The card shows `POST https://github.com/session` and the text "Fills GITHUB_WEB_PASSWORD in the field password and sends it to github.com". Click **Approve Once** or **Allow for session**. The site gets the real password, and the agent is signed in.
 
+## Step 6: Fill two-factor codes (optional)
+
+A site can ask for a code from an authenticator app after the password. CmdWarden can fill that code too. The vault keeps the TOTP key of the site, and the proxy makes the current code. The agent never sees the key.
+
+1. Find the 2FA path and the code field, as in Step 2. Sign in one time, and find the `POST` that sends the 6-digit code.
+2. Get the TOTP key of the site. When you turn on 2FA, the site shows a QR code. Most sites also show a text key, or "setup key", next to it. Some show an `otpauth://totp/...` link.
+3. Save the key, and name the field, in your own terminal:
+
+    ```powershell
+    cw save GITHUB_TOTP
+    cw proxy add GITHUB_TOTP --host github.com `
+      --body /sessions/two-factor --field app_otp --totp
+    ```
+
+    `cw save` asks for the value. Paste the text key, for example `JBSW Y3DP EHPK 3PXP`, or the whole `otpauth://` link. The path and the field above are an example. Check them in your browser.
+
+4. Tell the agent: "When the site asks for the 2FA code, type `cw://GITHUB_TOTP` in the code field."
+
+*Expect:* You get the card with the text "Fills GITHUB_TOTP in the field app_otp (one-time code)". On approve, the site gets the current 6-digit code.
+
+The proxy reads `digits`, `period`, and `algorithm` from an `otpauth://` link. Without a link, it uses 6 digits, 30 seconds, and SHA1, as most sites do.
+
+**If the code field takes only 6 characters:** many code fields have a length limit or accept only digits, so `cw://GITHUB_TOTP` does not fit. Use a short name, for example `cw save T` and `cw://T`, which has 6 characters. A field that accepts only digits still blocks the placeholder. Then the agent must set the field value with a script and send the form.
+
 ## What the proxy does
 
 | The request | The result |
@@ -122,6 +146,7 @@ Never ask me for the password.
 | `cw://NAME` on a path that the key does not name | The request goes on with no change. The site gets only the placeholder. |
 | A host that the key does not list | The site gets only the placeholder, or `403` in strict mode |
 | A sign-in body bigger than 1 MiB | `413` |
+| A `--totp` key whose vault entry is not a TOTP key | `403`, with the text "is not a TOTP key" |
 
 More rules:
 
@@ -137,7 +162,7 @@ More rules:
 - Some sites hash or encrypt the password in the page before they send it. The site then gets a changed placeholder, and the sign-in fails.
 - Some sites check the password field in the page, for example its length. They can block the sign-in before it starts.
 - A site that pins its certificate does not work through the proxy.
-- Codes from an authenticator app, and passkeys, are not in scope. You type the code yourself.
+- Codes by SMS or email, and passkeys, are not in scope. You type an SMS or email code yourself.
 - The proxy uses HTTP/1.1 to the site. Chrome uses HTTP/1.1 through the proxy, and this works for most sites.
 
 ## Remove a sign-in key

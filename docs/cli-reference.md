@@ -28,6 +28,7 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw proxy setup [--port N] [--trust]` | Make the per-user CA and turn on the [placeholder proxy](use-cases/api-keys-through-proxy.md) on 127.0.0.1 |
 | `cw proxy add <NAME> --host <host>` / `remove <NAME>` | Put the vault entry NAME in place of `cw://NAME` for these hosts |
 | `cw proxy add <NAME> --host <host> --body <path> --field <f>` | A sign-in key: only the body field f on that path gets the value, after the card ([UC17](use-cases/web-sign-in-through-proxy.md)) |
+| `cw proxy add <NAME> ... --body <path> --field <f> --totp` | The vault entry is a TOTP key or an `otpauth://` link: the field gets the current one-time code ([UC17 step 6](use-cases/web-sign-in-through-proxy.md#step-6-fill-two-factor-codes-optional)) |
 | `cw proxy list\|strict on\|off\|uninstall` | Show the proxy; `strict on` gives 403 to a host that no key lists; remove the CA and config |
 | `cw harden --list` | One row per catalog tool and tool pack, same probe as `cw doctor` |
 | `cw harden gh\|git\|docker\|az --strong` | Also move the tool's stock credentials into the Vault |
