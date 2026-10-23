@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using CmdWarden.Agent.Proxy;
 using CmdWarden.Contracts.Proxy;
 
@@ -76,6 +77,70 @@ public class KeyProxyTests
         Assert.False(config.Allows("OTHER", "api.openai.com"));
         Assert.True(config.Lists("api.openai.com"));
         Assert.False(config.Lists("github.com"));
+    }
+
+    [Fact]
+    public void A_sign_in_key_goes_only_in_its_field_and_path()
+    {
+        var config = new KeyProxyConfig();
+        config.Keys["WEB_PASSWORD"] = new ProxyKey { Hosts = ["github.com"], Bodies = [new ProxyBodyField { Path = "/session", Field = "password" }] };
+        Assert.True(config.AllowsBody("WEB_PASSWORD", "github.com", "/session", "password"));
+        Assert.False(config.AllowsBody("WEB_PASSWORD", "github.com", "/session", "login"));
+        Assert.False(config.AllowsBody("WEB_PASSWORD", "github.com", "/gist", "password"));
+        Assert.False(config.AllowsBody("WEB_PASSWORD", "evil.io", "/session", "password"));
+        Assert.False(config.Allows("WEB_PASSWORD", "github.com"));
+        Assert.True(config.HasBodyPath("github.com", "/session"));
+        Assert.False(config.HasBodyPath("github.com", "/login"));
+    }
+
+    [Fact]
+    public void A_form_body_gets_the_value_only_in_a_whole_field_value()
+    {
+        const string form = "application/x-www-form-urlencoded";
+        var body = "login=me%40x.io&password=cw%3A%2F%2FWEB_PASSWORD&next=%2F"u8.ToArray();
+        var scan = ProxyBody.Scan(body, form);
+        Assert.Equal([new BodyPlaceholder("password", "WEB_PASSWORD")], scan.Fields);
+        Assert.Empty(scan.Loose);
+        var filled = ProxyBody.Fill(body, form, new Dictionary<string, string> { ["WEB_PASSWORD"] = "p& w=ü" });
+        Assert.Equal("login=me%40x.io&password=p%26%20w%3D%C3%BC&next=%2F", Encoding.ASCII.GetString(filled));
+
+        var partial = ProxyBody.Scan("login=hi+cw%3A%2F%2FWEB_PASSWORD"u8.ToArray(), form + "; charset=UTF-8");
+        Assert.Empty(partial.Fields);
+        Assert.Equal(["WEB_PASSWORD"], partial.Loose);
+    }
+
+    [Fact]
+    public void A_json_body_gets_the_value_only_in_a_property_value()
+    {
+        var body = """{"user":{"name":"me","password":"cw://WEB_PASSWORD"},"tags":["cw://WEB_PASSWORD"]}"""u8.ToArray();
+        var scan = ProxyBody.Scan(body, "application/json");
+        Assert.Equal([new BodyPlaceholder("password", "WEB_PASSWORD")], scan.Fields);
+        Assert.Equal(["WEB_PASSWORD"], scan.Loose);
+
+        var one = """{ "password" : "cw:\/\/WEB_PASSWORD", "n": 1 }"""u8.ToArray();
+        var filled = ProxyBody.Fill(one, "application/json", new Dictionary<string, string> { ["WEB_PASSWORD"] = "a\"b" });
+        Assert.Equal("{ \"password\" : \"a\\u0022b\", \"n\": 1 }", Encoding.UTF8.GetString(filled));
+        Assert.Equal("a\"b", JsonDocument.Parse(filled).RootElement.GetProperty("password").GetString());
+
+        Assert.Equal(["X"], ProxyBody.Scan("""{"password":"cw://X" """u8.ToArray(), "application/json").Loose);
+        Assert.Equal(["X"], ProxyBody.Scan("--b\r\n\r\ncw://X\r\n--b--"u8.ToArray(), "multipart/form-data; boundary=b").Loose);
+    }
+
+    [Fact]
+    public async Task Reader_reads_a_chunked_body_whole_and_refuses_a_big_one()
+    {
+        var reader = new HttpReader(new MemoryStream("3\r\nabc\r\n2\r\nde\r\n0\r\nX-T: 1\r\n\r\nNEXT"u8.ToArray()));
+        var head = new HttpRequestHead { Method = "POST", Target = "/" };
+        head.Headers.Add(new("Transfer-Encoding", "chunked"));
+        head.Headers.Add(new("Expect", "100-continue"));
+        Assert.Equal("abcde", Encoding.ASCII.GetString(await reader.ReadBodyAsync(head, 10, default)));
+        head.UseLength(5);
+        Assert.Equal("POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\n", Encoding.Latin1.GetString(head.ToBytes()));
+
+        var big = new HttpReader(new MemoryStream("5\r\nabcde\r\n0\r\n\r\n"u8.ToArray()));
+        var chunked = new HttpRequestHead { Method = "POST", Target = "/" };
+        chunked.Headers.Add(new("Transfer-Encoding", "chunked"));
+        await Assert.ThrowsAsync<InvalidDataException>(() => big.ReadBodyAsync(chunked, 4, default));
     }
 
     [Fact]

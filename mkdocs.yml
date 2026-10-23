@@ -64,6 +64,7 @@ nav:
       - UC14 Short-lived GitHub tokens: use-cases/short-lived-github-tokens.md
       - UC15 Keep API keys out of the agent: use-cases/api-keys-through-proxy.md
       - UC16 Keep .env secrets out of the agent: use-cases/env-files.md
+      - UC17 Sign in without the password: use-cases/web-sign-in-through-proxy.md
   - Guide:
       - user-guide.md
       - How it works: concepts.md

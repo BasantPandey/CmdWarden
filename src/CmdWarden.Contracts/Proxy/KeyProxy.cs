@@ -9,6 +9,15 @@ namespace CmdWarden.Contracts.Proxy;
 public sealed class ProxyKey
 {
     public List<string> Hosts { get; set; } = [];
+    /// <summary>#85: the sign-in fields that may get the key. A key with fields never goes in a header.</summary>
+    public List<ProxyBodyField> Bodies { get; set; } = [];
+}
+
+/// <summary>A request path on the hosts of a key, and the body field there whose value is cw://NAME.</summary>
+public sealed class ProxyBodyField
+{
+    public string Path { get; set; } = "";
+    public string Field { get; set; } = "";
 }
 
 /// <summary>The placeholder proxy (#41). The file is &lt;product root&gt;/proxy/config.json.</summary>
@@ -24,8 +33,17 @@ public sealed class KeyProxyConfig
     /// <summary>True when a key lists the host. "*.example.com" matches every subdomain.</summary>
     public bool Lists(string host) => Keys.Values.Any(k => k.Hosts.Any(h => KeyProxy.HostMatches(h, host)));
 
+    /// <summary>True when the key may go in the request line or a header for the host.</summary>
     public bool Allows(string name, string host) =>
-        Keys.TryGetValue(name, out var key) && key.Hosts.Any(h => KeyProxy.HostMatches(h, host));
+        Keys.TryGetValue(name, out var key) && key.Bodies.Count == 0 && key.Hosts.Any(h => KeyProxy.HostMatches(h, host));
+
+    public bool AllowsBody(string name, string host, string path, string field) =>
+        Keys.TryGetValue(name, out var key) && key.Hosts.Any(h => KeyProxy.HostMatches(h, host))
+        && key.Bodies.Any(b => b.Path == path && b.Field == field);
+
+    /// <summary>True when a key names this path for the host: the proxy then reads the body.</summary>
+    public bool HasBodyPath(string host, string path) =>
+        Keys.Values.Any(k => k.Hosts.Any(h => KeyProxy.HostMatches(h, host)) && k.Bodies.Any(b => b.Path == path));
 }
 
 /// <summary>

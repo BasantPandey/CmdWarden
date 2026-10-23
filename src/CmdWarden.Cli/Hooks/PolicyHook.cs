@@ -60,7 +60,7 @@ public static class PolicyHook
         "policy set", "policy enroll", "policy unenroll", "policy remove", "policy low-risk", "policy hello",
         "unharden", "uninstall", "delete", "agent stop", "canary remove", "shortcut remove",
         "hook uninstall", "leak-guard uninstall", "mcp uninstall", "protect uninstall",
-        "proxy remove", "proxy strict", "proxy uninstall", "github app remove",
+        "proxy add", "proxy remove", "proxy strict", "proxy uninstall", "github app remove",
     ];
 
     public const string SelfProtectText = "This changes CmdWarden protection. Ask the user to run it in their own terminal.";

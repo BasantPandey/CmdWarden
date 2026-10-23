@@ -896,7 +896,9 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     /// python, node). GET, HEAD and OPTIONS read; other methods write. The app never gets the value,
     /// so no request is secret-reveal. True when the vault value may go to the host.
     /// </summary>
-    public bool AuthorizeProxyUse(int clientPid, IReadOnlyList<string> names, string method, string url)
+    /// <param name="fields">#85: the sign-in fields that get the value, or null for the request line and headers.
+    /// A field swap always shows the card: the person approves each sign-in, whatever the level.</param>
+    public bool AuthorizeProxyUse(int clientPid, IReadOnlyList<string> names, string method, string url, string? fields = null)
     {
         const string tool = KeyProxy.Tool;
         const string purpose = "proxy";
@@ -922,7 +924,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             string? grantLength = null;
             string? decisionReason = null;
             var hidden = HiddenWrapper(launcher);
-            if (hidden is not null || PolicyEvaluator.Decide(resolved.Level, commandClass) != PolicyDecision.AutoAllow)
+            if (hidden is not null || fields is not null || PolicyEvaluator.Decide(resolved.Level, commandClass) != PolicyDecision.AutoAllow)
             {
                 var gate = GateOrThrow(launcher, resolved, commandClass, BuildApprovalRequest(
                     tool: tool,
@@ -938,7 +940,9 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                     workingDirectory: null) with
                     {
                         HiddenCommand = hidden,
-                        Impact = $"Sends {secretName} to {host}. The app sees only the placeholder.",
+                        Impact = fields is null
+                            ? $"Sends {secretName} to {host}. The app sees only the placeholder."
+                            : $"Fills {secretName} in the field {fields} and sends it to {host}. The app sees only the placeholder.",
                     },
                     verb: purpose, auditSecretName: secretName, purpose: purpose);
                 decisionLabel = gate.Decision;

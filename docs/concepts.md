@@ -72,4 +72,5 @@ Secrets reminder:
 
 - **Track A (preferred for gh):** harden owns `GH_TOKEN` in the Vault; child-only release.
 - **Track B:** `cw save` / `inject` / `delete`, or the Vault **Secrets** page, for named one-shot secrets ([UC5](use-cases/one-shot-secret-for-script.md), [UC9](use-cases/vault-add-remove-secrets.md)).
-- **Not for this:** browser passwords, full keychain UI, enterprise cloud secret managers.
+- **Web sign-in for an agent:** the agent types `cw://NAME` in a sign-in form, and the proxy fills the real password after the card ([UC17](use-cases/web-sign-in-through-proxy.md)).
+- **Not for this:** autofill of your own browser passwords, full keychain UI, enterprise cloud secret managers.

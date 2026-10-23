@@ -33,6 +33,15 @@ public sealed class HttpRequestHead
             Headers[i] = new(Headers[i].Key, map(Headers[i].Value));
     }
 
+    /// <summary>Send the body with this length, not chunked. A body that the proxy already has needs no Expect.</summary>
+    public void UseLength(int length)
+    {
+        Headers.RemoveAll(h => h.Key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase)
+                               || h.Key.Equals("Transfer-Encoding", StringComparison.OrdinalIgnoreCase)
+                               || h.Key.Equals("Expect", StringComparison.OrdinalIgnoreCase));
+        Headers.Add(new("Content-Length", length.ToString(CultureInfo.InvariantCulture)));
+    }
+
     public byte[] ToBytes()
     {
         var text = new StringBuilder().Append(Method).Append(' ').Append(Target).Append(' ').Append(Version).Append("\r\n");
@@ -110,9 +119,7 @@ public sealed class HttpReader(Stream inner)
         {
             var line = await ReadLineAsync(ct).ConfigureAwait(false);
             await destination.WriteAsync(Encoding.Latin1.GetBytes(line + "\r\n"), ct).ConfigureAwait(false);
-            var sizeText = line.Split(';')[0].Trim();
-            if (!long.TryParse(sizeText, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var size) || size < 0)
-                throw new InvalidDataException("Bad chunk size.");
+            var size = ChunkSize(line);
             if (size == 0)
                 break;
             await CopyAsync(destination, size + 2, ct).ConfigureAwait(false);
@@ -125,6 +132,37 @@ public sealed class HttpReader(Stream inner)
                 return;
         }
     }
+
+    /// <summary>The body of <paramref name="head"/> with no chunk lines and no trailers, at most <paramref name="max"/> bytes.</summary>
+    public async Task<byte[]> ReadBodyAsync(HttpRequestHead head, int max, CancellationToken ct)
+    {
+        var body = new MemoryStream();
+        if (!head.IsChunked)
+        {
+            var length = head.ContentLength ?? 0;
+            if (length > max)
+                throw new InvalidDataException("HTTP body is too long.");
+            await CopyAsync(body, length, ct).ConfigureAwait(false);
+            return body.ToArray();
+        }
+        while (ChunkSize(await ReadLineAsync(ct).ConfigureAwait(false)) is > 0 and var size)
+        {
+            if (body.Length + size > max)
+                throw new InvalidDataException("HTTP body is too long.");
+            await CopyAsync(body, size, ct).ConfigureAwait(false);
+            if ((await ReadLineAsync(ct).ConfigureAwait(false)).Length != 0)
+                throw new InvalidDataException("Bad chunk end.");
+        }
+        while ((await ReadLineAsync(ct).ConfigureAwait(false)).Length != 0)
+        {
+        }
+        return body.ToArray();
+    }
+
+    private static long ChunkSize(string line) =>
+        long.TryParse(line.Split(';')[0].Trim(), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var size) && size >= 0
+            ? size
+            : throw new InvalidDataException("Bad chunk size.");
 
     /// <summary>Copy only what is left in the buffer, for example TLS bytes that came with a CONNECT.</summary>
     public async Task CopyBufferedAsync(Stream destination, CancellationToken ct)

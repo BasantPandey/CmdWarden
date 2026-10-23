@@ -17,8 +17,10 @@ namespace CmdWarden.Agent.Proxy;
 /// policy and the Approval Gate, then gets the vault value. Other hosts pass through untouched, or
 /// get 403 in strict mode. A placeholder for a host its key does not list gets 403. A GET of the
 /// CRL path gets the empty CRL of the CA.
+/// #85: for a path that a key names with a body field, the proxy reads the body too, and only that
+/// field gets the value. Such a swap always shows the Approval Gate.
 /// ponytail: HTTP/1.1 only, and no pipelined requests; clients send the next request after the
-/// response ends. Placeholders are read in the request line and headers, not in bodies.
+/// response ends. Other bodies pass as they are.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class KeyProxyServer(SessionAgentService gate, CredentialVault vault, AgentRuntimeInfo runtime, ILogger<KeyProxyServer> log)
@@ -153,67 +155,116 @@ public sealed class KeyProxyServer(SessionAgentService gate, CredentialVault vau
 
     /// <summary>
     /// Requests go one by one from the client to the upstream, each checked for placeholders.
-    /// Responses go back as raw bytes. A refused request gets 403, and the connection closes.
+    /// Responses go back as raw bytes. A refused request gets 403, and the connection closes. When
+    /// the upstream closes, the connection closes too, so the client does not wait for an answer.
     /// </summary>
     private async Task RelayAsync(int pid, string host, string scheme, HttpReader reader, Stream client, Stream upstream,
         KeyProxyConfig config, CancellationToken ct, HttpRequestHead? first = null)
     {
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var responses = upstream.CopyToAsync(client, stop.Token);
+        var requests = RequestsAsync(pid, host, scheme, reader, client, upstream, config, stop, ct, first);
         try
         {
-            var head = first;
-            while (true)
-            {
-                head ??= await reader.ReadHeadAsync(ct).ConfigureAwait(false);
-                if (head is null)
-                    break;
-                if (Uri.TryCreate(head.Target, UriKind.Absolute, out var absolute))
-                    head.Target = absolute.PathAndQuery;
-                if (Check(pid, host, scheme, head, config) is { } refusal)
-                {
-                    await stop.CancelAsync().ConfigureAwait(false);
-                    await ReplyAsync(client, 403, refusal, ct).ConfigureAwait(false);
-                    return;
-                }
-                await upstream.WriteAsync(head.ToBytes(), ct).ConfigureAwait(false);
-                if (head.IsChunked)
-                    await reader.CopyChunkedAsync(upstream, ct).ConfigureAwait(false);
-                else if (head.ContentLength is > 0 and var length)
-                    await reader.CopyAsync(upstream, length, ct).ConfigureAwait(false);
-                await upstream.FlushAsync(ct).ConfigureAwait(false);
-                if (head.IsUpgrade)
-                {
-                    // A WebSocket: after the upgrade the bytes are no longer HTTP.
-                    await reader.CopyRestAsync(upstream, ct).ConfigureAwait(false);
-                    break;
-                }
-                head = null;
-            }
-            // The client is gone. An upstream keep-alive would hold the connection for minutes.
+            await Task.WhenAny(requests, responses).ConfigureAwait(false);
         }
         finally
         {
             await stop.CancelAsync().ConfigureAwait(false);
             try { await responses.ConfigureAwait(false); } catch (Exception) { /* The connection ends. */ }
         }
+        await requests.ConfigureAwait(false);
     }
 
-    /// <summary>Null when the request may go; else the 403 text. Puts the vault values in place.</summary>
-    private string? Check(int pid, string host, string scheme, HttpRequestHead head, KeyProxyConfig config)
+    private async Task RequestsAsync(int pid, string host, string scheme, HttpReader reader, Stream client, Stream upstream,
+        KeyProxyConfig config, CancellationTokenSource stop, CancellationToken ct, HttpRequestHead? first)
     {
-        var names = KeyProxy.Placeholders(head.Texts);
-        if (names.Count == 0)
-            return null;
-        foreach (var name in names)
+        var token = stop.Token;
+        var head = first;
+        while (true)
         {
-            if (!config.Keys.ContainsKey(name))
-                return $"{ProductInfo.Name}: cw://{name} is not a proxy key. Add it: cw proxy add {name} --host {host}";
-            if (!config.Allows(name, host))
-                return $"{ProductInfo.Name}: cw://{name} is not allowed for {host}.";
+            head ??= await reader.ReadHeadAsync(token).ConfigureAwait(false);
+            if (head is null)
+                return;
+            if (Uri.TryCreate(head.Target, UriKind.Absolute, out var absolute))
+                head.Target = absolute.PathAndQuery;
+            byte[]? body = null;
+            if (config.HasBodyPath(host, PathOf(head)) && (head.IsChunked || head.ContentLength > 0))
+            {
+                if (head.ContentLength > ProxyBody.MaxLength)
+                {
+                    await stop.CancelAsync().ConfigureAwait(false);
+                    await ReplyAsync(client, 413, $"{ProductInfo.Name}: a sign-in body is at most {ProxyBody.MaxLength} bytes.", ct).ConfigureAwait(false);
+                    return;
+                }
+                body = await reader.ReadBodyAsync(head, ProxyBody.MaxLength, token).ConfigureAwait(false);
+            }
+            var (refusal, filled) = Check(pid, host, scheme, head, body, config);
+            if (refusal is not null)
+            {
+                await stop.CancelAsync().ConfigureAwait(false);
+                await ReplyAsync(client, 403, refusal, ct).ConfigureAwait(false);
+                return;
+            }
+            if ((filled ?? body) is { } send)
+            {
+                head.UseLength(send.Length);
+                await upstream.WriteAsync(head.ToBytes(), token).ConfigureAwait(false);
+                await upstream.WriteAsync(send, token).ConfigureAwait(false);
+            }
+            else
+            {
+                await upstream.WriteAsync(head.ToBytes(), token).ConfigureAwait(false);
+                if (head.IsChunked)
+                    await reader.CopyChunkedAsync(upstream, token).ConfigureAwait(false);
+                else if (head.ContentLength is > 0 and var length)
+                    await reader.CopyAsync(upstream, length, token).ConfigureAwait(false);
+            }
+            await upstream.FlushAsync(token).ConfigureAwait(false);
+            if (head.IsUpgrade)
+            {
+                // A WebSocket: after the upgrade the bytes are no longer HTTP.
+                await reader.CopyRestAsync(upstream, token).ConfigureAwait(false);
+                return;
+            }
+            head = null;
         }
-        if (!gate.AuthorizeProxyUse(pid, names, head.Method, $"{scheme}://{host}{head.Target}"))
-            return $"{ProductInfo.Name}: the use of {string.Join(", ", names)} was denied.";
+    }
+
+    /// <summary>
+    /// The 403 text, or null when the request may go. Puts the vault values in place in the head,
+    /// and gives back the filled body when the body has field placeholders.
+    /// </summary>
+    private (string? Refusal, byte[]? Body) Check(int pid, string host, string scheme, HttpRequestHead head, byte[]? body,
+        KeyProxyConfig config)
+    {
+        var path = PathOf(head);
+        var contentType = head.Header("Content-Type");
+        var scan = body is null ? new BodyScan([], []) : ProxyBody.Scan(body, contentType);
+        if (scan.Loose.Count > 0)
+            return ($"{ProductInfo.Name}: cw://{scan.Loose[0]} must be the whole value of a field that cw proxy add --field names.", null);
+        foreach (var field in scan.Fields)
+        {
+            if (!config.AllowsBody(field.Name, host, path, field.Field))
+                return ($"{ProductInfo.Name}: cw://{field.Name} is not allowed in the field {field.Field} of {host}{path}.", null);
+        }
+
+        var headNames = KeyProxy.Placeholders(head.Texts);
+        var names = headNames.Concat(scan.Fields.Select(f => f.Name)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (names.Count == 0)
+            return (null, null);
+        foreach (var name in headNames)
+        {
+            if (!config.Keys.TryGetValue(name, out var key))
+                return ($"{ProductInfo.Name}: cw://{name} is not a proxy key. Add it: cw proxy add {name} --host {host}", null);
+            if (key.Bodies.Count > 0)
+                return ($"{ProductInfo.Name}: cw://{name} goes only in a sign-in field, not in a header.", null);
+            if (!config.Allows(name, host))
+                return ($"{ProductInfo.Name}: cw://{name} is not allowed for {host}.", null);
+        }
+        var fields = scan.Fields.Count == 0 ? null : string.Join(", ", scan.Fields.Select(f => f.Field).Distinct(StringComparer.Ordinal));
+        if (!gate.AuthorizeProxyUse(pid, names, head.Method, $"{scheme}://{host}{head.Target}", fields))
+            return ($"{ProductInfo.Name}: the use of {string.Join(", ", names)} was denied.", null);
 
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var name in names)
@@ -226,12 +277,14 @@ public sealed class KeyProxyServer(SessionAgentService gate, CredentialVault vau
             }
             catch (KeyNotFoundException)
             {
-                return $"{ProductInfo.Name}: {name} is not in the vault. Save it: cw save {name}";
+                return ($"{ProductInfo.Name}: {name} is not in the vault. Save it: cw save {name}", null);
             }
         }
         head.Rewrite(text => KeyProxy.Placeholder().Replace(text, m => values[m.Groups[1].Value]));
-        return null;
+        return (null, fields is null ? null : ProxyBody.Fill(body!, contentType, values));
     }
+
+    private static string PathOf(HttpRequestHead head) => head.Target.Split('?')[0];
 
     private bool ValidateUpstream(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors errors)
     {
@@ -259,7 +312,7 @@ public sealed class KeyProxyServer(SessionAgentService gate, CredentialVault vau
 
     private static async Task ReplyAsync(Stream client, int status, string contentType, byte[] body, CancellationToken ct)
     {
-        var reason = status switch { 200 => "OK", 403 => "Forbidden", 400 => "Bad Request", _ => "Error" };
+        var reason = status switch { 200 => "OK", 403 => "Forbidden", 400 => "Bad Request", 413 => "Content Too Large", _ => "Error" };
         var head = $"HTTP/1.1 {status} {reason}\r\nContent-Type: {contentType}\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n";
         await client.WriteAsync(Encoding.ASCII.GetBytes(head), ct).ConfigureAwait(false);
         await client.WriteAsync(body, ct).ConfigureAwait(false);
