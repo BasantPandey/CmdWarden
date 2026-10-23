@@ -15,6 +15,9 @@
     <PackageId>CmdWarden</PackageId>
     <PackageTags>cmdwarden;security;windows;cli;secrets;ai-agents;claude-code;cursor;gh;git;docker;az</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- NU5111: uninstall\Uninstall-CmdWarden.ps1 is for cw setup, not a NuGet install script. -->
+    <NoWarn>$(NoWarn);NU5111</NoWarn>
     <PackageDescription>CmdWarden CLI + Session Agent + Approval Gate helper (per-user). State under LocalAppData\CmdWarden; install is binaries-only (.NET desktop; no Windows App Runtime).</PackageDescription>
     <Authors>CmdWarden</Authors>
     <RepositoryUrl>https://github.com/BasantPandey/CmdWarden</RepositoryUrl>
@@ -22,6 +25,9 @@
     <!-- Tool package layout: tools/net10.0/any/ -->
     <PackageOutputPath>$(MSBuildThisFileDirectory)..\..\artifacts\nupkg\</PackageOutputPath>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CmdWarden.Contracts\CmdWarden.Contracts.csproj" />
     <!-- Build shims for payload copy only; do not pull tool apphosts into CLI output/publish root. -->
