@@ -109,17 +109,39 @@ public class HelperChainRuleTests
         Assert.Null(HelperChainRule.Check(VerifiedGitChain(GitNode(2, @"cmd\git-lfs.exe")), GitPin));
     }
 
-    [Fact]
-    public void Git_unsigned_node_in_the_span_denies()
+    [Theory]
+    [InlineData(@"usr\bin\perl.exe")]
+    [InlineData(@"usr\bin\sh2.exe")]
+    [InlineData(@"tmp\sh.exe")]
+    public void Git_unsigned_node_in_the_span_denies(string relative)
     {
-        var chain = VerifiedGitChain(GitNode(2, @"usr\bin\sh.exe", LauncherKinds.PathHash, thumb: null));
+        var chain = VerifiedGitChain(GitNode(2, relative, LauncherKinds.PathHash, thumb: null));
         Assert.Equal(PolicyReasonCodes.HelperParentMissing, HelperChainRule.Check(chain, GitPin));
+    }
+
+    /// <summary>#97: Git for Windows 2.5x ships its shells with no signature.</summary>
+    [Theory]
+    [InlineData(@"usr\bin\sh.exe")]
+    [InlineData(@"usr\bin\bash.exe")]
+    [InlineData(@"bin\bash.exe")]
+    public void Git_unsigned_shell_of_the_pinned_install_passes(string relative)
+    {
+        var chain = VerifiedGitChain(GitNode(2, relative, LauncherKinds.PathHash, thumb: null));
+        Assert.Null(HelperChainRule.Check(chain, GitPin));
+    }
+
+    [Fact]
+    public void Git_shell_of_another_install_denies()
+    {
+        var other = Node(2, @"C:\Other\Git\usr\bin\sh.exe", LauncherKinds.PathHash);
+        Assert.Equal(PolicyReasonCodes.HelperParentMissing, HelperChainRule.Check(VerifiedGitChain(other), GitPin));
     }
 
     [Theory]
     [InlineData(@"C:\Program Files\Git\cmd\git.exe")]
     [InlineData(@"C:\Program Files\Git\bin\git.exe")]
     [InlineData(@"C:\Program Files\Git\mingw64\bin\git.exe")]
+    [InlineData(@"C:\Program Files\Git\ucrt64\bin\git.exe")]
     [InlineData(@"C:\Program Files\Git\usr\bin\git.exe")]
     public void Git_install_root_is_the_same_for_every_layout(string pin)
     {
@@ -135,7 +157,7 @@ public class HelperChainRuleTests
     [Fact]
     public void Git_wrong_signer_in_the_span_denies()
     {
-        var chain = VerifiedGitChain(GitNode(2, @"usr\bin\sh.exe", thumb: "OTHER"));
+        var chain = VerifiedGitChain(GitNode(2, @"cmd\git-lfs.exe", thumb: "OTHER"));
         Assert.Equal(PolicyReasonCodes.HelperParentMissing, HelperChainRule.Check(chain, GitPin));
     }
 
