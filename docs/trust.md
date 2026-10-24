@@ -48,6 +48,13 @@ From v0.11.0, GitHub signs a build provenance record for each release file. Chec
 gh attestation verify CmdWarden.<version>-setup.zip --repo BasantPandey/CmdWarden
 ```
 
+From v0.12.0, each release also has two more files:
+
+| File | What it is |
+|------|------------|
+| `CmdWarden.<version>.intoto.jsonl` | The same provenance records in one file. Add `--bundle CmdWarden.<version>.intoto.jsonl` to check with no network. |
+| `CmdWarden.<version>.cdx.json` | The SBOM in CycloneDX format. It lists each package in the portable zip, with its version. |
+
 ## How the code is checked
 
 | Check | When |
@@ -56,7 +63,7 @@ gh attestation verify CmdWarden.<version>-setup.zip --repo BasantPandey/CmdWarde
 | CodeQL code scanning of the C# code and the workflows | Each PR, each push to `main`, and each week |
 | Dependency review: a new package with a known high-severity flaw fails the PR | Each PR |
 | A check for packages with a known flaw, direct or transitive | Each build |
-| Dependabot updates for NuGet packages and GitHub Actions | Each week |
+| Dependabot updates for NuGet packages, GitHub Actions, and the docs build packages | Each week |
 | [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/BasantPandey/CmdWarden) | Each push to `main`, and each week |
 | Each action is pinned to a commit SHA, and each workflow starts with read-only permissions | Always |
 | Secret scanning and push protection on the repo | Always |

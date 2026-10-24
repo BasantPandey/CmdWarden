@@ -10,6 +10,15 @@ updates:
         patterns: ['*']
         update-types: [minor, patch]
 
+  # #97: the docs build packages in requirements-docs.txt.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      docs:
+        patterns: ['*']
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
