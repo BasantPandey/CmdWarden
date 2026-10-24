@@ -80,8 +80,9 @@ public class AgentAccountTests
     {
         private static IEnumerable<PipeAccessRule> Rules(string pipeName)
         {
-            using var client = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.CurrentUserOnly);
+            using var client = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut);
             client.Connect(5000);
+            Assert.True(AgentChannelFactory.IsOwnPipe(client.GetAccessControl().GetOwner(typeof(SecurityIdentifier))));
             return client.GetAccessControl().GetAccessRules(true, false, typeof(SecurityIdentifier)).Cast<PipeAccessRule>().ToList();
         }
 
