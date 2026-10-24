@@ -43,6 +43,7 @@ nav:
   - Get started:
       - Install: install.md
       - Trust: trust.md
+      - Threat model: threat-model.md
       - Code signing policy: code-signing-policy.md
       - Policy quick start: policy-quickstart.md
       - AI harness rules: prompts/ai-harness-rules.md

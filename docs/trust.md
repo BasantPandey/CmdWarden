@@ -78,7 +78,7 @@ An agent runs commands on your PC. So the fair question is: can it turn CmdWarde
 
 | Protection | What it does |
 |------------|--------------|
-| The policy hook | A harness that runs a `cw` command that weakens protection gets a deny with "Ask the user". This covers `cw policy set`, `enroll`, `unenroll`, `low-risk`, and `hello`; `cw unharden`; `cw uninstall`; `cw delete`; `cw agent stop`; the `uninstall` of `hook`, `leak-guard`, `mcp`, and `protect`; `cw canary remove`; and the `proxy` changes, `add` too. |
+| The policy hook | A harness that runs a `cw` command that weakens protection gets a deny with "Ask the user". The hook also reads the command inside `cmd /c`, `powershell -Command`, `bash -c`, `Start-Process`, and `dotnet cw.dll`. This covers `cw policy set`, `enroll`, `unenroll`, `low-risk`, and `hello`; `cw unharden`; `cw uninstall`; `cw delete`; `cw agent stop`; the `uninstall` of `hook`, `leak-guard`, `mcp`, and `protect`; `cw canary remove`; and the `proxy` changes, `add` too. It also stops `cw read`, which shows a secret value to the agent. |
 | Claude Code deny rules | `cw setup` adds `Edit` and `Write` deny rules for `~/AppData/Local/CmdWarden/**`, so the file tools of Claude Code cannot change the policy file. |
 | Real input only | The Approval Gate accepts Approve only from real keyboard or mouse input. A program that sends keys or clicks to the card gets nothing. |
 | Windows Hello | A secret read asks for Windows Hello after Approve (`cw policy hello`). |
@@ -90,6 +90,8 @@ An agent runs commands on your PC. So the fair question is: can it turn CmdWarde
 - An agent that runs as **your own Windows user** can write files that your user can write. A script can edit `%LOCALAPPDATA%\CmdWarden\policy.json` without the hook seeing a `cw` command. The hook and the deny rules make this hard, not impossible.
 - For a hard line, run the agent under its own Windows account. The Codex `elevated` sandbox does this. `cw setup` enrolls its accounts.
 - Watch the tray icon and `cw audit`. A policy change that you did not make shows up as decisions that you did not expect.
+
+The [Threat model](threat-model.md) lists each attack, its answer, and the test that checks it.
 
 ## Report a problem
 
