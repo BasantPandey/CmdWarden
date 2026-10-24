@@ -56,7 +56,7 @@ The full site is at **[basantpandey.github.io/CmdWarden](https://basantpandey.gi
 | [Security policy](SECURITY.md) | You found a security problem and want to report it in private |
 | [Code signing policy](docs/code-signing-policy.md) | You want to know who signs the release files and how |
 | [Policy quick start](docs/policy-quickstart.md) | You want good policy for `gh`, `git`, `az`, `docker`, and scripts in one page |
-| [Use cases](docs/use-cases/index.md) | You want a step-by-step guide for one goal, UC1 to UC17 |
+| [Use cases](docs/use-cases/index.md) | You want a step-by-step guide for one goal, UC1 to UC18 |
 | [How it works](docs/concepts.md) | You want the model: launchers, policy, shims, the Vault, the Approval Gate |
 | [CmdWarden Vault app](docs/vault.md) | You want every page of the desktop app explained |
 | [Troubleshooting](docs/troubleshooting.md) | Something is blocked, missing, or down |

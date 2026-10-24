@@ -61,6 +61,71 @@ public class SshGateProcessTests
         Assert.Contains("\"purpose\":\"sign\"", audit, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Git_signs_a_commit_through_the_gate_and_the_signature_verifies()
+    {
+        if (!OperatingSystem.IsWindows() || !File.Exists(Path.Combine(OpenSshDir, "ssh-keygen.exe")))
+            return;
+
+        await using var upstream = new FakeSshAgent();
+        var root = Path.Combine(Path.GetTempPath(), "cw-prod-" + Guid.NewGuid().ToString("N"));
+        SshGate.Save(new SshGateState { Upstream = upstream.PipePath }, root);
+        await using var agent = await TestAgent.StartAsync(productRoot: root);
+        if (agent is null)
+            return;
+        agent.Enroll(LauncherEnrollmentKind.Terminal);
+        await WaitForPipeAsync(SshGate.PipePath);
+
+        // #97: the steps of docs/use-cases/sign-commits-with-ssh.md, with -c in place of git config --global.
+        var repo = Path.Combine(root, "repo");
+        Directory.CreateDirectory(repo);
+        var keygen = Path.Combine(OpenSshDir, "ssh-keygen.exe").Replace('\\', '/');
+        var signers = Path.Combine(root, "allowed_signers");
+        await File.WriteAllTextAsync(signers, "me@example.com " + upstream.PublicKeyLine + "\n");
+        string[] config =
+        [
+            "-c", "user.name=Me", "-c", "user.email=me@example.com", "-c", "gpg.format=ssh",
+            "-c", "gpg.ssh.program=" + keygen, "-c", "user.signingkey=key::" + upstream.PublicKeyLine,
+            "-c", "gpg.ssh.allowedSignersFile=" + signers.Replace('\\', '/'),
+        ];
+        var (initExit, initOut) = await RunGitAsync(repo, root, "init", "-q");
+        Assert.True(initExit == 0, initOut);
+
+        var (commitExit, commitOut) = await RunGitAsync(repo, root, [.. config, "commit", "-q", "--allow-empty", "-S", "-m", "signed"]);
+        Assert.True(commitExit == 0, commitOut);
+        Assert.Equal(1, upstream.Signs);
+        var (verifyExit, verifyOut) = await RunGitAsync(repo, root, [.. config, "verify-commit", "HEAD"]);
+        Assert.True(verifyExit == 0, verifyOut);
+        Assert.Contains("Good \"git\" signature for me@example.com", verifyOut, StringComparison.Ordinal);
+
+        // An AI harness at Read level gets the card for a sign. With approval off, the commit fails.
+        var store = new PolicyStore(agent.PolicyPath);
+        store.Load();
+        store.SetLevel(agent.SelectedPolicyKey, SshGate.Tool, PolicyLevel.Read);
+        store.Save();
+        var (deniedExit, deniedOut) = await RunGitAsync(repo, root, [.. config, "commit", "-q", "--allow-empty", "-S", "-m", "denied"]);
+        Assert.NotEqual(0, deniedExit);
+        Assert.Contains("agent refused operation", deniedOut, StringComparison.Ordinal);
+        Assert.Equal(1, upstream.Signs);
+    }
+
+    private static async Task<(int Exit, string Output)> RunGitAsync(string repo, string home, params string[] args)
+    {
+        var psi = new ProcessStartInfo(CmdWarden.Cli.Harden.GitDiscoverer.FindRealGit() ?? "git") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = repo };
+        foreach (var arg in args)
+            psi.ArgumentList.Add(arg);
+        psi.Environment["SSH_AUTH_SOCK"] = SshGate.PipePath;
+        psi.Environment["HOME"] = home;
+        psi.Environment["GIT_CONFIG_NOSYSTEM"] = "1";
+        psi.Environment["GIT_CONFIG_GLOBAL"] = Path.Combine(home, "gitconfig");
+        using var process = Process.Start(psi)!;
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        await process.WaitForExitAsync(cts.Token);
+        return (process.ExitCode, await stdout + await stderr);
+    }
+
     private static async Task<(int Exit, string Output)> RunAsync(string exe, string workingDirectory, params string[] args)
     {
         var psi = new ProcessStartInfo(Path.Combine(OpenSshDir, exe))

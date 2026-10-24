@@ -65,6 +65,7 @@ nav:
       - UC15 Keep API keys out of the agent: use-cases/api-keys-through-proxy.md
       - UC16 Keep .env secrets out of the agent: use-cases/env-files.md
       - UC17 Sign in without the password: use-cases/web-sign-in-through-proxy.md
+      - UC18 Sign commits with a gated ssh key: use-cases/sign-commits-with-ssh.md
   - Guide:
       - user-guide.md
       - How it works: concepts.md
