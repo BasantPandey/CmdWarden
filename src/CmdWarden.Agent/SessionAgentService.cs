@@ -171,13 +171,6 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var agentReason = AgentReason.Clean(request.AgentReason);
 
         ThrowIfAlarmed(launcher, resolved, tool, className, levelName, secretName, request.Purpose);
-        if (extraNames.Count > 0)
-        {
-            // Name a missing entry before the card asks about it. Names only; no value leaves the vault.
-            var stored = new HashSet<string>(_vault.ListNames(), StringComparer.OrdinalIgnoreCase);
-            if (extraNames.Prepend(request.Name).FirstOrDefault(n => !stored.Contains(n)) is { } missing)
-                throw new RpcException(new Status(StatusCode.NotFound, $"No vault entry named {missing}. Add it with: cw save {missing}"));
-        }
         IReadOnlyList<BoundFile> boundFiles;
         try
         {
@@ -195,6 +188,10 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             ?? FindCanary([request.CommandLine], []);
         if (canary is not null)
             throw CanaryAlarm(launcher, resolved, tool, className, levelName, canary.Name, request.Purpose);
+        // Name a missing entry before the card asks about it. Names only; no value leaves the vault.
+        var stored = new HashSet<string>(_vault.ListNames(), StringComparer.OrdinalIgnoreCase);
+        if (extraNames.Prepend(request.Name).FirstOrDefault(n => !stored.Contains(n)) is { } missing)
+            throw new RpcException(new Status(StatusCode.NotFound, $"No vault entry named {missing}. Add it with: cw save {missing}"));
         var hidden = HiddenWrapper(launcher);
         if (hidden is not null)
             decision = PolicyDecision.NeedsApproval;

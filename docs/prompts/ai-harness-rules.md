@@ -60,9 +60,10 @@ Note: `cw doctor` starts the agent when it is down.
 
 ## cw commands that need the user's explicit ask
 
-`cw save`, `cw delete`, `cw inject`, `cw env import`, `cw setup`, `cw policy enroll`, `cw policy set`, `cw policy unenroll`, `cw policy sessions --revoke`, `cw harden`, `cw unharden`, `cw agent start|stop`, `cw doctor --fix-path`, `cw shortcut install|remove`, `cw update`, `cw uninstall`.
+`cw save`, `cw save --generate`, `cw delete`, `cw inject`, `cw env import`, `cw setup`, `cw policy enroll`, `cw policy set`, `cw policy unenroll`, `cw policy sessions --revoke`, `cw harden`, `cw unharden`, `cw agent start|stop`, `cw doctor --fix-path`, `cw shortcut install|remove`, `cw update`, `cw uninstall`.
 - The CmdWarden hook stops the commands that turn protection off, such as `cw policy set` and `cw unharden`. The user runs those in their own terminal.
 - Never run `cw policy set <key> <tool> Full`.
+- Never run `cw read`. It shows a secret value to you, and the CmdWarden hook stops it. Use `cw inject` or `cw://NAME`, so the value never reaches you.
 - Never enroll yourself with `--kind terminal`. A harness is `--kind ai-harness`.
 
 ## Do not touch the plumbing

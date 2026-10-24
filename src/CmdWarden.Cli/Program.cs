@@ -53,6 +53,7 @@ public static partial class CliApp
             "whoami" or "identity" => await WhoAmIAsync().ConfigureAwait(false),
             "save" => await SaveAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "inject" => await InjectAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
+            "read" => await ReadAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "delete" => await DeleteAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "policy" => await PolicyAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "harden" => await HardenAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
@@ -970,12 +971,21 @@ public static partial class CliApp
             Console.Error.WriteLine(ex.Message);
             return 1;
         }
-        catch (Exception ex) when (AgentHealthClient.IsAgentUnreachable(ex))
+        catch (Exception ex)
+        {
+            return ReleaseFailed(ex, "inject");
+        }
+    }
+
+    /// <summary>The message and exit code when the agent does not release a secret.</summary>
+    private static int ReleaseFailed(Exception ex, string command)
+    {
+        if (AgentHealthClient.IsAgentUnreachable(ex))
         {
             Console.Error.WriteLine("Session Agent is not reachable. Start it with: cw agent start");
             return 2;
         }
-        catch (Exception ex) when (AgentVaultClient.IsPermissionDenied(ex))
+        if (AgentVaultClient.IsPermissionDenied(ex))
         {
             Console.Error.WriteLine(((Grpc.Core.RpcException)ex).Status.Detail);
             if (ex.Message.Contains(PolicyReasonCodes.UserDenied, StringComparison.Ordinal))
@@ -994,22 +1004,55 @@ public static partial class CliApp
 
             return 3;
         }
-        catch (Exception ex) when (AgentVaultClient.IsReleaseBlocked(ex))
+        if (AgentVaultClient.IsReleaseBlocked(ex))
         {
             Console.Error.WriteLine(
                 $"Release blocked: audit log not writable ({ProductPaths.AuditDir()}). " +
                 "Fix the audit directory and retry.");
             return 1;
         }
-        catch (Exception ex) when (AgentVaultClient.IsNotFound(ex))
+        if (AgentVaultClient.IsNotFound(ex))
         {
             Console.Error.WriteLine(((Grpc.Core.RpcException)ex).Status.Detail);
             return 1;
         }
+        Console.Error.WriteLine($"{command} failed: {ex.Message}");
+        return 1;
+    }
+
+    /// <summary>
+    /// #97: show one vault value, like op read. The class is secret-reveal, so a session grant never
+    /// covers it, and the card asks for Windows Hello by default.
+    /// </summary>
+    private static async Task<int> ReadAsync(string[] args)
+    {
+        var noNewline = args.Contains("--no-newline");
+        args = args.Where(a => a != "--no-newline").ToArray();
+        if (args.Length != 1 || IsHelp(args[0]) || args[0].StartsWith('-'))
+        {
+            Console.WriteLine("Usage: cw read <NAME> [--no-newline]");
+            Console.WriteLine("  Shows the value of one vault entry, after the Approval Gate card and Windows Hello.");
+            return args.Length == 1 && IsHelp(args[0]) ? 0 : 1;
+        }
+
+        var ensure = await EnsureAgentClientAsync().ConfigureAwait(false);
+        if (ensure is int code)
+            return code;
+
+        try
+        {
+            var response = await AgentVaultClient.ReleaseAsync(
+                args[0], purpose: "showing the value in the terminal", commandClass: CommandClassNames.SecretReveal,
+                commandLine: $"cw read {args[0]}", timeout: ApprovalGateTimeouts.Client).ConfigureAwait(false);
+            using var stdout = Console.OpenStandardOutput();
+            stdout.Write(response.Value.Span);
+            if (!noNewline)
+                stdout.Write("\n"u8);
+            return 0;
+        }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"inject failed: {ex.Message}");
-            return 1;
+            return ReleaseFailed(ex, "read");
         }
     }
 
@@ -2152,6 +2195,8 @@ public static partial class CliApp
         Row("agent start|stop|status", "Session Agent lifecycle");
         Row("whoami", "Show hybrid launcher identity for this caller");
         Row("save <NAME>", "Store secret in Credential Manager via agent");
+        Row("save <NAME> --generate", "Store a random password that nobody sees [--length N] [--force]");
+        Row("read <NAME>", "Show one secret, after the card and Windows Hello");
         Row("inject +NAME -- cmd", "Run cmd with secret only in child env [--tool T] [--class read|write|secret-reveal|unknown]");
         Row("inject --env-file .env -- cmd", "Same, for each KEY=cw://NAME line of the file; one card for the set");
         Row("inject ... --no-masking", "Show secret values in the output (default: [CmdWarden: NAME])");

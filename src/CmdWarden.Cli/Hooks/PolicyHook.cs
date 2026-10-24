@@ -65,8 +65,18 @@ public static class PolicyHook
 
     public const string SelfProtectText = "This changes CmdWarden protection. Ask the user to run it in their own terminal.";
 
+    /// <summary>#97: cw commands that show a secret value. The agent would see it, so only the person runs them.</summary>
+    private static readonly string[] RevealCommands = ["read"];
+
+    public const string RevealText = "This shows a secret value to the agent. Use cw inject or cw://NAME, or ask the user to run it in their own terminal.";
+
     /// <summary>The cw commands in a command line that <see cref="WeakeningCommands"/> names.</summary>
-    public static IReadOnlyList<string> WeakeningCwCalls(string command)
+    public static IReadOnlyList<string> WeakeningCwCalls(string command) => CwCalls(command, WeakeningCommands);
+
+    /// <summary>The cw commands in a command line that <see cref="RevealCommands"/> names.</summary>
+    public static IReadOnlyList<string> RevealCwCalls(string command) => CwCalls(command, RevealCommands);
+
+    private static List<string> CwCalls(string command, string[] commands)
     {
         var found = new List<string>();
         foreach (var words in Segments(command))
@@ -75,7 +85,7 @@ public static class PolicyHook
             if (i >= words.Count || ProgramName(words[i]) is not ("cw" or "cmdwarden"))
                 continue;
             var args = string.Join(' ', words.Skip(i + 1).Select(w => w.ToLowerInvariant()));
-            if (WeakeningCommands.FirstOrDefault(c => args == c || args.StartsWith(c + " ", StringComparison.Ordinal)) is { } hit)
+            if (commands.FirstOrDefault(c => args == c || args.StartsWith(c + " ", StringComparison.Ordinal)) is { } hit)
                 found.Add("cw " + hit);
         }
         return found;
@@ -85,6 +95,7 @@ public static class PolicyHook
     {
         var denied = EnvFileDenials(EnvFileReads(command ?? ""), cwd);
         denied.AddRange(WeakeningCwCalls(command ?? "").Select(c => $"{c}: {SelfProtectText}"));
+        denied.AddRange(RevealCwCalls(command ?? "").Select(c => $"{c}: {RevealText}"));
         foreach (var call in FindToolCalls(command ?? ""))
         {
             var verdict = await check(call with { Cwd = cwd }).ConfigureAwait(false);

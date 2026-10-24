@@ -157,6 +157,8 @@ The password has 24 characters by default. Use `--length 12` to `--length 128` t
 
 `--generate` does not replace an entry that is in the vault, because the old password is then lost. Add `--force` to replace it, for example after you change the password on the site.
 
+To see the password, run `cw read SHOP_PASSWORD` in your own terminal. You get the card and Windows Hello first.
+
 ## What the proxy does
 
 | The request | The result |

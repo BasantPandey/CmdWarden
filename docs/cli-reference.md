@@ -36,6 +36,7 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw doctor --fix-path` | Put the shims dir first on the machine PATH (one UAC prompt) |
 | `cw save <NAME>` / `cw delete <NAME>` | Named vault secret |
 | `cw save <NAME> --generate [--length N] [--force]` | Save a random password (24 characters by default) and never show it. `--force` replaces an entry that exists ([UC17 step 7](use-cases/web-sign-in-through-proxy.md#step-7-make-a-new-account-optional)) |
+| `cw read <NAME> [--no-newline]` | Show one secret value. The class is `secret-reveal`: you get the card each time, and Windows Hello when it is set up. A session grant never covers it |
 | `cw inject +NAME -- <cmd>` | Run cmd with secret in child env only. The output shows `[CmdWarden: NAME]` in place of each value |
 | `cw inject --env-file <file> -- <cmd>` | Same, for each `KEY=cw://NAME` line of a dotenv file. One card covers the whole set. Plain lines pass through |
 | `cw inject ... --no-masking` | Show the secret values in the output |

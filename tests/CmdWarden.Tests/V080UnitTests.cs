@@ -156,6 +156,13 @@ public class V080UnitTests : IDisposable
     public void Finds_cw_commands_that_weaken_protection(string command, string expected) =>
         Assert.Equal(expected, string.Join(';', PolicyHook.WeakeningCwCalls(command)));
 
+    [Theory]
+    [InlineData("cw read GITHUB_TOKEN", "cw read")]
+    [InlineData("echo x && C:/tools/cw.exe read API_KEY --no-newline | clip", "cw read")]
+    [InlineData("cw readme; cw save X --generate", "")]
+    public void Finds_cw_commands_that_show_a_secret(string command, string expected) =>
+        Assert.Equal(expected, string.Join(';', PolicyHook.RevealCwCalls(command)));
+
     [Fact]
     public async Task Hook_denies_a_harness_that_turns_protection_off()
     {
@@ -163,6 +170,10 @@ public class V080UnitTests : IDisposable
         var input = new JsonObject { ["tool_name"] = "Bash", ["tool_input"] = new JsonObject { ["command"] = "cw policy set k gh Full" } };
         var reason = (string?)JsonNode.Parse((await PolicyHook.ClaudePreToolUseAsync(input, Allow))!)!["hookSpecificOutput"]!["permissionDecisionReason"];
         Assert.Contains(PolicyHook.SelfProtectText, reason);
+
+        input["tool_input"]!["command"] = "cw read GITHUB_TOKEN";
+        reason = (string?)JsonNode.Parse((await PolicyHook.ClaudePreToolUseAsync(input, Allow))!)!["hookSpecificOutput"]!["permissionDecisionReason"];
+        Assert.Contains(PolicyHook.RevealText, reason);
 
         var cursor = JsonNode.Parse(await PolicyHook.CursorBeforeShellAsync(JsonNode.Parse("""{"command":"cw unharden git"}""")!, Allow))!;
         Assert.Equal("deny", (string?)cursor["permission"]);
