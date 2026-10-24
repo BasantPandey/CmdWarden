@@ -22,7 +22,7 @@ No .NET SDK? Use the setup zip from the [latest release](https://github.com/Basa
 - **Gates each tool.** A PATH shim asks the Session Agent before `gh`, `git`, `az`, `docker`, `npm`, `aws`, `kubectl`, or `ssh` uses your login.
 - **Knows who asks.** Policy follows the real app behind the command: your terminal, Claude Code, Cursor, Codex, or an unknown script.
 - **Guards `.env` files.** `cw inject --env-file .env -- npm run dev` gives the values only to your program.
-- **Signs in for the agent.** The agent types `cw://NAME` in a sign-in form. You approve, and only the site gets the password or the 2FA code.
+- **Signs in for the agent.** The agent types `cw://NAME` in a sign-in form. You approve, and only the site gets the password or the 2FA code. `cw save NAME --generate` makes a new password that nobody sees.
 - **Fails closed.** No card means no secret. Every release of a secret writes an audit row first.
 
 See the card with no risk: `cw try`. Remove CmdWarden: `cw uninstall`.

@@ -770,21 +770,77 @@ public static partial class CliApp
         if (args.Length < 1 || IsHelp(args[0]))
         {
             Console.WriteLine("Usage: cw save <NAME> [--value <secret>]");
+            Console.WriteLine($"       cw save <NAME> --generate [--length <{PasswordGenerator.MinLength}-{PasswordGenerator.MaxLength}>] [--force]");
             Console.WriteLine("  Without --value, reads one line from stdin (not echoed to agent logs).");
+            Console.WriteLine($"  --generate saves a random password ({PasswordGenerator.DefaultLength} characters) and never shows it.");
+            Console.WriteLine("  --force lets --generate replace an entry that exists.");
             return args.Length > 0 && IsHelp(args[0]) ? 0 : 1;
+        }
+
+        var name = args[0];
+        string? value = null;
+        int? length = null;
+        bool generate = false, force = false;
+        for (var i = 1; i < args.Length; i++)
+        {
+            switch (args[i])
+            {
+                case "--value" or "-v" when i + 1 < args.Length:
+                    value = args[++i];
+                    break;
+                case "--generate":
+                    generate = true;
+                    break;
+                case "--length" when i + 1 < args.Length && int.TryParse(args[i + 1], out var n):
+                    length = n;
+                    i++;
+                    break;
+                case "--force":
+                    force = true;
+                    break;
+                default:
+                    Console.Error.WriteLine($"Unknown option for cw save: {args[i]}");
+                    return 1;
+            }
+        }
+        if (generate && value is not null)
+        {
+            Console.Error.WriteLine("Use --generate or --value, not both.");
+            return 1;
+        }
+        if (!generate && (length is not null || force))
+        {
+            Console.Error.WriteLine("--length and --force work only with --generate.");
+            return 1;
+        }
+        if (length is < PasswordGenerator.MinLength or > PasswordGenerator.MaxLength)
+        {
+            Console.Error.WriteLine($"--length must be {PasswordGenerator.MinLength} to {PasswordGenerator.MaxLength}.");
+            return 1;
         }
 
         var ensure = await EnsureAgentClientAsync().ConfigureAwait(false);
         if (ensure is int code)
             return code;
 
-        var name = args[0];
         byte[] valueBytes;
         try
         {
-            if (args.Length >= 3 && args[1] is "--value" or "-v")
+            if (generate)
             {
-                valueBytes = Encoding.UTF8.GetBytes(args[2]);
+                if (!force && (await AgentVaultClient.ListSecretNamesAsync().ConfigureAwait(false)).Contains(name, StringComparer.OrdinalIgnoreCase))
+                {
+                    Console.Error.WriteLine($"The vault has {name} already. A new password replaces it, and the old one is lost.");
+                    Console.Error.WriteLine("Use a new name, or add --force to replace it.");
+                    return 1;
+                }
+                var password = PasswordGenerator.New(length ?? PasswordGenerator.DefaultLength);
+                valueBytes = Encoding.UTF8.GetBytes(password);
+                Array.Clear(password);
+            }
+            else if (value is not null)
+            {
+                valueBytes = Encoding.UTF8.GetBytes(value);
             }
             else if (!Console.IsInputRedirected)
             {
@@ -815,6 +871,8 @@ public static partial class CliApp
             Ui.Title($"{ProductInfo.Name} save");
             Ui.Line($"  {Ui.Dim("secret:")} [bold]{Ui.E(name)}[/]");
             Ui.Kv("target", response.TargetName);
+            if (generate)
+                Ui.Line($"  {Ui.Dim("A random password of")} {length ?? PasswordGenerator.DefaultLength} {Ui.Dim("characters. CmdWarden does not show it.")}");
             Ui.Line($"  {Ui.Ok("Saved.")} {Ui.Dim("Release is gated by policy: cw policy enroll --kind terminal")}");
             return 0;
         }

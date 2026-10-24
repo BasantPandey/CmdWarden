@@ -39,7 +39,7 @@ Details, other install ways, and update: **[docs/install.md](docs/install.md)**.
 - **Knows who asks.** Policy follows the real app behind the command: your terminal, Claude Code, Cursor, Codex, or an unknown install script.
 - **Asks only when it matters.** Reads and low-risk writes of an enrolled harness run with no card. Secret reads, unknown commands, and risky writes ask. One **Allow for session** covers the task.
 - **Guards `.env` files.** `cw env import` moves the values into the vault. `cw inject --env-file .env -- npm run dev` gives them only to your program, and the output shows `[CmdWarden: NAME]`.
-- **Signs in for the agent.** The agent types `cw://NAME` in a sign-in form. You approve, and only the site gets the password or the 2FA code ([UC17](docs/use-cases/web-sign-in-through-proxy.md)).
+- **Signs in for the agent.** The agent types `cw://NAME` in a sign-in form. You approve, and only the site gets the password or the 2FA code. `cw save NAME --generate` makes a new password that nobody sees ([UC17](docs/use-cases/web-sign-in-through-proxy.md)).
 - **Works with your harness.** A policy hook, a leak guard, and an MCP server for Claude Code, Cursor, and Codex.
 - **Fails closed.** No desktop means no card, and no card means no secret. Every release writes an audit row first.
 
