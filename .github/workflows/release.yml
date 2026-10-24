@@ -310,6 +310,7 @@ jobs:
           gh release create $env:TAG @assets `
             --title "CmdWarden $v" `
             --notes-file $notesPath `
+            --generate-notes `
             --verify-tag
 
       - name: Submit to the winget catalog
