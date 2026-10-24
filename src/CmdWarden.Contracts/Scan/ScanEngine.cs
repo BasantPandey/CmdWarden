@@ -69,6 +69,7 @@ public sealed class ScanEngine
         yield return new DockerNotHardenedDetector();
         yield return new PackDetector();
         yield return new McpConfigSecretDetector();
+        yield return new VaultAgeDetector();
         yield return new SystemScanBannerDetector();
     }
 }

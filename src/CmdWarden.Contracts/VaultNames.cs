@@ -7,6 +7,9 @@ public static class VaultNames
 {
     public const string RootEnvVar = "CW_VAULT_ROOT";
 
+    /// <summary>The fake secret of <c>cw try</c>.</summary>
+    public const string TrySecret = "CW_TRY_TOKEN";
+
     /// <summary>
     /// Every CmdWarden entry: named secrets and the strong-mode tool stores. <c>CW_VAULT_ROOT</c>
     /// moves the whole tree, so a test run never reads or deletes a real vault entry.
