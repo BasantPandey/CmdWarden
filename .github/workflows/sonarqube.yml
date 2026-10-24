@@ -1,0 +1,55 @@
+# #97: send the code to SonarQube Cloud for analysis. Without the SONAR_TOKEN secret, the job skips the analysis.
+name: sonarqube
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: sonarqube-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: windows-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+    steps:
+      - name: No token
+        if: env.SONAR_TOKEN == ''
+        run: echo "::notice::SONAR_TOKEN is not set. The SonarQube analysis does not run."
+
+      - name: Checkout
+        if: env.SONAR_TOKEN != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        if: env.SONAR_TOKEN != ''
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install the scanner
+        if: env.SONAR_TOKEN != ''
+        run: dotnet tool install dotnet-sonarscanner --version 12.0.0 --tool-path ${{ runner.temp }}/scanner
+
+      - name: Begin the analysis
+        if: env.SONAR_TOKEN != ''
+        shell: pwsh
+        run: ${{ runner.temp }}/scanner/dotnet-sonarscanner begin /k:"BasantPandey_CmdWarden" /o:"basantpandey" /d:sonar.token="$env:SONAR_TOKEN"
+
+      - name: Build
+        if: env.SONAR_TOKEN != ''
+        run: dotnet build CmdWarden.sln -c Release
+
+      - name: End the analysis
+        if: env.SONAR_TOKEN != ''
+        shell: pwsh
+        run: ${{ runner.temp }}/scanner/dotnet-sonarscanner end /d:sonar.token="$env:SONAR_TOKEN"
