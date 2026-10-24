@@ -30,12 +30,19 @@ public static class HelperChainRule
 
     private static readonly HashSet<string> GitLayoutDirs = new(StringComparer.OrdinalIgnoreCase)
     {
-        "cmd", "bin", "mingw64", "mingw32", "usr",
+        "cmd", "bin", "mingw64", "mingw32", "ucrt64", "clang64", "clangarm64", "usr",
     };
 
     /// <summary>
+    /// #97: git runs each credential helper through <c>sh -c</c>. From Git for Windows 2.5x the
+    /// shells in <c>usr\bin</c> have no signature. A writer to the install folder can already plant a
+    /// DLL that the pinned git.exe loads, so the shell at its exact path adds no new way in.
+    /// </summary>
+    private static readonly string[] GitShells = [@"usr\bin\sh.exe", @"usr\bin\bash.exe", @"bin\sh.exe", @"bin\bash.exe"];
+
+    /// <summary>
     /// Git for Windows install root. Pins under <c>cmd\</c>, <c>bin\</c>, <c>mingw64\bin\</c>,
-    /// or <c>usr\bin\</c> all map to the same root. Any other pin path uses its own directory.
+    /// <c>ucrt64\bin\</c>, or <c>usr\bin\</c> all map to the same root. Any other pin path uses its own directory.
     /// </summary>
     public static string InstallRoot(string pinPath)
     {
@@ -47,11 +54,16 @@ public static class HelperChainRule
 
     /// <summary>
     /// A node the git signer walk may skip: Authenticode-valid, same signer as the pinned
-    /// git.exe, living under the pinned install root.
+    /// git.exe, living under the pinned install root. Or a shell of that install, at its exact path.
     /// </summary>
     public static bool IsSignerWalkNode(ProcessNode node, string installRoot, string thumbprint)
     {
-        if (node.PidReuseSuspected || node.Kind != LauncherKinds.Authenticode)
+        if (node.PidReuseSuspected)
+            return false;
+        if (!string.IsNullOrEmpty(installRoot) && node.Path is { } path
+            && GitShells.Any(s => string.Equals(path, Path.Combine(installRoot, s), StringComparison.OrdinalIgnoreCase)))
+            return true;
+        if (node.Kind != LauncherKinds.Authenticode)
             return false;
         if (string.IsNullOrEmpty(thumbprint)
             || !string.Equals(node.Thumbprint, thumbprint, StringComparison.OrdinalIgnoreCase))

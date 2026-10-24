@@ -171,13 +171,6 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var agentReason = AgentReason.Clean(request.AgentReason);
 
         ThrowIfAlarmed(launcher, resolved, tool, className, levelName, secretName, request.Purpose);
-        if (extraNames.Count > 0)
-        {
-            // Name a missing entry before the card asks about it. Names only; no value leaves the vault.
-            var stored = new HashSet<string>(_vault.ListNames(), StringComparer.OrdinalIgnoreCase);
-            if (extraNames.Prepend(request.Name).FirstOrDefault(n => !stored.Contains(n)) is { } missing)
-                throw new RpcException(new Status(StatusCode.NotFound, $"No vault entry named {missing}. Add it with: cw save {missing}"));
-        }
         IReadOnlyList<BoundFile> boundFiles;
         try
         {
@@ -195,6 +188,10 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             ?? FindCanary([request.CommandLine], []);
         if (canary is not null)
             throw CanaryAlarm(launcher, resolved, tool, className, levelName, canary.Name, request.Purpose);
+        // Name a missing entry before the card asks about it. Names only; no value leaves the vault.
+        var stored = new HashSet<string>(_vault.ListNames(), StringComparer.OrdinalIgnoreCase);
+        if (extraNames.Prepend(request.Name).FirstOrDefault(n => !stored.Contains(n)) is { } missing)
+            throw new RpcException(new Status(StatusCode.NotFound, $"No vault entry named {missing}. Add it with: cw save {missing}"));
         var hidden = HiddenWrapper(launcher);
         if (hidden is not null)
             decision = PolicyDecision.NeedsApproval;
@@ -898,8 +895,11 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     /// </summary>
     /// <param name="fields">#85: the sign-in fields that get the value, or null for the request line and headers.
     /// A field swap always shows the card: the person approves each sign-in, whatever the level.</param>
-    public bool AuthorizeProxyUse(int clientPid, IReadOnlyList<string> names, string method, string url, string? fields = null)
+    /// <param name="agentReason">#97: the <see cref="KeyProxy.ReasonHeader"/> of the request.</param>
+    public bool AuthorizeProxyUse(int clientPid, IReadOnlyList<string> names, string method, string url, string? fields = null,
+        string? agentReason = null)
     {
+        agentReason = AgentReason.Clean(agentReason);
         const string tool = KeyProxy.Tool;
         const string purpose = "proxy";
         ApplyPolicyChanges(_policy.Load());
@@ -940,6 +940,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                     workingDirectory: null) with
                     {
                         HiddenCommand = hidden,
+                        AgentReason = agentReason,
                         Impact = fields is null
                             ? $"Sends {secretName} to {host}. The app sees only the placeholder."
                             : $"Fills {secretName} in the field {fields} and sends it to {host}. The app sees only the placeholder.",
@@ -949,7 +950,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 grantLength = gate.GrantLength;
                 decisionReason = gate.Reason;
             }
-            AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName, launcher, resolved, secretName, purpose, grantLength: grantLength));
+            AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName, launcher, resolved, secretName, purpose, agentReason, grantLength));
             return true;
         }
         catch (RpcException)

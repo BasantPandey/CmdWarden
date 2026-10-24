@@ -16,7 +16,13 @@ CLI: `cw` (alias `cmdwarden`). Desktop app: CmdWarden Vault. You are an **AI har
 
 - Call `gh`, `git`, `az`, and `docker` by name on PATH.
 - Do not call the real binary by absolute path.
-- Do not set `PATH`, `GH_PATH`, or any `CW_*` variable to get around the shim.
+- Do not set `PATH`, `GH_PATH`, or any `CW_*` variable to get around the shim. `CW_REASON` is the one exception.
+
+## Say why
+
+- Set `CW_REASON` for a gated command, for example `CW_REASON="create the release PR" gh pr create`.
+- For a request with `cw://NAME` through the proxy, send the same text in the `X-CmdWarden-Reason` header.
+- Write the true reason. The user sees it on the card.
 
 ## Never reveal a secret
 
@@ -60,9 +66,10 @@ Note: `cw doctor` starts the agent when it is down.
 
 ## cw commands that need the user's explicit ask
 
-`cw save`, `cw delete`, `cw inject`, `cw env import`, `cw setup`, `cw policy enroll`, `cw policy set`, `cw policy unenroll`, `cw policy sessions --revoke`, `cw harden`, `cw unharden`, `cw agent start|stop`, `cw doctor --fix-path`, `cw shortcut install|remove`, `cw update`, `cw uninstall`.
+`cw save`, `cw save --generate`, `cw delete`, `cw inject`, `cw env import`, `cw setup`, `cw policy enroll`, `cw policy set`, `cw policy unenroll`, `cw policy sessions --revoke`, `cw harden`, `cw unharden`, `cw agent start|stop`, `cw doctor --fix-path`, `cw shortcut install|remove`, `cw update`, `cw uninstall`.
 - The CmdWarden hook stops the commands that turn protection off, such as `cw policy set` and `cw unharden`. The user runs those in their own terminal.
 - Never run `cw policy set <key> <tool> Full`.
+- Never run `cw read`. It shows a secret value to you, and the CmdWarden hook stops it. Use `cw inject` or `cw://NAME`, so the value never reaches you.
 - Never enroll yourself with `--kind terminal`. A harness is `--kind ai-harness`.
 
 ## Do not touch the plumbing

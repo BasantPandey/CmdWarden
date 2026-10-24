@@ -14,7 +14,7 @@ using Spectre.Console;
 public static partial class CliApp
 {
     public const string TryTool = "try";
-    public const string TrySecret = "CW_TRY_TOKEN";
+    public const string TrySecret = VaultNames.TrySecret;
     public const string TryAgentEnvVar = "CW_TRY_AGENT_PATH";
 
     private static readonly string[] SetupSteps = ["terminal", "tools", "harnesses", "shortcuts", "canary", "protect", "try"];

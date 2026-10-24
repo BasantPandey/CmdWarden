@@ -29,6 +29,26 @@ public class CredentialVaultTests
     }
 
     [Fact]
+    public void A_listed_entry_has_the_time_of_its_last_write()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var name = "cw_age_" + Guid.NewGuid().ToString("N")[..12];
+        var vault = new CredentialVault();
+        try
+        {
+            vault.Save(name, "v"u8.ToArray());
+            var entry = Assert.Single(vault.ListTargets(VaultNames.TargetName(name)));
+            Assert.InRange(entry.LastWritten, DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddMinutes(5));
+        }
+        finally
+        {
+            vault.Delete(name);
+        }
+    }
+
+    [Fact]
     public void Parallel_save_and_delete_leave_nothing_behind()
     {
         if (!OperatingSystem.IsWindows())

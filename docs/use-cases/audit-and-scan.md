@@ -19,7 +19,7 @@ cw audit -n 20
 
 ![cw audit output: auto-allow and allow-once rows with launcher, tool, class, level, and secret name](../images/cli-audit.svg)
 
-*Expect:* doctor = agent health; whoami = which launcher CmdWarden sees; scan = residual risks (e.g. ambient tokens, PATH issues) without printing secrets; audit = recent allow/deny decisions (including Approval Gate Deny / Approve Once).
+*Expect:* doctor = agent health; whoami = which launcher CmdWarden sees; scan = residual risks (e.g. ambient tokens, PATH issues, vault entries older than 90 days) without printing secrets; audit = recent allow/deny decisions (including Approval Gate Deny / Approve Once).
 
 ## Send gate decisions to the Windows Event Log
 

@@ -59,6 +59,8 @@ public static partial class KeyProxy
     public const string Tool = "proxy";
     public const int DefaultPort = 47831;
     public const string CaSubject = "CN=CmdWarden Proxy CA";
+    /// <summary>#97: the agent reason for the card, like CW_REASON for a shim. The host never gets it.</summary>
+    public const string ReasonHeader = "X-CmdWarden-Reason";
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 

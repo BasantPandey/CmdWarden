@@ -49,7 +49,29 @@ One Approval Gate card covers every `cw://` name in the file. Your program gets 
 
 The output of the program shows `[CmdWarden: STRIPE_SECRET_KEY]` in place of a value. So an `echo` or a log line never hands the value to the agent. Need the raw output for one run? Add `--no-masking`.
 
-## 3. What the agent sees
+## 3. Fill a config file for one run
+
+Some programs read a config file, not the environment. Put `cw://NAME` in the file, in place of each value:
+
+```yaml
+# app.yml
+db:
+  password: cw://DB_PASSWORD
+```
+
+Then run the program with `--template`. The program gets the path of the filled copy in place of `{template}`, and in the `CW_TEMPLATE` variable:
+
+```powershell
+cw inject --template app.yml -- myapp --config {template}
+```
+
+*Expect:* one card with the text "inject needs DB_PASSWORD for the template app.yml". On approve, CmdWarden makes a filled copy in a new folder that only your user can open. The program reads the copy. When the program ends, the copy and its folder are deleted. Your `app.yml` keeps the `cw://` names.
+
+- The value goes into the file as it is. CmdWarden does not read the file format, so a value with a quote can break a JSON or YAML file.
+- The copy is plain text while the program runs. Another program of your user can read it in that time.
+- A change to `app.yml` after you approve stops the run.
+
+## 4. What the agent sees
 
 - `cat .env` shows only `cw://` names.
 - A read of a `.env` file that still holds plain values is stopped by the CmdWarden hook, with a message that tells the agent to use `cw inject --env-file`. The hook covers Claude Code, Cursor, and Codex.

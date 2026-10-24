@@ -53,6 +53,7 @@ public static partial class CliApp
             "whoami" or "identity" => await WhoAmIAsync().ConfigureAwait(false),
             "save" => await SaveAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "inject" => await InjectAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
+            "read" => await ReadAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "delete" => await DeleteAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "policy" => await PolicyAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "harden" => await HardenAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
@@ -770,21 +771,77 @@ public static partial class CliApp
         if (args.Length < 1 || IsHelp(args[0]))
         {
             Console.WriteLine("Usage: cw save <NAME> [--value <secret>]");
+            Console.WriteLine($"       cw save <NAME> --generate [--length <{PasswordGenerator.MinLength}-{PasswordGenerator.MaxLength}>] [--force]");
             Console.WriteLine("  Without --value, reads one line from stdin (not echoed to agent logs).");
+            Console.WriteLine($"  --generate saves a random password ({PasswordGenerator.DefaultLength} characters) and never shows it.");
+            Console.WriteLine("  --force lets --generate replace an entry that exists.");
             return args.Length > 0 && IsHelp(args[0]) ? 0 : 1;
+        }
+
+        var name = args[0];
+        string? value = null;
+        int? length = null;
+        bool generate = false, force = false;
+        for (var i = 1; i < args.Length; i++)
+        {
+            switch (args[i])
+            {
+                case "--value" or "-v" when i + 1 < args.Length:
+                    value = args[++i];
+                    break;
+                case "--generate":
+                    generate = true;
+                    break;
+                case "--length" when i + 1 < args.Length && int.TryParse(args[i + 1], out var n):
+                    length = n;
+                    i++;
+                    break;
+                case "--force":
+                    force = true;
+                    break;
+                default:
+                    Console.Error.WriteLine($"Unknown option for cw save: {args[i]}");
+                    return 1;
+            }
+        }
+        if (generate && value is not null)
+        {
+            Console.Error.WriteLine("Use --generate or --value, not both.");
+            return 1;
+        }
+        if (!generate && (length is not null || force))
+        {
+            Console.Error.WriteLine("--length and --force work only with --generate.");
+            return 1;
+        }
+        if (length is < PasswordGenerator.MinLength or > PasswordGenerator.MaxLength)
+        {
+            Console.Error.WriteLine($"--length must be {PasswordGenerator.MinLength} to {PasswordGenerator.MaxLength}.");
+            return 1;
         }
 
         var ensure = await EnsureAgentClientAsync().ConfigureAwait(false);
         if (ensure is int code)
             return code;
 
-        var name = args[0];
         byte[] valueBytes;
         try
         {
-            if (args.Length >= 3 && args[1] is "--value" or "-v")
+            if (generate)
             {
-                valueBytes = Encoding.UTF8.GetBytes(args[2]);
+                if (!force && (await AgentVaultClient.ListSecretNamesAsync().ConfigureAwait(false)).Contains(name, StringComparer.OrdinalIgnoreCase))
+                {
+                    Console.Error.WriteLine($"The vault has {name} already. A new password replaces it, and the old one is lost.");
+                    Console.Error.WriteLine("Use a new name, or add --force to replace it.");
+                    return 1;
+                }
+                var password = PasswordGenerator.New(length ?? PasswordGenerator.DefaultLength);
+                valueBytes = Encoding.UTF8.GetBytes(password);
+                Array.Clear(password);
+            }
+            else if (value is not null)
+            {
+                valueBytes = Encoding.UTF8.GetBytes(value);
             }
             else if (!Console.IsInputRedirected)
             {
@@ -815,6 +872,8 @@ public static partial class CliApp
             Ui.Title($"{ProductInfo.Name} save");
             Ui.Line($"  {Ui.Dim("secret:")} [bold]{Ui.E(name)}[/]");
             Ui.Kv("target", response.TargetName);
+            if (generate)
+                Ui.Line($"  {Ui.Dim("A random password of")} {length ?? PasswordGenerator.DefaultLength} {Ui.Dim("characters. CmdWarden does not show it.")}");
             Ui.Line($"  {Ui.Ok("Saved.")} {Ui.Dim("Release is gated by policy: cw policy enroll --kind terminal")}");
             return 0;
         }
@@ -839,7 +898,7 @@ public static partial class CliApp
                 return code;
 
             var (options, remainder) = ParseInjectOptions(args);
-            var (names, fileName, arguments) = InjectRunner.ParseInjectArgs(remainder, requireName: options.EnvFile is null);
+            var (names, fileName, arguments) = InjectRunner.ParseInjectArgs(remainder, requireName: options.EnvFile is null && options.Template is null);
             var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             // #67: KEY=cw://NAME lines map a vault entry to any env name; plain lines pass through.
             var envRefs = new List<(string Key, string Vault)>();
@@ -853,20 +912,29 @@ public static partial class CliApp
                         env[line.Key!] = line.Value!;
                 }
             }
+            // The template is read after the lock below, so the text that gets the values is the text that the card binds.
             var vaultNames = names.Concat(envRefs.Select(r => r.Vault)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-            if (vaultNames.Count == 0)
+            if (vaultNames.Count == 0 && options.Template is null)
                 throw new ArgumentException($"No vault names: pass +NAME, or put KEY={DotEnvFile.RefPrefix}NAME lines in {options.EnvFile}.");
             // Same display join as the shim argv card line (#200).
             var commandLine = string.Join(' ', arguments.Prepend(fileName));
             // #30: the approval binds the program and its script. They stay locked until the child exits.
             var program = InjectRunner.ResolveProgram(fileName);
             var bound = BoundFiles.Find(program, arguments, Environment.CurrentDirectory);
+            // #97: the card names the template, and a change to it after the approval stops the run.
+            if (options.Template is { } templatePath)
+                bound = [.. bound, Path.GetFullPath(templatePath)];
             using var locks = BoundFiles.Lock(bound);
+            var templateText = options.Template is { } template ? File.ReadAllText(template) : null;
+            if (templateText is not null)
+                vaultNames = vaultNames.Concat(TemplateFile.Names(templateText)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (vaultNames.Count == 0)
+                throw new ArgumentException($"No vault names: put {DotEnvFile.RefPrefix}NAME in {options.Template}.");
 
             // #67: one request, so one card covers the whole set.
             var released = await AgentVaultClient.ReleaseAsync(
                     vaultNames[0],
-                    purpose: "inject",
+                    purpose: options.Template is null ? "inject" : $"the template {Path.GetFileName(options.Template)}",
                     tool: options.Tool,
                     commandClass: options.CommandClass,
                     commandLine: commandLine,
@@ -899,8 +967,12 @@ public static partial class CliApp
                 return 3;
             }
 
+            // #97: the filled template lives only while the child runs.
+            using var filled = templateText is null ? null : TemplateFile.Write(options.Template!, templateText, values);
+            if (filled is not null)
+                env[TemplateFile.EnvVar] = filled.Path;
             // Parent process environment is not modified - only the child ProcessStartInfo.Environment.
-            var exit = InjectRunner.Run(program, arguments, env, options.NoMasking ? null : values);
+            var exit = InjectRunner.Run(program, filled?.Arguments(arguments) ?? arguments, env, options.NoMasking ? null : values);
             // Clear local copies
             foreach (var key in env.Keys.ToList())
                 env[key] = string.Empty;
@@ -912,12 +984,21 @@ public static partial class CliApp
             Console.Error.WriteLine(ex.Message);
             return 1;
         }
-        catch (Exception ex) when (AgentHealthClient.IsAgentUnreachable(ex))
+        catch (Exception ex)
+        {
+            return ReleaseFailed(ex, "inject");
+        }
+    }
+
+    /// <summary>The message and exit code when the agent does not release a secret.</summary>
+    private static int ReleaseFailed(Exception ex, string command)
+    {
+        if (AgentHealthClient.IsAgentUnreachable(ex))
         {
             Console.Error.WriteLine("Session Agent is not reachable. Start it with: cw agent start");
             return 2;
         }
-        catch (Exception ex) when (AgentVaultClient.IsPermissionDenied(ex))
+        if (AgentVaultClient.IsPermissionDenied(ex))
         {
             Console.Error.WriteLine(((Grpc.Core.RpcException)ex).Status.Detail);
             if (ex.Message.Contains(PolicyReasonCodes.UserDenied, StringComparison.Ordinal))
@@ -936,22 +1017,55 @@ public static partial class CliApp
 
             return 3;
         }
-        catch (Exception ex) when (AgentVaultClient.IsReleaseBlocked(ex))
+        if (AgentVaultClient.IsReleaseBlocked(ex))
         {
             Console.Error.WriteLine(
                 $"Release blocked: audit log not writable ({ProductPaths.AuditDir()}). " +
                 "Fix the audit directory and retry.");
             return 1;
         }
-        catch (Exception ex) when (AgentVaultClient.IsNotFound(ex))
+        if (AgentVaultClient.IsNotFound(ex))
         {
             Console.Error.WriteLine(((Grpc.Core.RpcException)ex).Status.Detail);
             return 1;
         }
+        Console.Error.WriteLine($"{command} failed: {ex.Message}");
+        return 1;
+    }
+
+    /// <summary>
+    /// #97: show one vault value, like op read. The class is secret-reveal, so a session grant never
+    /// covers it, and the card asks for Windows Hello by default.
+    /// </summary>
+    private static async Task<int> ReadAsync(string[] args)
+    {
+        var noNewline = args.Contains("--no-newline");
+        args = args.Where(a => a != "--no-newline").ToArray();
+        if (args.Length != 1 || IsHelp(args[0]) || args[0].StartsWith('-'))
+        {
+            Console.WriteLine("Usage: cw read <NAME> [--no-newline]");
+            Console.WriteLine("  Shows the value of one vault entry, after the Approval Gate card and Windows Hello.");
+            return args.Length == 1 && IsHelp(args[0]) ? 0 : 1;
+        }
+
+        var ensure = await EnsureAgentClientAsync().ConfigureAwait(false);
+        if (ensure is int code)
+            return code;
+
+        try
+        {
+            var response = await AgentVaultClient.ReleaseAsync(
+                args[0], purpose: "showing the value in the terminal", commandClass: CommandClassNames.SecretReveal,
+                commandLine: $"cw read {args[0]}", timeout: ApprovalGateTimeouts.Client).ConfigureAwait(false);
+            using var stdout = Console.OpenStandardOutput();
+            stdout.Write(response.Value.Span);
+            if (!noNewline)
+                stdout.Write("\n"u8);
+            return 0;
+        }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"inject failed: {ex.Message}");
-            return 1;
+            return ReleaseFailed(ex, "read");
         }
     }
 
@@ -961,6 +1075,7 @@ public static partial class CliApp
         var tool = "inject";
         var commandClass = CommandClassNames.Write;
         string? envFile = null;
+        string? template = null;
         var noMasking = false;
         var remainder = new List<string>();
         for (var i = 0; i < args.Length; i++)
@@ -1002,6 +1117,16 @@ public static partial class CliApp
                 continue;
             }
 
+            if (a == "--template")
+            {
+                if (i + 1 >= args.Length)
+                    throw new ArgumentException("--template requires a file path.");
+                template = args[++i];
+                if (!File.Exists(template))
+                    throw new ArgumentException($"Template file not found: {template}");
+                continue;
+            }
+
             if (a == "--no-masking")
             {
                 noMasking = true;
@@ -1011,10 +1136,10 @@ public static partial class CliApp
             remainder.Add(a);
         }
 
-        return (new InjectOptions(tool, commandClass, envFile, noMasking), remainder.ToArray());
+        return (new InjectOptions(tool, commandClass, envFile, template, noMasking), remainder.ToArray());
     }
 
-    private sealed record InjectOptions(string Tool, string CommandClass, string? EnvFile, bool NoMasking);
+    private sealed record InjectOptions(string Tool, string CommandClass, string? EnvFile, string? Template, bool NoMasking);
 
     private static async Task<int> PolicyAsync(string[] args)
     {
@@ -2094,8 +2219,11 @@ public static partial class CliApp
         Row("agent start|stop|status", "Session Agent lifecycle");
         Row("whoami", "Show hybrid launcher identity for this caller");
         Row("save <NAME>", "Store secret in Credential Manager via agent");
+        Row("save <NAME> --generate", "Store a random password that nobody sees [--length N] [--force]");
+        Row("read <NAME>", "Show one secret, after the card and Windows Hello");
         Row("inject +NAME -- cmd", "Run cmd with secret only in child env [--tool T] [--class read|write|secret-reveal|unknown]");
         Row("inject --env-file .env -- cmd", "Same, for each KEY=cw://NAME line of the file; one card for the set");
+        Row("inject --template f -- cmd {template}", "Fill each cw://NAME in a copy of f; cmd gets its path; the copy goes away after the run");
         Row("inject ... --no-masking", "Show secret values in the output (default: [CmdWarden: NAME])");
         Row("delete <NAME>", "Remove secret from vault");
         Row("policy ...", "List/enroll/set tool x launcher policy levels");

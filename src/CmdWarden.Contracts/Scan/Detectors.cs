@@ -351,10 +351,49 @@ public sealed class SystemScanBannerDetector : IScanDetector
                 Severity: ScanSeverity.Info,
                 Title: "First-catalog scan scope",
                 Summary:
-                "Scan covers coded detectors for gh/git/az/docker residual risks, AI harness and MCP config files, plus light system notes. No FS watcher; no auto-harden.",
+                "Scan covers coded detectors for gh/git/az/docker residual risks, AI harness and MCP config files, vault entry age, plus light system notes. No FS watcher; no auto-harden.",
                 Evidence: "product root: " + context.ProductRoot,
                 Remediation: "Re-run cw scan after harden or env changes.",
                 HardenHint: null),
         };
+    }
+}
+
+/// <summary>
+/// #97: vault entries that did not change for 90 days, like the Watchtower of 1Password. A key
+/// that lives long gives a leak more time. Canaries, the cw try token, and TOTP keys are left out:
+/// a new value does not help for them.
+/// </summary>
+public sealed class VaultAgeDetector : IScanDetector
+{
+    public const int MaxAgeDays = 90;
+
+    public string Id => "vault.old_entry";
+
+    public IReadOnlyList<ScanFinding> Detect(ScanContext context)
+    {
+        var skip = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { VaultNames.TrySecret };
+        skip.UnionWith(new CanaryStore(context.ProductRoot).Load().Where(c => c.Kind == CanaryStore.VaultKind).Select(c => c.Location));
+        if (Proxy.KeyProxy.Load(context.ProductRoot) is { } proxy)
+            skip.UnionWith(proxy.Keys.Where(k => k.Value.Totp).Select(k => k.Key));
+        var old = context.VaultEntries()
+            .Select(e => (Name: VaultNames.SecretName(e.Target), Days: (int)(context.Now - e.LastWritten).TotalDays))
+            .Where(e => e.Days >= MaxAgeDays && !skip.Contains(e.Name))
+            .OrderByDescending(e => e.Days)
+            .ToList();
+        if (old.Count == 0)
+            return [];
+        return
+        [
+            new ScanFinding(
+                Id: Id,
+                Tool: "vault",
+                Severity: ScanSeverity.Low,
+                Title: old.Count == 1 ? "1 vault entry is older than 90 days" : $"{old.Count} vault entries are older than 90 days",
+                Summary: "These values did not change for 90 days or more. A key that lives long gives a leak more time.",
+                Evidence: string.Join(", ", old.Select(e => $"{e.Name} ({e.Days} days)")),
+                Remediation: "Make a new key at the provider, then run cw save NAME. For a password from cw save --generate, run it again with --force, then set the new password on the site.",
+                HardenHint: null),
+        ];
     }
 }

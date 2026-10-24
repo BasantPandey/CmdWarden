@@ -1,6 +1,4 @@
-using System.Diagnostics;
 using System.Text;
-using CmdWarden.Agent.Approval;
 using CmdWarden.Contracts;
 
 namespace CmdWarden.Tests;
@@ -17,11 +15,11 @@ internal sealed class ApprovalMemoryFixture : IAsyncDisposable
     public string SelectedPolicyKey { get; private set; } = "";
     private readonly string _approvalMode;
     private readonly IReadOnlyDictionary<string, string> _env;
-    private Process _agent;
+    private AgentProcess _agent;
 
     private ApprovalMemoryFixture(
         string pipeName, string productRoot, string policyPath, string approvalMode,
-        IReadOnlyDictionary<string, string> env, Process agent)
+        IReadOnlyDictionary<string, string> env, AgentProcess agent)
     {
         PipeName = pipeName;
         ProductRoot = productRoot;
@@ -70,56 +68,14 @@ internal sealed class ApprovalMemoryFixture : IAsyncDisposable
     /// memory does not (#133).</summary>
     public async Task RestartAsync()
     {
-        try { if (!_agent.HasExited) _agent.Kill(entireProcessTree: true); } catch { /* ignore */ }
-        await _agent.WaitForExitAsync();
-        _agent.Dispose();
+        await _agent.DisposeAsync();
         _agent = await StartAgentAsync(PipeName, ProductRoot, PolicyPath, _approvalMode, _env);
     }
 
-    private static async Task<Process> StartAgentAsync(
+    private static Task<AgentProcess> StartAgentAsync(
         string pipeName, string productRoot, string policyPath, string approvalMode,
-        IReadOnlyDictionary<string, string> env)
-    {
-        var psi = new ProcessStartInfo
-        {
-            FileName = "dotnet",
-            ArgumentList = { TestPaths.FindAgentDll() },
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-        };
-        psi.Environment["CW_PIPE_NAME"] = pipeName;
-        psi.Environment["CW_POLICY_PATH"] = policyPath;
-        psi.Environment[ProductPaths.EnvVar] = productRoot;
-        psi.Environment[ApprovalGateFactory.EnvVar] = approvalMode;
-        foreach (var (k, v) in env)
-            psi.Environment[k] = v;
-
-        var agent = Process.Start(psi) ?? throw new InvalidOperationException("Failed to start agent.");
-        var deadline = DateTime.UtcNow.AddSeconds(25);
-        while (true)
-        {
-            if (agent.HasExited)
-                throw new InvalidOperationException("Agent exited: " + await agent.StandardError.ReadToEndAsync());
-            try
-            {
-                _ = await AgentHealthClient.GetHealthAsync(pipeName, TimeSpan.FromMilliseconds(500));
-                break;
-            }
-            catch
-            {
-                if (DateTime.UtcNow > deadline)
-                {
-                    try { agent.Kill(entireProcessTree: true); } catch { /* ignore */ }
-                    throw new TimeoutException("Agent did not become healthy.");
-                }
-                await Task.Delay(150);
-            }
-        }
-
-        return agent;
-    }
+        IReadOnlyDictionary<string, string> env) =>
+        AgentProcess.StartAsync(TestPaths.FindAgentDll(), pipeName, policyPath, productRoot, approvalMode, env: env);
 
     public void SetLevel(string tool, PolicyLevel level)
     {
@@ -137,9 +93,7 @@ internal sealed class ApprovalMemoryFixture : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         try { await AgentVaultClient.DeleteAsync(SessionAgentServiceNames.GhToken, PipeName); } catch { /* ignore */ }
-        try { if (!_agent.HasExited) _agent.Kill(entireProcessTree: true); } catch { /* ignore */ }
-        await _agent.WaitForExitAsync();
-        _agent.Dispose();
+        await _agent.DisposeAsync();
         try { Directory.Delete(ProductRoot, recursive: true); } catch { /* ignore */ }
     }
 }

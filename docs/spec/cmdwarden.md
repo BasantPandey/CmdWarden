@@ -281,6 +281,8 @@ Issue: [v1 cw CLI command surface](https://github.com/BasantPandey/CmdWarden/iss
 - **MCP and harness config ([#28](https://github.com/BasantPandey/CmdWarden/issues/28)):** `mcp.plain_secret` reads `~/.claude.json` (top level and per project), `~/.claude/settings.json`, `~/.cursor/mcp.json`, Claude Desktop `claude_desktop_config.json`, VS Code `mcp.json`, and in the working folder `.mcp.json`, `.claude/settings*.json`, `.cursor/mcp.json`, `.vscode/mcp.json`. A finding is an `env` or `headers` value with a known token prefix (`ghp_`, `github_pat_`, `sk-`, `xoxb-`, `AKIA`, and others), a `Bearer` or `token` header, or a secret-like key name (`TOKEN`, `SECRET`, `API_KEY`, ...). Placeholders (`${VAR}`, `<...>`, `[CmdWarden: ...]`) do not count. Evidence names the file and the key, never the value.
 - **Move to vault:** for an `env` value of a server that starts a command, `ScanFinding.Fix` carries the location. `cw scan --move-to-vault` and the **Move to vault** button on the Detectors page save the value as vault secret `<KEY>` (a different existing value stops the move before any change), set the file value to `[CmdWarden: <KEY>]`, and wrap the server as `cw inject --tool mcp --class read +<KEY> -- <command> <args>`. The server gets the value at start from the vault; `cw policy set <key> mcp <level>` controls it. Headers and remote servers get the finding without an automatic fix. `cw scan --move-to-vault` stops when Claude Code runs, because Claude Code rewrites `~/.claude.json`.
 
+- **Vault age ([#97](https://github.com/BasantPandey/CmdWarden/issues/97)):** `vault.old_entry` names each vault secret whose value did not change for 90 days or more, with its age in days. It reads the last write time from Credential Manager, never the value. Canary entries, the `cw try` token, and TOTP keys of the proxy do not count.
+
 Issue: [scan engine shape](https://github.com/BasantPandey/CmdWarden/issues/19).
 
 ---
@@ -362,6 +364,8 @@ Research: docker-windows-harden.md. Issue: [#25](https://github.com/BasantPandey
 ---
 
 ## 15. Threat notes (summary)
+
+The [Threat model](../threat-model.md) page has the full list, with the status and the test of each attack.
 
 | Threat | Mitigation |
 |--------|------------|

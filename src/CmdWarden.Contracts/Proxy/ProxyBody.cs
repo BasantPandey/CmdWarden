@@ -108,7 +108,8 @@ public static partial class ProxyBody
                     property = null;
                 }
             }
-            catch (JsonException)
+            // GetString throws InvalidOperationException for a string that is not UTF-8 (#97).
+            catch (Exception ex) when (ex is JsonException or InvalidOperationException)
             {
                 hits.Clear();
                 AddLoose(hits, Encoding.UTF8.GetString(body));

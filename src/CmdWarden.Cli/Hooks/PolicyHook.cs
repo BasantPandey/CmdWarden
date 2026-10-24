@@ -65,17 +65,27 @@ public static class PolicyHook
 
     public const string SelfProtectText = "This changes CmdWarden protection. Ask the user to run it in their own terminal.";
 
+    /// <summary>#97: cw commands that show a secret value. The agent would see it, so only the person runs them.</summary>
+    private static readonly string[] RevealCommands = ["read"];
+
+    public const string RevealText = "This shows a secret value to the agent. Use cw inject or cw://NAME, or ask the user to run it in their own terminal.";
+
     /// <summary>The cw commands in a command line that <see cref="WeakeningCommands"/> names.</summary>
-    public static IReadOnlyList<string> WeakeningCwCalls(string command)
+    public static IReadOnlyList<string> WeakeningCwCalls(string command) => CwCalls(command, WeakeningCommands);
+
+    /// <summary>The cw commands in a command line that <see cref="RevealCommands"/> names.</summary>
+    public static IReadOnlyList<string> RevealCwCalls(string command) => CwCalls(command, RevealCommands);
+
+    private static List<string> CwCalls(string command, string[] commands)
     {
         var found = new List<string>();
-        foreach (var words in Segments(command))
+        foreach (var words in Commands(command))
         {
             var i = ProgramIndex(words);
             if (i >= words.Count || ProgramName(words[i]) is not ("cw" or "cmdwarden"))
                 continue;
             var args = string.Join(' ', words.Skip(i + 1).Select(w => w.ToLowerInvariant()));
-            if (WeakeningCommands.FirstOrDefault(c => args == c || args.StartsWith(c + " ", StringComparison.Ordinal)) is { } hit)
+            if (commands.FirstOrDefault(c => args == c || args.StartsWith(c + " ", StringComparison.Ordinal)) is { } hit)
                 found.Add("cw " + hit);
         }
         return found;
@@ -85,6 +95,7 @@ public static class PolicyHook
     {
         var denied = EnvFileDenials(EnvFileReads(command ?? ""), cwd);
         denied.AddRange(WeakeningCwCalls(command ?? "").Select(c => $"{c}: {SelfProtectText}"));
+        denied.AddRange(RevealCwCalls(command ?? "").Select(c => $"{c}: {RevealText}"));
         foreach (var call in FindToolCalls(command ?? ""))
         {
             var verdict = await check(call with { Cwd = cwd }).ConfigureAwait(false);
@@ -105,7 +116,7 @@ public static class PolicyHook
     {
         var calls = new List<ToolCall>();
         var known = ToolCatalog.All();
-        foreach (var words in Segments(command))
+        foreach (var words in Commands(command))
         {
             var i = ProgramIndex(words);
             if (i >= words.Count)
@@ -143,7 +154,7 @@ public static class PolicyHook
     public static IReadOnlyList<string> EnvFileReads(string command)
     {
         var files = new List<string>();
-        foreach (var words in Segments(command))
+        foreach (var words in Commands(command))
         {
             var i = ProgramIndex(words);
             if (i < words.Count && FileReaders.Contains(ProgramName(words[i])))
@@ -195,6 +206,95 @@ public static class PolicyHook
     {
         var eq = word.IndexOf('=');
         return eq > 0 && word[..eq].All(c => char.IsAsciiLetterOrDigit(c) || c == '_') && !char.IsAsciiDigit(word[0]);
+    }
+
+    /// <summary>
+    /// #97: the words of each command, and of each command that a wrapper runs: <c>cmd /c</c>,
+    /// <c>powershell -Command</c> or <c>-EncodedCommand</c>, <c>bash -c</c>, <c>Start-Process</c>, and
+    /// <c>dotnet cw.dll</c>, which becomes <c>cw</c>.
+    /// Each level is shorter text, so the depth limit only stops a pathological input.
+    /// ponytail: a renamed copy of cw, a script file, or eval stays unseen.
+    /// </summary>
+    public const int MaxWrapperDepth = 16;
+
+    private static List<List<string>> Commands(string command, int depth = 0)
+    {
+        var commands = new List<List<string>>();
+        foreach (var words in Segments(command))
+        {
+            commands.Add(words);
+            var i = ProgramIndex(words);
+            if (depth >= MaxWrapperDepth || i >= words.Count)
+                continue;
+            if (Unwrap(ProgramName(words[i]), words.Skip(i + 1).ToList()) is { } inner)
+                commands.AddRange(Commands(inner, depth + 1));
+        }
+        return commands;
+    }
+
+    /// <summary>The command line that the wrapper runs, or null when the program is no wrapper.</summary>
+    private static string? Unwrap(string program, List<string> args)
+    {
+        // One word is the command line itself, as in cmd /c "...". In more words, a word with a
+        // space had quotes; put them back, so the next split gives the same words.
+        static string Join(IEnumerable<string> words)
+        {
+            var list = words.ToList();
+            return list.Count == 1 ? list[0]
+                : string.Join(' ', list.Select(w => w.Any(char.IsWhiteSpace) ? "\"" + w.Replace("\"", "\\\"") + "\"" : w));
+        }
+        int Flag(Func<string, bool> match) => args.FindIndex(a => match(a.ToLowerInvariant()));
+        switch (program)
+        {
+            case "cmd":
+                var c = Flag(a => a is "/c" or "/k");
+                return c >= 0 ? Join(args.Skip(c + 1)) : null;
+            case "powershell" or "pwsh":
+                for (var k = 0; k < args.Count; k++)
+                {
+                    var a = args[k].ToLowerInvariant();
+                    if (a.Length > 1 && a[0] == '-' && (a == "-ec" || "-encodedcommand".StartsWith(a, StringComparison.Ordinal)))
+                    {
+                        try
+                        {
+                            return k + 1 < args.Count ? Encoding.Unicode.GetString(Convert.FromBase64String(args[k + 1])) : null;
+                        }
+                        catch (FormatException)
+                        {
+                            return null;
+                        }
+                    }
+                    if (a.Length > 1 && a[0] == '-' && "-command".StartsWith(a, StringComparison.Ordinal))
+                        return Join(args.Skip(k + 1));
+                    if (a is "-f" or "-file")
+                        return null;
+                    if (a is "-executionpolicy" or "-ep" or "-ex" or "-windowstyle" or "-w" or "-workingdirectory" or "-wd"
+                        or "-configurationname" or "-outputformat" or "-of" or "-inputformat" or "-if" or "-settingsfile")
+                        k++;
+                    else if (!a.StartsWith('-'))
+                        // Windows PowerShell runs its first plain argument as a command; pwsh runs it as a file.
+                        return program == "powershell" ? Join(args.Skip(k)) : null;
+                }
+                return null;
+            case "bash" or "sh" or "zsh" or "dash" or "ksh":
+                var dashC = Flag(a => a.Length > 1 && a[0] == '-' && a[1..].All(char.IsAsciiLetter) && a.Contains('c'));
+                return dashC >= 0 && dashC + 1 < args.Count ? args[dashC + 1] : null;
+            case "start-process" or "saps" or "start":
+                var file = Flag(a => a is "-filepath" or "-file" or "-path");
+                var argList = Flag(a => a is "-argumentlist" or "-args" or "-arguments");
+                var target = file >= 0 && file + 1 < args.Count ? args[file + 1]
+                    : args.FirstOrDefault(a => a.Length > 0 && a[0] is not '-' and not '/');
+                var rest = argList >= 0 && argList + 1 < args.Count ? args[argList + 1]
+                    : target is null ? "" : Join(args.SkipWhile(a => a != target).Skip(1).Where(a => !a.StartsWith('-')));
+                return target is null ? null : $"\"{target}\" {rest}";
+            case "dotnet":
+                var dll = args.FindIndex(a => !a.StartsWith('-') && a != "exec");
+                if (dll < 0 || Path.GetFileName(args[dll].Replace('\\', '/')).ToLowerInvariant() is not ("cw.dll" or "cmdwarden.dll"))
+                    return null;
+                return "cw " + Join(args.Skip(dll + 1));
+            default:
+                return null;
+        }
     }
 
     /// <summary>

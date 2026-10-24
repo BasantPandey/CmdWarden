@@ -44,6 +44,23 @@ public class AgentLifecycleTests
         Assert.Equal(AgentLifecycle.AccessDeniedDetail, st.Detail);
     }
 
+    /// <summary>#97: the client takes a pipe of this user, at either elevation, and no other pipe.</summary>
+    [Fact]
+    public void A_pipe_is_own_when_this_user_or_an_elevated_self_made_it()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+        using var me = System.Security.Principal.WindowsIdentity.GetCurrent();
+        var admins = new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.BuiltinAdministratorsSid, null);
+        var elevated = new System.Security.Principal.WindowsPrincipal(me).IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+
+        Assert.True(AgentChannelFactory.IsOwnPipe(me.User));
+        Assert.True(AgentChannelFactory.IsOwnPipe(me.Owner));
+        Assert.Equal(elevated || admins.Equals((System.Security.Principal.IdentityReference?)me.Owner), AgentChannelFactory.IsOwnPipe(admins));
+        Assert.False(AgentChannelFactory.IsOwnPipe(new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.LocalSystemSid, null)));
+        Assert.False(AgentChannelFactory.IsOwnPipe(null));
+    }
+
     [Fact]
     public async Task Start_status_stop_round_trip()
     {

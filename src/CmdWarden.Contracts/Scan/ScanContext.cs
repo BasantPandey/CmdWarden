@@ -11,8 +11,12 @@ public sealed class ScanContext
         Func<string, string?>? getEnv = null,
         string? userProfile = null,
         string? workingDirectory = null,
-        string? appData = null)
+        string? appData = null,
+        Func<IReadOnlyList<VaultTarget>>? vaultEntries = null,
+        DateTimeOffset? now = null)
     {
+        VaultEntries = vaultEntries ?? (static () => new CredentialVault().ListTargets(VaultNames.TargetPrefix));
+        Now = now ?? DateTimeOffset.UtcNow;
         ProductRoot = productRoot ?? ProductPaths.Root();
         PathEnv = pathEnv ?? Environment.GetEnvironmentVariable("PATH") ?? "";
         GetEnv = getEnv ?? (static name => Environment.GetEnvironmentVariable(name));
@@ -29,6 +33,11 @@ public sealed class ScanContext
 
     /// <summary>Roaming AppData: Claude Desktop and VS Code keep their MCP config here (#28).</summary>
     public string AppData { get; }
+
+    /// <summary>The named vault entries, with no values (#97).</summary>
+    public Func<IReadOnlyList<VaultTarget>> VaultEntries { get; }
+
+    public DateTimeOffset Now { get; }
 
     public string ProductRoot { get; }
     public string PathEnv { get; }

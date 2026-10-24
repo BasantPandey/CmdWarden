@@ -157,7 +157,8 @@ public sealed class CredentialVault
             {
                 var credPtr = Marshal.ReadIntPtr(credentialsPtr, i * IntPtr.Size);
                 var cred = Marshal.PtrToStructure<CREDENTIAL>(credPtr);
-                targets.Add(new VaultTarget(cred.TargetName, cred.UserName ?? ""));
+                targets.Add(new VaultTarget(cred.TargetName, cred.UserName ?? "",
+                    DateTimeOffset.FromFileTime(((long)cred.LastWritten.dwHighDateTime << 32) | (uint)cred.LastWritten.dwLowDateTime)));
             }
             return targets;
         }
@@ -360,7 +361,8 @@ public sealed class CredentialVault
 public sealed record VaultEntry(string UserName, byte[] Blob, string Comment = "");
 
 /// <summary>One listed credential: target and user name only.</summary>
-public sealed record VaultTarget(string Target, string UserName);
+/// <param name="LastWritten">#97: when the value last changed, for the vault age report of cw scan.</param>
+public sealed record VaultTarget(string Target, string UserName, DateTimeOffset LastWritten = default);
 
 /// <summary>One foreign credential read by label, e.g. a Docker Desktop registry entry.</summary>
 public sealed record LabeledEntry(string Target, string UserName, byte[] Blob);

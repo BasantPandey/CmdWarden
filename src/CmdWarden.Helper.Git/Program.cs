@@ -81,11 +81,8 @@ public static class GitCredentialHelperApp
             {
                 GitCredentialProtocol.WriteDeny(stdout);
                 stderr.WriteLine(GitCredentialProtocol.DenyStderr(serverUrl, PolicyReasonCodes.AgentDown));
-                stderr.WriteLine("DIAG pipe=" + Environment.GetEnvironmentVariable("CW_PIPE_NAME"));
-                stderr.WriteLine("DIAG owner=" + System.Security.Principal.WindowsIdentity.GetCurrent().Owner + " user=" + System.Security.Principal.WindowsIdentity.GetCurrent().User);
-                stderr.WriteLine("DIAG " + ex);
-                if (ex is RpcException rpc)
-                    stderr.WriteLine("DIAG debug=" + rpc.Status.DebugException);
+                if (AgentLifecycle.IsAccessDenied(ex))
+                    stderr.WriteLine(AgentLifecycle.AccessDeniedDetail);
             }
 
             return 0;

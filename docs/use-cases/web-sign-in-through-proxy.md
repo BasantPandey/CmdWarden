@@ -135,6 +135,30 @@ The proxy reads `digits`, `period`, and `algorithm` from an `otpauth://` link. W
 
 **If the code field takes only 6 characters:** many code fields have a length limit or accept only digits, so `cw://GITHUB_TOTP` does not fit. Use a short name, for example `cw save T` and `cw://T`, which has 6 characters. A field that accepts only digits still blocks the placeholder. Then the agent must set the field value with a script and send the form.
 
+## Step 7: Make a new account (optional)
+
+The agent can make an account on a site, and nobody sees the password. CmdWarden makes a random password in the vault.
+
+1. Find the sign-up path and its password fields, as in Step 2. Many sign-up forms have a second "confirm password" field.
+2. Make the password, and name the fields, in your own terminal:
+
+    ```powershell
+    cw save SHOP_PASSWORD --generate
+    cw proxy add SHOP_PASSWORD --host shop.example.com `
+      --body /signup --field password --body /signup --field password_confirm `
+      --body /login --field password
+    ```
+
+    *Expect:* `A random password of 24 characters. CmdWarden does not show it.`
+
+3. Tell the agent: "Type `cw://SHOP_PASSWORD` in each password field."
+
+The password has 24 characters by default. Use `--length 12` to `--length 128` to change it. The password has upper and lower case letters, digits, and symbols such as `!#%+-.:=?@_~`.
+
+`--generate` does not replace an entry that is in the vault, because the old password is then lost. Add `--force` to replace it, for example after you change the password on the site.
+
+To see the password, run `cw read SHOP_PASSWORD` in your own terminal. You get the card and Windows Hello first.
+
 ## What the proxy does
 
 | The request | The result |

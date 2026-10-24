@@ -187,6 +187,39 @@ public class ScanTests
     }
 
     [Fact]
+    public void Vault_age_names_old_entries_but_not_canaries_the_try_token_or_totp_keys()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "cw-scan-age-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var now = new DateTimeOffset(2026, 10, 24, 12, 0, 0, TimeSpan.Zero);
+            VaultTarget Entry(string name, int days) => new(VaultNames.TargetName(name), "", now.AddDays(-days));
+            var entries = new[]
+            {
+                Entry("OLD_KEY", 400), Entry("JUST_OLD", 90), Entry("NEW_KEY", 89),
+                Entry(VaultNames.TrySecret, 500), Entry("CANARY_KEY", 500), Entry("SITE_TOTP", 500),
+            };
+            new CanaryStore(root).Save([new CanaryEntry(CanaryStore.VaultKind, "CANARY_KEY", "", [])]);
+            var proxy = new CmdWarden.Contracts.Proxy.KeyProxyConfig();
+            proxy.Keys["SITE_TOTP"] = new() { Hosts = ["example.com"], Totp = true };
+            CmdWarden.Contracts.Proxy.KeyProxy.Save(proxy, root);
+            var context = new ScanContext(productRoot: root, getEnv: _ => null, vaultEntries: () => entries, now: now);
+
+            var finding = Assert.Single(new VaultAgeDetector().Detect(context));
+            Assert.Equal("2 vault entries are older than 90 days", finding.Title);
+            Assert.Equal("OLD_KEY (400 days), JUST_OLD (90 days)", finding.Evidence);
+            Assert.Equal(ScanSeverity.Low, finding.Severity);
+
+            Assert.Empty(new VaultAgeDetector().Detect(new ScanContext(productRoot: root, vaultEntries: () => [Entry("NEW_KEY", 3)], now: now)));
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
     public void ScanEngine_never_auto_hardens_or_creates_pins()
     {
         var root = Path.Combine(Path.GetTempPath(), "cw-scan-noharden-" + Guid.NewGuid().ToString("N"));

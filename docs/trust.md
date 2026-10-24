@@ -48,6 +48,13 @@ From v0.11.0, GitHub signs a build provenance record for each release file. Chec
 gh attestation verify CmdWarden.<version>-setup.zip --repo BasantPandey/CmdWarden
 ```
 
+From v0.12.0, each release also has two more files:
+
+| File | What it is |
+|------|------------|
+| `CmdWarden.<version>.intoto.jsonl` | The same provenance records in one file. Add `--bundle CmdWarden.<version>.intoto.jsonl` to check with no network. |
+| `CmdWarden.<version>.cdx.json` | The SBOM in CycloneDX format. It lists each package in the portable zip, with its version. |
+
 ## How the code is checked
 
 | Check | When |
@@ -56,8 +63,9 @@ gh attestation verify CmdWarden.<version>-setup.zip --repo BasantPandey/CmdWarde
 | CodeQL code scanning of the C# code and the workflows | Each PR, each push to `main`, and each week |
 | Dependency review: a new package with a known high-severity flaw fails the PR | Each PR |
 | A check for packages with a known flaw, direct or transitive | Each build |
-| Dependabot updates for NuGet packages and GitHub Actions | Each week |
+| Dependabot updates for NuGet packages, GitHub Actions, and the docs build packages | Each week |
 | [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/BasantPandey/CmdWarden) | Each push to `main`, and each week |
+| Fuzz tests of the parsers that read agent data: HTTP requests, sign-in bodies, `.env` files, hook commands, TOTP links, and the agent reason | Each PR, and a long run each week |
 | Each action is pinned to a commit SHA, and each workflow starts with read-only permissions | Always |
 | Secret scanning and push protection on the repo | Always |
 
@@ -71,7 +79,7 @@ An agent runs commands on your PC. So the fair question is: can it turn CmdWarde
 
 | Protection | What it does |
 |------------|--------------|
-| The policy hook | A harness that runs a `cw` command that weakens protection gets a deny with "Ask the user". This covers `cw policy set`, `enroll`, `unenroll`, `low-risk`, and `hello`; `cw unharden`; `cw uninstall`; `cw delete`; `cw agent stop`; the `uninstall` of `hook`, `leak-guard`, `mcp`, and `protect`; `cw canary remove`; and the `proxy` changes, `add` too. |
+| The policy hook | A harness that runs a `cw` command that weakens protection gets a deny with "Ask the user". The hook also reads the command inside `cmd /c`, `powershell -Command`, `bash -c`, `Start-Process`, and `dotnet cw.dll`. This covers `cw policy set`, `enroll`, `unenroll`, `low-risk`, and `hello`; `cw unharden`; `cw uninstall`; `cw delete`; `cw agent stop`; the `uninstall` of `hook`, `leak-guard`, `mcp`, and `protect`; `cw canary remove`; and the `proxy` changes, `add` too. It also stops `cw read`, which shows a secret value to the agent. |
 | Claude Code deny rules | `cw setup` adds `Edit` and `Write` deny rules for `~/AppData/Local/CmdWarden/**`, so the file tools of Claude Code cannot change the policy file. |
 | Real input only | The Approval Gate accepts Approve only from real keyboard or mouse input. A program that sends keys or clicks to the card gets nothing. |
 | Windows Hello | A secret read asks for Windows Hello after Approve (`cw policy hello`). |
@@ -83,6 +91,8 @@ An agent runs commands on your PC. So the fair question is: can it turn CmdWarde
 - An agent that runs as **your own Windows user** can write files that your user can write. A script can edit `%LOCALAPPDATA%\CmdWarden\policy.json` without the hook seeing a `cw` command. The hook and the deny rules make this hard, not impossible.
 - For a hard line, run the agent under its own Windows account. The Codex `elevated` sandbox does this. `cw setup` enrolls its accounts.
 - Watch the tray icon and `cw audit`. A policy change that you did not make shows up as decisions that you did not expect.
+
+The [Threat model](threat-model.md) lists each attack, its answer, and the test that checks it.
 
 ## Report a problem
 

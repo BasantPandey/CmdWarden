@@ -289,11 +289,22 @@ public class GitCredentialHelperProcessTests
             using var proc = Process.Start(psi) ?? throw new InvalidOperationException("git failed to start");
             await proc.StandardInput.WriteAsync("protocol=https\nhost=" + host + "\n\n");
             proc.StandardInput.Close();
-            var stdout = await proc.StandardOutput.ReadToEndAsync();
-            var stderr = await proc.StandardError.ReadToEndAsync();
-            await proc.WaitForExitAsync();
+            var stdoutTask = proc.StandardOutput.ReadToEndAsync();
+            var stderrTask = proc.StandardError.ReadToEndAsync();
+            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            try
+            {
+                await proc.WaitForExitAsync(limit.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                proc.Kill(entireProcessTree: true);
+                Assert.Fail("git credential fill did not end in 60 s: " + await stderrTask);
+            }
+            var stdout = await stdoutTask;
+            var stderr = await stderrTask;
 
-            Assert.True(proc.ExitCode == 0, stderr);
+            Assert.True(proc.ExitCode == 0, stderr + GitSigners(git));
             Assert.Contains("username=alice", stdout, StringComparison.Ordinal);
             Assert.Contains("password=" + secret, stdout, StringComparison.Ordinal);
         }
@@ -353,7 +364,7 @@ public class GitCredentialHelperProcessTests
                 using var proc = Process.Start(psi) ?? throw new InvalidOperationException("shim git failed to start");
                 var stderr = await proc.StandardError.ReadToEndAsync();
                 await proc.WaitForExitAsync();
-                Assert.True(proc.ExitCode == 0, stderr);
+                Assert.True(proc.ExitCode == 0, stderr + GitSigners(git));
                 return proc.ExitCode;
             }
 
@@ -388,6 +399,15 @@ public class GitCredentialHelperProcessTests
             AgentAuthorizeClient.AuthorizeAsync("git", new[] { "credential", "fill" }, pipeName: fx.PipeName));
         Assert.Equal(Grpc.Core.StatusCode.PermissionDenied, ex.StatusCode);
         Assert.Contains("secret-reveal", ex.Status.Detail, StringComparison.Ordinal);
+    }
+
+    /// <summary>For a failure message: the pin, and the signer of each git.exe of its install.</summary>
+    private static string GitSigners(string pin)
+    {
+        var root = CmdWarden.Agent.Identity.HelperChainRule.InstallRoot(pin);
+        var files = Directory.EnumerateFiles(root, "git.exe", SearchOption.AllDirectories)
+            .Select(f => $"{f}: {Authenticode.VerifiedSigner(f) ?? "no valid signature"}");
+        return $"{Environment.NewLine}pin {pin}, root {root}{Environment.NewLine}{string.Join(Environment.NewLine, files)}";
     }
 
     private static string? FindRealGit()

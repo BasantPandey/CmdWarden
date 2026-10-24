@@ -49,6 +49,16 @@ Windows asks you to confirm. The CA goes to the root store of your user, not of 
 
 The proxy serves an empty revocation list (CRL) of the CA. Schannel checks it, so you do not need `--ssl-no-revoke`.
 
+## Tell the card why
+
+An agent can say why it sends a request. Put the text in the `X-CmdWarden-Reason` header:
+
+```bash
+curl -H "Authorization: Bearer cw://OPENAI_API_KEY"   -H "X-CmdWarden-Reason: Summarize the open issues" https://api.openai.com/v1/models
+```
+
+*Expect:* the card shows **The agent says:** with the text, and the audit row stores it. The proxy removes the header, so the host never gets it. It is the same as `CW_REASON` for a shim. CmdWarden never treats it as proof.
+
 ## Other hosts
 
 A host that no key lists passes through untouched. The proxy does not open its TLS. A placeholder in that traffic stays a placeholder, so the host never gets the key. To block every host that no key lists:

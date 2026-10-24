@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using CmdWarden.Cli;
 using CmdWarden.Cli.Hooks;
 using CmdWarden.Cli.Mcp;
 using CmdWarden.Contracts;
@@ -7,8 +8,9 @@ using CmdWarden.Contracts;
 namespace CmdWarden.Tests;
 
 /// <summary>
-/// v0.8.0 through the real cw process and a real Session Agent: #65 cw try and cw setup, #67
-/// cw inject --env-file, #69 masked output. Each test has its own product root, home, and gate.
+/// v0.8.0 and later through the real cw process and a real Session Agent: #65 cw try and cw setup, #67
+/// cw inject --env-file, #69 masked output, #97 cw read and cw save --generate. Each test has its own
+/// product root, home, and gate.
 /// </summary>
 [Trait("Category", "Process")]
 [Collection("AgentProcess")]
@@ -139,6 +141,141 @@ public class V080ProcessTests
         {
             await AgentVaultClient.DeleteAsync(first, fx.PipeName);
             await AgentVaultClient.DeleteAsync(second, fx.PipeName);
+        }
+    }
+
+    [Fact]
+    public async Task Read_shows_one_value_as_secret_reveal_and_names_a_missing_entry_before_the_card()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+        await using var fx = await ApprovalMemoryFixture.CreateAsync("allow");
+        if (fx is null)
+            return;
+        var name = "CW_READ_" + Guid.NewGuid().ToString("N")[..6];
+        var value = "read-" + Guid.NewGuid().ToString("N");
+        await AgentVaultClient.SaveAsync(name, Encoding.UTF8.GetBytes(value), fx.PipeName);
+        var home = NewHome();
+        try
+        {
+            var run = await RunCwAsync(fx, home, ["read", name]);
+            Assert.Equal(0, run.Exit);
+            Assert.Equal(value + "\n", run.Out);
+            Assert.Contains(fx.AuditLines(), l => l.Contains(name, StringComparison.Ordinal) && l.Contains(CommandClassNames.SecretReveal, StringComparison.Ordinal));
+
+            var bare = await RunCwAsync(fx, home, ["read", name, "--no-newline"]);
+            Assert.Equal(value, bare.Out);
+
+            var before = fx.AuditLines().Count;
+            var missing = await RunCwAsync(fx, home, ["read", "CW_READ_MISSING"]);
+            Assert.Equal(1, missing.Exit);
+            Assert.Contains("No vault entry named CW_READ_MISSING", missing.Err);
+            Assert.Equal(before, fx.AuditLines().Count);
+        }
+        finally
+        {
+            await AgentVaultClient.DeleteAsync(name, fx.PipeName);
+        }
+    }
+
+    [Fact]
+    public async Task Inject_template_fills_a_private_copy_for_the_run_and_deletes_it()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+        await using var fx = await ApprovalMemoryFixture.CreateAsync("allow");
+        if (fx is null)
+            return;
+        var name = "CW_TPL_" + Guid.NewGuid().ToString("N")[..6];
+        var value = "tpl-" + Guid.NewGuid().ToString("N");
+        await AgentVaultClient.SaveAsync(name, Encoding.UTF8.GetBytes(value), fx.PipeName);
+        var home = NewHome();
+        var template = Path.Combine(home, "app.yml");
+        File.WriteAllText(template, $"db:\n  password: cw://{name}\n  user: me\n");
+        var tmp = Path.Combine(fx.ProductRoot, "tmp");
+        try
+        {
+            var run = await RunCwAsync(fx, home, ["inject", "--template", "app.yml", "--", "cmd.exe", "/c", "type {template} & echo %CW_TEMPLATE%"]);
+            Assert.Equal(0, run.Exit);
+            Assert.Contains($"password: [CmdWarden: {name}]", run.Out);
+            Assert.DoesNotContain(value, run.Out);
+            var copy = run.Out.Split('\n').Select(l => l.Trim()).Single(l => l.EndsWith("app.yml", StringComparison.OrdinalIgnoreCase));
+            Assert.StartsWith(tmp, copy, StringComparison.OrdinalIgnoreCase);
+            Assert.False(File.Exists(copy));
+            Assert.Empty(Directory.GetDirectories(tmp));
+            Assert.Contains($"cw://{name}", File.ReadAllText(template));
+
+            var raw = await RunCwAsync(fx, home, ["inject", "--template", "app.yml", "--no-masking", "--", "cmd.exe", "/c", "type", "{template}"]);
+            Assert.Contains($"password: {value}", raw.Out);
+
+            var none = Path.Combine(home, "none.yml");
+            File.WriteAllText(none, "no placeholders\n");
+            var empty = await RunCwAsync(fx, home, ["inject", "--template", "none.yml", "--", "cmd.exe", "/c", "echo x"]);
+            Assert.Equal(1, empty.Exit);
+            Assert.Contains("No vault names", empty.Err);
+        }
+        finally
+        {
+            await AgentVaultClient.DeleteAsync(name, fx.PipeName);
+        }
+    }
+
+    [Fact]
+    public void A_template_copy_is_only_for_this_user_and_a_dead_run_leaves_none()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+        var root = Path.Combine(Path.GetTempPath(), "cw-tpl-" + Guid.NewGuid().ToString("N"));
+        var leftover = Path.Combine(root, "tmp", "999999_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(leftover);
+        try
+        {
+            using var copy = TemplateFile.Write("app.json", "{\"k\":\"cw://A\"}", new Dictionary<string, string> { ["A"] = "v\"1" }, root);
+            // The value goes in as it is, like op inject: the file format is not read.
+            Assert.Equal("{\"k\":\"v\"1\"}", File.ReadAllText(copy.Path));
+            Assert.False(Directory.Exists(leftover));
+            var rules = new DirectoryInfo(Path.GetDirectoryName(copy.Path)!).GetAccessControl()
+                .GetAccessRules(true, true, typeof(System.Security.Principal.SecurityIdentifier)).Cast<System.Security.AccessControl.FileSystemAccessRule>().ToList();
+            var me = System.Security.Principal.WindowsIdentity.GetCurrent().User!;
+            Assert.All(rules, r => Assert.Equal(me, r.IdentityReference));
+            Assert.Equal(["x", "--config=" + copy.Path], copy.Arguments(["x", "--config={template}"]));
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public async Task Save_generate_keeps_the_password_hidden_and_an_entry_that_exists()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+        await using var fx = await ApprovalMemoryFixture.CreateAsync("allow");
+        if (fx is null)
+            return;
+        var name = "CW_GEN_" + Guid.NewGuid().ToString("N")[..6];
+        var home = NewHome();
+        try
+        {
+            var run = await RunCwAsync(fx, home, ["save", name, "--generate"]);
+            Assert.Equal(0, run.Exit);
+            var first = (await AgentVaultClient.ReleaseAsync(name, pipeName: fx.PipeName)).Value.ToStringUtf8();
+            Assert.Equal(PasswordGenerator.DefaultLength, first.Length);
+            Assert.DoesNotContain(first, run.Out + run.Err);
+
+            var again = await RunCwAsync(fx, home, ["save", name, "--generate"]);
+            Assert.Equal(1, again.Exit);
+            Assert.Contains("--force", again.Err);
+            Assert.Equal(first, (await AgentVaultClient.ReleaseAsync(name, pipeName: fx.PipeName)).Value.ToStringUtf8());
+
+            var forced = await RunCwAsync(fx, home, ["save", name, "--generate", "--length", "40", "--force"]);
+            Assert.Equal(0, forced.Exit);
+            Assert.Equal(40, (await AgentVaultClient.ReleaseAsync(name, pipeName: fx.PipeName)).Value.ToStringUtf8().Length);
+        }
+        finally
+        {
+            await AgentVaultClient.DeleteAsync(name, fx.PipeName);
         }
     }
 

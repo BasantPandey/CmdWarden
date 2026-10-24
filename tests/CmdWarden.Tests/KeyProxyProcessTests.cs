@@ -50,10 +50,12 @@ public class KeyProxyProcessTests
             await WaitForPortAsync(port);
 
             using var http = Client(port, caCert);
-            async Task<(HttpStatusCode Status, string Body)> Send(HttpMethod method, string url, string auth, string? body = null)
+            async Task<(HttpStatusCode Status, string Body)> Send(HttpMethod method, string url, string auth, string? body = null, string? reason = null)
             {
                 using var request = new HttpRequestMessage(method, url);
                 request.Headers.TryAddWithoutValidation("Authorization", auth);
+                if (reason is not null)
+                    request.Headers.TryAddWithoutValidation(KeyProxy.ReasonHeader, reason);
                 if (body is not null)
                     request.Content = new StringContent(body);
                 using var response = await http.SendAsync(request);
@@ -64,6 +66,11 @@ public class KeyProxyProcessTests
             var get = await Send(HttpMethod.Get, api1, "Bearer cw://TEST_API_KEY");
             Assert.Equal(HttpStatusCode.OK, get.Status);
             Assert.Equal($"Bearer {secret}", JsonNode.Parse(get.Body)!["authorization"]!.GetValue<string>());
+
+            // #97: the reason goes to the audit row and the card, never to the host. A cw:// in it is no key.
+            var told = await Send(HttpMethod.Get, api1, "Bearer cw://TEST_API_KEY", reason: "List models for the cw://OTHER_KEY test");
+            Assert.Equal(HttpStatusCode.OK, told.Status);
+            Assert.Null(JsonNode.Parse(told.Body)!["reason"]);
 
             // Terminal is Trusted: a POST with a body is a write and runs with no popup.
             var post = await Send(HttpMethod.Post, api1, "Bearer cw://TEST_API_KEY", new string('x', 70000));
@@ -113,6 +120,7 @@ public class KeyProxyProcessTests
 
             var audit = string.Join("\n", Directory.GetFiles(Path.Combine(root, "audit"), "gates-*.ndjson").Select(File.ReadAllText));
             Assert.Contains("\"tool\":\"proxy\"", audit, StringComparison.Ordinal);
+            Assert.Contains("List models for the cw://OTHER_KEY test", audit, StringComparison.Ordinal);
             Assert.DoesNotContain(secret, audit, StringComparison.Ordinal);
         }
         finally
@@ -327,7 +335,7 @@ public class KeyProxyProcessTests
                         await reader.CopyAsync(body, n, _stop.Token);
                     var text = Encoding.UTF8.GetString(body.ToArray());
                     Bodies.Enqueue(text);
-                    var json = new JsonObject { ["authorization"] = head.Header("Authorization"), ["length"] = (int)body.Length, ["body"] = text }.ToJsonString();
+                    var json = new JsonObject { ["authorization"] = head.Header("Authorization"), ["reason"] = head.Header(KeyProxy.ReasonHeader), ["length"] = (int)body.Length, ["body"] = text }.ToJsonString();
                     var bytes = Encoding.UTF8.GetBytes(json);
                     await tls.WriteAsync(Encoding.ASCII.GetBytes($"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {bytes.Length}\r\n\r\n"));
                     await tls.WriteAsync(bytes);

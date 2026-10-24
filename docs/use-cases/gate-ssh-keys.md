@@ -26,7 +26,7 @@ The gate reads the command line of the ssh client:
 | `ssh host git-upload-pack …` (git fetch, pull, clone) | read |
 | `ssh host git-receive-pack …` (git push) | write |
 | `ssh host` (a shell) or `ssh host <any command>` | write |
-| `ssh-keygen -Y sign` (git commit signing) | write |
+| `ssh-keygen -Y sign` (git commit signing, [UC18](sign-commits-with-ssh.md)) | write |
 | any other program | unknown |
 
 The launcher is the process above ssh, git, and the shell that git starts, with the same rules as for the shims. With the default levels, your terminal (Trusted) pushes with no popup. An AI harness (Read) can fetch, and a push shows the card:
