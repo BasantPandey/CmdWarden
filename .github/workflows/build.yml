@@ -79,3 +79,25 @@ jobs:
           path: artifacts/bin/**
           if-no-files-found: error
           retention-days: 14
+
+  # #97: the gate, proxy, ssh, and audit tests start a real Session Agent and real tools.
+  process-tests:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        run: dotnet build CmdWarden.sln -c Release
+
+      - name: Process tests
+        run: dotnet test CmdWarden.sln -c Release --no-build --filter "Category=Process" --blame-hang-timeout 5m
