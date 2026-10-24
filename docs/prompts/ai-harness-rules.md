@@ -16,7 +16,13 @@ CLI: `cw` (alias `cmdwarden`). Desktop app: CmdWarden Vault. You are an **AI har
 
 - Call `gh`, `git`, `az`, and `docker` by name on PATH.
 - Do not call the real binary by absolute path.
-- Do not set `PATH`, `GH_PATH`, or any `CW_*` variable to get around the shim.
+- Do not set `PATH`, `GH_PATH`, or any `CW_*` variable to get around the shim. `CW_REASON` is the one exception.
+
+## Say why
+
+- Set `CW_REASON` for a gated command, for example `CW_REASON="create the release PR" gh pr create`.
+- For a request with `cw://NAME` through the proxy, send the same text in the `X-CmdWarden-Reason` header.
+- Write the true reason. The user sees it on the card.
 
 ## Never reveal a secret
 

@@ -47,6 +47,7 @@ public class ApprovalPresentationTests
     {
         Assert.Equal("gh needs GH_TOKEN", ApprovalPresentation.BuildReasonLine("gh", "GH_TOKEN", null));
         Assert.Equal("gh needs GH_TOKEN", ApprovalPresentation.BuildReasonLine("gh", "GH_TOKEN", "  "));
+        Assert.Equal("proxy needs API_KEY", ApprovalPresentation.BuildReasonLine("proxy", "API_KEY", "proxy"));
     }
 
     [Fact]

@@ -235,6 +235,8 @@ public sealed class KeyProxyServer(SessionAgentService gate, CredentialVault vau
     private (string? Refusal, byte[]? Body) Check(int pid, string host, string scheme, HttpRequestHead head, byte[]? body,
         KeyProxyConfig config)
     {
+        var reason = head.Header(KeyProxy.ReasonHeader);
+        head.Headers.RemoveAll(h => h.Key.Equals(KeyProxy.ReasonHeader, StringComparison.OrdinalIgnoreCase));
         var path = PathOf(head);
         var contentType = head.Header("Content-Type");
         var scan = body is null ? new BodyScan([], []) : ProxyBody.Scan(body, contentType);
@@ -261,7 +263,7 @@ public sealed class KeyProxyServer(SessionAgentService gate, CredentialVault vau
         }
         var fields = scan.Fields.Count == 0 ? null : string.Join(", ", scan.Fields
             .Select(f => config.Keys[f.Name].Totp ? $"{f.Field} (one-time code)" : f.Field).Distinct(StringComparer.Ordinal));
-        if (!gate.AuthorizeProxyUse(pid, names, head.Method, $"{scheme}://{host}{head.Target}", fields))
+        if (!gate.AuthorizeProxyUse(pid, names, head.Method, $"{scheme}://{host}{head.Target}", fields, reason))
             return ($"{ProductInfo.Name}: the use of {string.Join(", ", names)} was denied.", null);
 
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

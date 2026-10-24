@@ -895,8 +895,11 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     /// </summary>
     /// <param name="fields">#85: the sign-in fields that get the value, or null for the request line and headers.
     /// A field swap always shows the card: the person approves each sign-in, whatever the level.</param>
-    public bool AuthorizeProxyUse(int clientPid, IReadOnlyList<string> names, string method, string url, string? fields = null)
+    /// <param name="agentReason">#97: the <see cref="KeyProxy.ReasonHeader"/> of the request.</param>
+    public bool AuthorizeProxyUse(int clientPid, IReadOnlyList<string> names, string method, string url, string? fields = null,
+        string? agentReason = null)
     {
+        agentReason = AgentReason.Clean(agentReason);
         const string tool = KeyProxy.Tool;
         const string purpose = "proxy";
         ApplyPolicyChanges(_policy.Load());
@@ -937,6 +940,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                     workingDirectory: null) with
                     {
                         HiddenCommand = hidden,
+                        AgentReason = agentReason,
                         Impact = fields is null
                             ? $"Sends {secretName} to {host}. The app sees only the placeholder."
                             : $"Fills {secretName} in the field {fields} and sends it to {host}. The app sees only the placeholder.",
@@ -946,7 +950,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 grantLength = gate.GrantLength;
                 decisionReason = gate.Reason;
             }
-            AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName, launcher, resolved, secretName, purpose, grantLength: grantLength));
+            AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName, launcher, resolved, secretName, purpose, agentReason, grantLength));
             return true;
         }
         catch (RpcException)

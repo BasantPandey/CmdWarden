@@ -49,7 +49,7 @@ public static class ApprovalPresentation
     {
         var t = string.IsNullOrWhiteSpace(tool) ? "tool" : tool.Trim();
         var secret = string.IsNullOrWhiteSpace(secretName) ? "secret" : secretName.Trim();
-        if (string.IsNullOrWhiteSpace(purpose))
+        if (string.IsNullOrWhiteSpace(purpose) || string.Equals(purpose.Trim(), t, StringComparison.OrdinalIgnoreCase))
             return $"{t} needs {secret}";
         return $"{t} needs {secret} for {purpose.Trim()}";
     }
