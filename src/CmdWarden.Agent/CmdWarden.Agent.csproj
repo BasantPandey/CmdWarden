@@ -14,12 +14,12 @@
     <NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="System.Management.Automation" Version="7.6.6" />
+    <PackageReference Include="System.Management.Automation" Version="7.6.8" />
     <!-- System.Management.Automation brings Pkcs 10.0.5, which has GHSA-846f-f764-76mx. -->
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
     <ProjectReference Include="..\CmdWarden.Contracts\CmdWarden.Contracts.csproj" />
-    <PackageReference Include="Grpc.AspNetCore" Version="2.71.0" />
-    <PackageReference Include="Microsoft.Win32.SystemEvents" Version="10.0.0" />
+    <PackageReference Include="Grpc.AspNetCore" Version="2.84.0" />
+    <PackageReference Include="Microsoft.Win32.SystemEvents" Version="10.0.13" />
   </ItemGroup>
   <!-- The Agent runs on Windows only. The PowerShell parser (#31) ships copies for other systems; drop them (about 15 MB). -->
   <Target Name="DropNonWindowsRuntimes" AfterTargets="Build">
