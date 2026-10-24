@@ -233,12 +233,12 @@ public class FuzzFoundTests
     [Theory]
     [InlineData("7ffffffffffffffd")]
     [InlineData("80000000")]
-    public void A_huge_chunk_is_too_long_before_the_body_is_read(string size)
+    public async Task A_huge_chunk_is_too_long_before_the_body_is_read(string size)
     {
         var text = "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n" + size + "\r\n" + new string('x', 4096);
         var reader = new HttpReader(new MemoryStream(Encoding.Latin1.GetBytes(text)));
-        var head = reader.ReadHeadAsync(CancellationToken.None).GetAwaiter().GetResult()!;
-        var ex = Assert.ThrowsAny<InvalidDataException>(() => reader.ReadBodyAsync(head, 256, CancellationToken.None).GetAwaiter().GetResult());
+        var head = (await reader.ReadHeadAsync(CancellationToken.None))!;
+        var ex = await Assert.ThrowsAnyAsync<InvalidDataException>(() => reader.ReadBodyAsync(head, 256, CancellationToken.None));
         Assert.Contains("too long", ex.Message, StringComparison.Ordinal);
     }
 
