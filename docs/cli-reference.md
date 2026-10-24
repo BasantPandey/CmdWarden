@@ -39,6 +39,7 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw read <NAME> [--no-newline]` | Show one secret value. The class is `secret-reveal`: you get the card each time, and Windows Hello when it is set up. A session grant never covers it |
 | `cw inject +NAME -- <cmd>` | Run cmd with secret in child env only. The output shows `[CmdWarden: NAME]` in place of each value |
 | `cw inject --env-file <file> -- <cmd>` | Same, for each `KEY=cw://NAME` line of a dotenv file. One card covers the whole set. Plain lines pass through |
+| `cw inject --template <file> -- <cmd> {template}` | Fill each `cw://NAME` of a config file in a private copy. The command gets the path in `{template}` and `CW_TEMPLATE`. The copy goes away when the command ends ([UC16 step 3](use-cases/env-files.md#3-fill-a-config-file-for-one-run)) |
 | `cw inject ... --no-masking` | Show the secret values in the output |
 | `cw env import [<file>] [--prefix P] [--all] [--yes]` | Move the secret values of a dotenv file (default `.env`) into the vault. Each moved line becomes `KEY=cw://NAME`. See [Keep .env secrets out of the agent](use-cases/env-files.md) |
 | `cw scan [--move-to-vault]` | Read-only residual risk scan; `--move-to-vault` moves plain MCP server secrets into the vault |

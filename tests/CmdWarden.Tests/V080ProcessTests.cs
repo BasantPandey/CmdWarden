@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using CmdWarden.Cli;
 using CmdWarden.Cli.Hooks;
 using CmdWarden.Cli.Mcp;
 using CmdWarden.Contracts;
@@ -174,6 +175,74 @@ public class V080ProcessTests
         finally
         {
             await AgentVaultClient.DeleteAsync(name, fx.PipeName);
+        }
+    }
+
+    [Fact]
+    public async Task Inject_template_fills_a_private_copy_for_the_run_and_deletes_it()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+        await using var fx = await ApprovalMemoryFixture.CreateAsync("allow");
+        if (fx is null)
+            return;
+        var name = "CW_TPL_" + Guid.NewGuid().ToString("N")[..6];
+        var value = "tpl-" + Guid.NewGuid().ToString("N");
+        await AgentVaultClient.SaveAsync(name, Encoding.UTF8.GetBytes(value), fx.PipeName);
+        var home = NewHome();
+        var template = Path.Combine(home, "app.yml");
+        File.WriteAllText(template, $"db:\n  password: cw://{name}\n  user: me\n");
+        var tmp = Path.Combine(fx.ProductRoot, "tmp");
+        try
+        {
+            var run = await RunCwAsync(fx, home, ["inject", "--template", "app.yml", "--", "cmd.exe", "/c", "type {template} & echo %CW_TEMPLATE%"]);
+            Assert.Equal(0, run.Exit);
+            Assert.Contains($"password: [CmdWarden: {name}]", run.Out);
+            Assert.DoesNotContain(value, run.Out);
+            var copy = run.Out.Split('\n').Select(l => l.Trim()).Single(l => l.EndsWith("app.yml", StringComparison.OrdinalIgnoreCase));
+            Assert.StartsWith(tmp, copy, StringComparison.OrdinalIgnoreCase);
+            Assert.False(File.Exists(copy));
+            Assert.Empty(Directory.GetDirectories(tmp));
+            Assert.Contains($"cw://{name}", File.ReadAllText(template));
+
+            var raw = await RunCwAsync(fx, home, ["inject", "--template", "app.yml", "--no-masking", "--", "cmd.exe", "/c", "type", "{template}"]);
+            Assert.Contains($"password: {value}", raw.Out);
+
+            var none = Path.Combine(home, "none.yml");
+            File.WriteAllText(none, "no placeholders\n");
+            var empty = await RunCwAsync(fx, home, ["inject", "--template", "none.yml", "--", "cmd.exe", "/c", "echo x"]);
+            Assert.Equal(1, empty.Exit);
+            Assert.Contains("No vault names", empty.Err);
+        }
+        finally
+        {
+            await AgentVaultClient.DeleteAsync(name, fx.PipeName);
+        }
+    }
+
+    [Fact]
+    public void A_template_copy_is_only_for_this_user_and_a_dead_run_leaves_none()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+        var root = Path.Combine(Path.GetTempPath(), "cw-tpl-" + Guid.NewGuid().ToString("N"));
+        var leftover = Path.Combine(root, "tmp", "999999_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(leftover);
+        try
+        {
+            using var copy = TemplateFile.Write("app.json", "{\"k\":\"cw://A\"}", new Dictionary<string, string> { ["A"] = "v\"1" }, root);
+            // The value goes in as it is, like op inject: the file format is not read.
+            Assert.Equal("{\"k\":\"v\"1\"}", File.ReadAllText(copy.Path));
+            Assert.False(Directory.Exists(leftover));
+            var rules = new DirectoryInfo(Path.GetDirectoryName(copy.Path)!).GetAccessControl()
+                .GetAccessRules(true, true, typeof(System.Security.Principal.SecurityIdentifier)).Cast<System.Security.AccessControl.FileSystemAccessRule>().ToList();
+            var me = System.Security.Principal.WindowsIdentity.GetCurrent().User!;
+            Assert.All(rules, r => Assert.Equal(me, r.IdentityReference));
+            Assert.Equal(["x", "--config=" + copy.Path], copy.Arguments(["x", "--config={template}"]));
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { /* ignore */ }
         }
     }
 

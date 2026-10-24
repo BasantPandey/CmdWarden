@@ -898,7 +898,7 @@ public static partial class CliApp
                 return code;
 
             var (options, remainder) = ParseInjectOptions(args);
-            var (names, fileName, arguments) = InjectRunner.ParseInjectArgs(remainder, requireName: options.EnvFile is null);
+            var (names, fileName, arguments) = InjectRunner.ParseInjectArgs(remainder, requireName: options.EnvFile is null && options.Template is null);
             var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             // #67: KEY=cw://NAME lines map a vault entry to any env name; plain lines pass through.
             var envRefs = new List<(string Key, string Vault)>();
@@ -912,20 +912,29 @@ public static partial class CliApp
                         env[line.Key!] = line.Value!;
                 }
             }
+            // The template is read after the lock below, so the text that gets the values is the text that the card binds.
             var vaultNames = names.Concat(envRefs.Select(r => r.Vault)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-            if (vaultNames.Count == 0)
+            if (vaultNames.Count == 0 && options.Template is null)
                 throw new ArgumentException($"No vault names: pass +NAME, or put KEY={DotEnvFile.RefPrefix}NAME lines in {options.EnvFile}.");
             // Same display join as the shim argv card line (#200).
             var commandLine = string.Join(' ', arguments.Prepend(fileName));
             // #30: the approval binds the program and its script. They stay locked until the child exits.
             var program = InjectRunner.ResolveProgram(fileName);
             var bound = BoundFiles.Find(program, arguments, Environment.CurrentDirectory);
+            // #97: the card names the template, and a change to it after the approval stops the run.
+            if (options.Template is { } templatePath)
+                bound = [.. bound, Path.GetFullPath(templatePath)];
             using var locks = BoundFiles.Lock(bound);
+            var templateText = options.Template is { } template ? File.ReadAllText(template) : null;
+            if (templateText is not null)
+                vaultNames = vaultNames.Concat(TemplateFile.Names(templateText)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (vaultNames.Count == 0)
+                throw new ArgumentException($"No vault names: put {DotEnvFile.RefPrefix}NAME in {options.Template}.");
 
             // #67: one request, so one card covers the whole set.
             var released = await AgentVaultClient.ReleaseAsync(
                     vaultNames[0],
-                    purpose: "inject",
+                    purpose: options.Template is null ? "inject" : $"the template {Path.GetFileName(options.Template)}",
                     tool: options.Tool,
                     commandClass: options.CommandClass,
                     commandLine: commandLine,
@@ -958,8 +967,12 @@ public static partial class CliApp
                 return 3;
             }
 
+            // #97: the filled template lives only while the child runs.
+            using var filled = templateText is null ? null : TemplateFile.Write(options.Template!, templateText, values);
+            if (filled is not null)
+                env[TemplateFile.EnvVar] = filled.Path;
             // Parent process environment is not modified - only the child ProcessStartInfo.Environment.
-            var exit = InjectRunner.Run(program, arguments, env, options.NoMasking ? null : values);
+            var exit = InjectRunner.Run(program, filled?.Arguments(arguments) ?? arguments, env, options.NoMasking ? null : values);
             // Clear local copies
             foreach (var key in env.Keys.ToList())
                 env[key] = string.Empty;
@@ -1062,6 +1075,7 @@ public static partial class CliApp
         var tool = "inject";
         var commandClass = CommandClassNames.Write;
         string? envFile = null;
+        string? template = null;
         var noMasking = false;
         var remainder = new List<string>();
         for (var i = 0; i < args.Length; i++)
@@ -1103,6 +1117,16 @@ public static partial class CliApp
                 continue;
             }
 
+            if (a == "--template")
+            {
+                if (i + 1 >= args.Length)
+                    throw new ArgumentException("--template requires a file path.");
+                template = args[++i];
+                if (!File.Exists(template))
+                    throw new ArgumentException($"Template file not found: {template}");
+                continue;
+            }
+
             if (a == "--no-masking")
             {
                 noMasking = true;
@@ -1112,10 +1136,10 @@ public static partial class CliApp
             remainder.Add(a);
         }
 
-        return (new InjectOptions(tool, commandClass, envFile, noMasking), remainder.ToArray());
+        return (new InjectOptions(tool, commandClass, envFile, template, noMasking), remainder.ToArray());
     }
 
-    private sealed record InjectOptions(string Tool, string CommandClass, string? EnvFile, bool NoMasking);
+    private sealed record InjectOptions(string Tool, string CommandClass, string? EnvFile, string? Template, bool NoMasking);
 
     private static async Task<int> PolicyAsync(string[] args)
     {
@@ -2199,6 +2223,7 @@ public static partial class CliApp
         Row("read <NAME>", "Show one secret, after the card and Windows Hello");
         Row("inject +NAME -- cmd", "Run cmd with secret only in child env [--tool T] [--class read|write|secret-reveal|unknown]");
         Row("inject --env-file .env -- cmd", "Same, for each KEY=cw://NAME line of the file; one card for the set");
+        Row("inject --template f -- cmd {template}", "Fill each cw://NAME in a copy of f; cmd gets its path; the copy goes away after the run");
         Row("inject ... --no-masking", "Show secret values in the output (default: [CmdWarden: NAME])");
         Row("delete <NAME>", "Remove secret from vault");
         Row("policy ...", "List/enroll/set tool x launcher policy levels");

@@ -57,6 +57,7 @@ These attacks work for an agent that runs as **your own Windows user**. CmdWarde
 | The agent reads Credential Manager directly, with a script that calls `CredRead` | Windows gives your entries to any program of your user. | Run the agent under its own account. |
 | The agent calls the real tool by its full path, not through the shim | The PATH shim sees only calls by name. | Use strong mode (`cw harden gh --strong`): the stock store of the tool is then empty. `cw scan` names the rest. |
 | The agent changes a file in a Git install that your user can write, such as a DLL or the shell `usr\bin\sh.exe` | The pin covers `git.exe` only. Git for Windows 2.5x ships its shells with no signature, so the gate trusts the shells of the pinned install by path. | Install Git for all users, in `Program Files`. Then only an admin can change its files. |
+| A program of your user reads the filled copy of `cw inject --template` while the command runs | The command needs a file on disk. The copy sits in a folder that only your user can open, and goes away when the command ends. | Use `--env-file` or `+NAME` when the program can read the environment. |
 | The agent nests more than 16 wrappers | The hook stops reading at 16 levels. | Nothing extra. The shim still gates each tool call. |
 
 For a hard line, give the agent its own Windows account. The Codex `elevated` sandbox does this, and `cw setup` enrolls its accounts. See [What an AI agent can do to CmdWarden](trust.md#what-an-ai-agent-can-do-to-cmdwarden).

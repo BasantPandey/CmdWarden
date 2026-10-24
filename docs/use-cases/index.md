@@ -24,7 +24,7 @@ Each guide states when to use it, the commands to type, and what to expect. Want
 | **UC13** | [Gate ssh key use](gate-ssh-keys.md) | A push over ssh from the agent asks; your terminal pushes freely |
 | **UC14** | [Short-lived GitHub tokens for one repo](short-lived-github-tokens.md) | gh gets a GitHub App token for the current repo that ends in one hour |
 | **UC15** | [Keep API keys out of the agent](api-keys-through-proxy.md) | The agent sends `cw://NAME`; the proxy puts the real key in place for listed hosts only |
-| **UC16** | [Keep .env secrets out of the agent](env-files.md) | `cw env import` moves the values; `cw inject --env-file` gives them only to your program |
+| **UC16** | [Keep .env secrets out of the agent](env-files.md) | `cw env import` moves the values; `cw inject --env-file` or `--template` gives them only to your program |
 | **UC17** | [Let an agent sign in without the password](web-sign-in-through-proxy.md) | The agent types `cw://NAME` in a sign-in form; you approve, and only the site gets the password |
 | **UC18** | [Sign git commits with a gated ssh key](sign-commits-with-ssh.md) | Your terminal signs commits freely; an agent gets the card before it signs in your name |
 
