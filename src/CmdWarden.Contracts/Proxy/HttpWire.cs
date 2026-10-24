@@ -17,8 +17,8 @@ public sealed class HttpRequestHead
     public long? ContentLength =>
         long.TryParse(Header("Content-Length"), NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : null;
 
-    public bool IsChunked =>
-        Header("Transfer-Encoding")?.Contains("chunked", StringComparison.OrdinalIgnoreCase) == true;
+    /// <summary><see cref="Parse"/> lets Transfer-Encoding through only when chunked is its last coding.</summary>
+    public bool IsChunked => Header("Transfer-Encoding") is not null;
 
     public bool IsUpgrade => Header("Upgrade") is not null;
 
@@ -64,7 +64,29 @@ public sealed class HttpRequestHead
                 throw new InvalidDataException("Bad HTTP header line.");
             head.Headers.Add(new(line[..colon].Trim(), line[(colon + 1)..].Trim()));
         }
+        CheckFraming(head);
         return head;
+    }
+
+    /// <summary>
+    /// #97: a request whose end the proxy and the host can read in two ways is refused (RFC 9112,
+    /// section 6.3). Otherwise a body could hide a second request that only the proxy sees.
+    /// </summary>
+    private static void CheckFraming(HttpRequestHead head)
+    {
+        var lengths = head.Headers.Where(h => h.Key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase))
+            .Select(h => h.Value).Distinct(StringComparer.Ordinal).ToList();
+        var codings = head.Headers.Where(h => h.Key.Equals("Transfer-Encoding", StringComparison.OrdinalIgnoreCase))
+            .SelectMany(h => h.Value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)).ToList();
+        if (lengths.Count > 0 && codings.Count > 0)
+            throw new InvalidDataException("HTTP request has Content-Length and Transfer-Encoding.");
+        if (lengths.Count > 1)
+            throw new InvalidDataException("HTTP request has two Content-Length values.");
+        if (lengths.Count == 1 && !long.TryParse(lengths[0], NumberStyles.None, CultureInfo.InvariantCulture, out _))
+            throw new InvalidDataException("Bad Content-Length.");
+        if (codings.Count > 0 && (!codings[^1].Equals("chunked", StringComparison.OrdinalIgnoreCase)
+                || codings.Count(c => c.Equals("chunked", StringComparison.OrdinalIgnoreCase)) > 1))
+            throw new InvalidDataException("Transfer-Encoding must end with chunked, one time.");
     }
 }
 
@@ -147,7 +169,7 @@ public sealed class HttpReader(Stream inner)
         }
         while (ChunkSize(await ReadLineAsync(ct).ConfigureAwait(false)) is > 0 and var size)
         {
-            if (body.Length + size > max)
+            if (size > max - body.Length)
                 throw new InvalidDataException("HTTP body is too long.");
             await CopyAsync(body, size, ct).ConfigureAwait(false);
             if ((await ReadLineAsync(ct).ConfigureAwait(false)).Length != 0)
@@ -159,9 +181,10 @@ public sealed class HttpReader(Stream inner)
         return body.ToArray();
     }
 
+    /// <summary>#97: at most int.MaxValue, so that size + 2 and the body limit cannot overflow.</summary>
     private static long ChunkSize(string line) =>
         long.TryParse(line.Split(';')[0].Trim(), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var size) && size >= 0
-            ? size
+            ? size <= int.MaxValue ? size : throw new InvalidDataException("HTTP chunk is too long.")
             : throw new InvalidDataException("Bad chunk size.");
 
     /// <summary>Copy only what is left in the buffer, for example TLS bytes that came with a CONNECT.</summary>

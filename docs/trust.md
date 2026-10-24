@@ -65,6 +65,7 @@ From v0.12.0, each release also has two more files:
 | A check for packages with a known flaw, direct or transitive | Each build |
 | Dependabot updates for NuGet packages, GitHub Actions, and the docs build packages | Each week |
 | [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/BasantPandey/CmdWarden) | Each push to `main`, and each week |
+| Fuzz tests of the parsers that read agent data: HTTP requests, sign-in bodies, `.env` files, hook commands, TOTP links, and the agent reason | Each PR, and a long run each week |
 | Each action is pinned to a commit SHA, and each workflow starts with read-only permissions | Always |
 | Secret scanning and push protection on the repo | Always |
 

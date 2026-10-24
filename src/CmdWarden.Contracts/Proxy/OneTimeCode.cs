@@ -44,9 +44,12 @@ public static class OneTimeCode
             return (Base32(secret), 6, 30, "SHA1");
         if (!Uri.TryCreate(secret, UriKind.Absolute, out var uri) || !uri.Host.Equals("totp", StringComparison.OrdinalIgnoreCase))
             throw new FormatException("Only otpauth://totp/ links have a time-based code.");
-        var query = uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
-            .Select(p => p.Split('=', 2))
-            .ToDictionary(p => Uri.UnescapeDataString(p[0]).ToLowerInvariant(), p => p.Length > 1 ? Uri.UnescapeDataString(p[1]) : "");
+        var query = new Dictionary<string, string>();
+        foreach (var pair in uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries).Select(p => p.Split('=', 2)))
+        {
+            if (!query.TryAdd(Uri.UnescapeDataString(pair[0]).ToLowerInvariant(), pair.Length > 1 ? Uri.UnescapeDataString(pair[1]) : ""))
+                throw new FormatException($"The TOTP link names {pair[0]} two times.");
+        }
         var key = Base32(query.GetValueOrDefault("secret") ?? "");
         var digits = Number(query, "digits", 6, 6, 8);
         var period = Number(query, "period", 30, 1, 300);
