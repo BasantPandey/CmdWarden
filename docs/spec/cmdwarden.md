@@ -365,6 +365,8 @@ Research: docker-windows-harden.md. Issue: [#25](https://github.com/BasantPandey
 
 ## 15. Threat notes (summary)
 
+The [Threat model](../threat-model.md) page has the full list, with the status and the test of each attack.
+
 | Threat | Mitigation |
 |--------|------------|
 | AI harness dumps tokens (`gh auth token`, `git credential fill`, `az account get-access-token`, helper get) | Command class secret-reveal + policy (AI default Read) + Approval Gate / block |
