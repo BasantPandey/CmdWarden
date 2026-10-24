@@ -100,4 +100,4 @@ jobs:
         run: dotnet build CmdWarden.sln -c Release
 
       - name: Process tests
-        run: dotnet test CmdWarden.sln -c Release --no-build --filter "Category=Process" --blame-hang-timeout 5m
+        run: dotnet test CmdWarden.sln -c Release --no-build --filter "Category=Process" --blame-hang-timeout 5m --logger "console;verbosity=normal"

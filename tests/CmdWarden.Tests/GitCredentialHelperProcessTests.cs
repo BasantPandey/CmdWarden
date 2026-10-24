@@ -289,9 +289,20 @@ public class GitCredentialHelperProcessTests
             using var proc = Process.Start(psi) ?? throw new InvalidOperationException("git failed to start");
             await proc.StandardInput.WriteAsync("protocol=https\nhost=" + host + "\n\n");
             proc.StandardInput.Close();
-            var stdout = await proc.StandardOutput.ReadToEndAsync();
-            var stderr = await proc.StandardError.ReadToEndAsync();
-            await proc.WaitForExitAsync();
+            var stdoutTask = proc.StandardOutput.ReadToEndAsync();
+            var stderrTask = proc.StandardError.ReadToEndAsync();
+            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            try
+            {
+                await proc.WaitForExitAsync(limit.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                proc.Kill(entireProcessTree: true);
+                Assert.Fail("git credential fill did not end in 60 s: " + await stderrTask);
+            }
+            var stdout = await stdoutTask;
+            var stderr = await stderrTask;
 
             Assert.True(proc.ExitCode == 0, stderr);
             Assert.Contains("username=alice", stdout, StringComparison.Ordinal);

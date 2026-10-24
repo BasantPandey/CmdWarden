@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using CmdWarden.Agent.Approval;
 using CmdWarden.Contracts;
 
 namespace CmdWarden.Tests;
@@ -11,14 +9,14 @@ namespace CmdWarden.Tests;
 /// </summary>
 internal sealed class TestAgent : IAsyncDisposable
 {
-    private readonly Process _process;
+    private readonly AgentProcess _process;
 
     public string PipeName { get; }
     public string ProductRoot { get; }
     public string PolicyPath => Path.Combine(ProductRoot, "policy.json");
     public string SelectedPolicyKey { get; private set; } = "";
 
-    private TestAgent(Process process, string pipeName, string productRoot)
+    private TestAgent(AgentProcess process, string pipeName, string productRoot)
     {
         _process = process;
         PipeName = pipeName;
@@ -34,52 +32,21 @@ internal sealed class TestAgent : IAsyncDisposable
         Directory.CreateDirectory(productRoot);
         var policyPath = Path.Combine(productRoot, "policy.json");
 
-        var psi = new ProcessStartInfo
-        {
-            FileName = "dotnet",
-            ArgumentList = { TestPaths.FindAgentDll() },
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-        };
-        psi.Environment["CW_PIPE_NAME"] = pipeName;
-        psi.Environment["CW_POLICY_PATH"] = policyPath;
-        psi.Environment[ProductPaths.EnvVar] = productRoot;
-        psi.Environment[ApprovalGateFactory.EnvVar] = approvalMode;
-        foreach (var (key, value) in env ?? new Dictionary<string, string>())
-            psi.Environment[key] = value;
-
         Environment.SetEnvironmentVariable("CW_PIPE_NAME", pipeName);
         Environment.SetEnvironmentVariable("CW_POLICY_PATH", policyPath);
         Environment.SetEnvironmentVariable(ProductPaths.EnvVar, productRoot);
 
-        var process = Process.Start(psi) ?? throw new InvalidOperationException("Failed to start agent.");
-        var agent = new TestAgent(process, pipeName, productRoot);
-        var deadline = DateTime.UtcNow.AddSeconds(25);
-        while (true)
+        AgentProcess process;
+        try
         {
-            if (process.HasExited)
-            {
-                var output = await process.StandardOutput.ReadToEndAsync() + await process.StandardError.ReadToEndAsync();
-                await agent.DisposeAsync();
-                throw new InvalidOperationException($"Agent exited: {output}");
-            }
-            try
-            {
-                _ = await AgentHealthClient.GetHealthAsync(pipeName, TimeSpan.FromMilliseconds(500));
-                break;
-            }
-            catch
-            {
-                if (DateTime.UtcNow > deadline)
-                {
-                    await agent.DisposeAsync();
-                    throw new TimeoutException("Agent did not become healthy.");
-                }
-                await Task.Delay(150);
-            }
+            process = await AgentProcess.StartAsync(TestPaths.FindAgentDll(), pipeName, policyPath, productRoot, approvalMode, env: env);
         }
+        catch
+        {
+            ClearEnvironment();
+            throw;
+        }
+        var agent = new TestAgent(process, pipeName, productRoot);
 
         var id = await AgentHealthClient.ResolveIdentityAsync(pipeName);
         if (!id.AutoApproveEligible)
@@ -101,20 +68,15 @@ internal sealed class TestAgent : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        try
-        {
-            if (!_process.HasExited)
-                _process.Kill(entireProcessTree: true);
-            await _process.WaitForExitAsync();
-        }
-        catch
-        {
-            // The agent is gone.
-        }
-        _process.Dispose();
+        await _process.DisposeAsync();
+        ClearEnvironment();
+        try { Directory.Delete(ProductRoot, recursive: true); } catch { /* A shim can still hold a file. */ }
+    }
+
+    private static void ClearEnvironment()
+    {
         Environment.SetEnvironmentVariable("CW_PIPE_NAME", null);
         Environment.SetEnvironmentVariable("CW_POLICY_PATH", null);
         Environment.SetEnvironmentVariable(ProductPaths.EnvVar, null);
-        try { Directory.Delete(ProductRoot, recursive: true); } catch { /* A shim can still hold a file. */ }
     }
 }
