@@ -43,11 +43,18 @@ jobs:
       - name: Begin the analysis
         if: env.SONAR_TOKEN != ''
         shell: pwsh
-        run: ${{ runner.temp }}/scanner/dotnet-sonarscanner begin /k:"BasantPandey_CmdWarden" /o:"basantpandey" /d:sonar.token="$env:SONAR_TOKEN"
+        run: |
+          # Windows Hello opens an OS prompt. A test must not open that prompt. Leave that file out of the coverage count.
+          $root = "${{ github.workspace }}" -replace '\\','/'
+          & "${{ runner.temp }}/scanner/dotnet-sonarscanner" begin /k:"BasantPandey_CmdWarden" /o:"basantpandey" /d:sonar.token="$env:SONAR_TOKEN" "/d:sonar.cs.opencover.reportsPaths=$root/artifacts/coverage/**/coverage.opencover.xml" /d:sonar.coverage.exclusions="**/WindowsHello.cs" /d:sonar.qualitygate.wait=true
 
       - name: Build
         if: env.SONAR_TOKEN != ''
         run: dotnet build CmdWarden.sln -c Release
+
+      - name: Test
+        if: env.SONAR_TOKEN != ''
+        run: dotnet test tests/CmdWarden.Tests/CmdWarden.Tests.csproj -c Release --no-build --filter "Category!=Process" --collect:"XPlat Code Coverage" --results-directory artifacts/coverage -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
 
       - name: End the analysis
         if: env.SONAR_TOKEN != ''
