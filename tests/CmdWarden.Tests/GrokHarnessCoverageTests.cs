@@ -137,6 +137,109 @@ public sealed class GrokHarnessCoverageTests : IDisposable
     }
 
     [Fact]
+    public void Resolve_uses_the_built_in_path_and_extension_when_both_are_missing()
+    {
+        var oldPath = Environment.GetEnvironmentVariable("PATH");
+        var oldExt = Environment.GetEnvironmentVariable("PATHEXT");
+        Environment.SetEnvironmentVariable("PATH", null);
+        Environment.SetEnvironmentVariable("PATHEXT", null);
+        try
+        {
+            Assert.Equal("missing", ProgramPath.Resolve("missing"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PATH", oldPath);
+            Environment.SetEnvironmentVariable("PATHEXT", oldExt);
+        }
+    }
+
+    [Fact]
+    public async Task Claude_mcp_install_fails_when_the_program_cannot_start()
+    {
+        var bin = Path.Combine(_home, "claude-bin");
+        Directory.CreateDirectory(bin);
+        File.WriteAllText(Path.Combine(bin, "claude.exe"), "not a program");
+        var old = Environment.GetEnvironmentVariable("PATH");
+        Environment.SetEnvironmentVariable("PATH", bin);
+        try
+        {
+            var result = await Capture(() => McpCommands.McpAsync(["install", "claude"]));
+            Assert.Equal(1, result.Code);
+            Assert.Contains("not on PATH", result.Err, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PATH", old);
+        }
+    }
+
+    [Fact]
+    public async Task Agent_start_uses_dotnet_and_stops_when_that_program_cannot_start()
+    {
+        var bin = Path.Combine(_home, "dotnet-bin");
+        var dir = Path.Combine(_home, "agent-host");
+        Directory.CreateDirectory(bin);
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(bin, "dotnet.exe"), "not a program");
+        var dll = Path.Combine(dir, AgentLocator.AgentDllName);
+        File.WriteAllText(dll, "not a binary");
+        var oldPath = Environment.GetEnvironmentVariable("PATH");
+        var oldPipe = Environment.GetEnvironmentVariable("CW_PIPE_NAME");
+        var oldRoot = Environment.GetEnvironmentVariable(ProductPaths.EnvVar);
+        Environment.SetEnvironmentVariable("PATH", bin);
+        try
+        {
+            var status = await AgentLifecycle.StartAsync(
+                "cw-coverage-" + Guid.NewGuid().ToString("N"),
+                dll,
+                Path.Combine(_home, "product-host"),
+                TimeSpan.FromSeconds(1));
+            Assert.Contains("Failed to start Session Agent", status.Detail, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PATH", oldPath);
+            Environment.SetEnvironmentVariable("CW_PIPE_NAME", oldPipe);
+            Environment.SetEnvironmentVariable(ProductPaths.EnvVar, oldRoot);
+        }
+    }
+
+    [Fact]
+    public async Task Grok_leak_guard_reports_a_failure_without_a_real_agent()
+    {
+        var bin = Path.Combine(_home, "guard-bin");
+        Directory.CreateDirectory(bin);
+        File.WriteAllText(Path.Combine(bin, "dotnet.exe"), "not a program");
+        var fakeAgent = Path.Combine(_home, "guard-agent", AgentLocator.AgentDllName);
+        Directory.CreateDirectory(Path.GetDirectoryName(fakeAgent)!);
+        File.WriteAllText(fakeAgent, "not a binary");
+
+        var oldPath = Environment.GetEnvironmentVariable("PATH");
+        var oldAgent = Environment.GetEnvironmentVariable(AgentLocator.EnvAgentPath);
+        var oldPipe = Environment.GetEnvironmentVariable("CW_PIPE_NAME");
+        var oldRoot = Environment.GetEnvironmentVariable(ProductPaths.EnvVar);
+        var oldIn = Console.In;
+        Environment.SetEnvironmentVariable("PATH", bin);
+        Environment.SetEnvironmentVariable(AgentLocator.EnvAgentPath, fakeAgent);
+        Console.SetIn(new StringReader("""{"tool_name":"Bash","tool_response":"hello"}"""));
+        try
+        {
+            var result = await Capture(() => LeakGuardCommands.LeakGuardAsync(["grok"]));
+            Assert.Equal(0, result.Code);
+            Assert.Contains("systemMessage", result.Out, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PATH", oldPath);
+            Environment.SetEnvironmentVariable(AgentLocator.EnvAgentPath, oldAgent);
+            Environment.SetEnvironmentVariable("CW_PIPE_NAME", oldPipe);
+            Environment.SetEnvironmentVariable(ProductPaths.EnvVar, oldRoot);
+            Console.SetIn(oldIn);
+        }
+    }
+
+    [Fact]
     public async Task Claude_mcp_install_fails_when_claude_is_not_on_path()
     {
         var empty = Path.Combine(_home, "empty-path");
@@ -287,6 +390,7 @@ public sealed class NewCodeCoverageTests
             Assert.Equal("missing", ProgramPath.Resolve("missing", @"C:\bad|dir", ".EXE"));
             Assert.Equal(Path.Combine(dir, "gone.exe"), ProgramPath.Resolve(Path.Combine(dir, "gone.exe")));
             Assert.Equal(Path.GetFullPath(tool), ProgramPath.Resolve(tool));
+            Assert.Equal("missing", ProgramPath.Resolve("missing", "bad" + '\0' + "dir", ".EXE"));
         }
         finally
         {

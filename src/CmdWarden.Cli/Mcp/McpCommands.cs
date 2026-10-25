@@ -30,25 +30,13 @@ public static class McpCommands
                 Console.WriteLine($"Cursor MCP server: {(UninstallCursor(CursorMcpPath()) ? "removed" : "not there")} ({CursorMcpPath()})");
                 return 0;
             case ["install", "codex"]:
-                Console.WriteLine($"Codex MCP server: {InstallCodex(CodexConfig.Path(), ServerCommand()) switch
-                {
-                    CodexConfig.Change.Added => "added",
-                    CodexConfig.Change.Updated => "updated",
-                    CodexConfig.Change.UserOwned => $"skipped: your own [mcp_servers.{ServerName}] table is there",
-                    _ => "already there",
-                }} ({CodexConfig.Path()})");
+                ReportToml("Codex MCP server", CodexConfig.Path(), InstallCodex(CodexConfig.Path(), ServerCommand()));
                 return 0;
             case ["uninstall", "codex"]:
                 Console.WriteLine($"Codex MCP server: {(CodexConfig.Remove(CodexConfig.Path(), CodexBlock) ? "removed" : "not there")} ({CodexConfig.Path()})");
                 return 0;
             case ["install", "grok"]:
-                Console.WriteLine($"Grok MCP server: {InstallCodex(GrokConfigPath(), ServerCommand()) switch
-                {
-                    CodexConfig.Change.Added => "added",
-                    CodexConfig.Change.Updated => "updated",
-                    CodexConfig.Change.UserOwned => $"skipped: your own [mcp_servers.{ServerName}] table is there",
-                    _ => "already there",
-                }} ({GrokConfigPath()})");
+                ReportToml("Grok MCP server", GrokConfigPath(), InstallCodex(GrokConfigPath(), ServerCommand()));
                 return 0;
             case ["uninstall", "grok"]:
                 Console.WriteLine($"Grok MCP server: {(CodexConfig.Remove(GrokConfigPath(), CodexBlock) ? "removed" : "not there")} ({GrokConfigPath()})");
@@ -63,6 +51,15 @@ public static class McpCommands
 
     /// <summary>This cw, then "mcp": what the harness starts.</summary>
     public static IReadOnlyList<string> ServerCommand() => [.. HookInstaller.SelfCommandParts(), "mcp"];
+
+    private static void ReportToml(string label, string path, CodexConfig.Change change) =>
+        Console.WriteLine($"{label}: {change switch
+        {
+            CodexConfig.Change.Added => "added",
+            CodexConfig.Change.Updated => "updated",
+            CodexConfig.Change.UserOwned => $"skipped: your own [mcp_servers.{ServerName}] table is there",
+            _ => "already there",
+        }} ({path})");
 
     private static int RunClaude(IReadOnlyList<string> args)
     {

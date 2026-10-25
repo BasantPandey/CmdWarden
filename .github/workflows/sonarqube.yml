@@ -44,9 +44,10 @@ jobs:
         if: env.SONAR_TOKEN != ''
         shell: pwsh
         run: |
-          # Windows Hello opens an OS prompt. A test must not open that prompt. Leave that file out of the coverage count.
+          # Windows Hello opens an OS prompt. A test must not open that prompt.
+          # The uninstall script changes this PC. A test must not run it.
           $root = "${{ github.workspace }}" -replace '\\','/'
-          & "${{ runner.temp }}/scanner/dotnet-sonarscanner" begin /k:"BasantPandey_CmdWarden" /o:"basantpandey" /d:sonar.token="$env:SONAR_TOKEN" "/d:sonar.cs.opencover.reportsPaths=$root/artifacts/coverage/**/coverage.opencover.xml" /d:sonar.coverage.exclusions="**/WindowsHello.cs" /d:sonar.qualitygate.wait=true
+          & "${{ runner.temp }}/scanner/dotnet-sonarscanner" begin /k:"BasantPandey_CmdWarden" /o:"basantpandey" /d:sonar.token="$env:SONAR_TOKEN" "/d:sonar.cs.opencover.reportsPaths=$root/artifacts/coverage/**/coverage.opencover.xml" /d:sonar.coverage.exclusions="**/WindowsHello.cs,scripts/**/*.ps1" /d:sonar.qualitygate.wait=true
 
       - name: Build
         if: env.SONAR_TOKEN != ''
