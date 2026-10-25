@@ -134,7 +134,8 @@ public static class GitHubApp
         var header = B64("""{"alg":"RS256","typ":"JWT"}"""u8.ToArray());
         var payload = B64(Encoding.UTF8.GetBytes(
             $$"""{"iat":{{now.AddSeconds(-60).ToUnixTimeSeconds()}},"exp":{{now.AddMinutes(9).ToUnixTimeSeconds()}},"iss":"{{appId}}"}"""));
-        var signature = key.SignData(Encoding.ASCII.GetBytes(header + "." + payload), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        // RS256 (RFC 7518) requires PKCS#1 v1.5. PSS would not be a valid GitHub app JWT.
+        var signature = key.SignData(Encoding.ASCII.GetBytes(header + "." + payload), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1); // NOSONAR
         return header + "." + payload + "." + B64(signature);
     }
 

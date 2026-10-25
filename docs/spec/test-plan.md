@@ -33,7 +33,7 @@ CI runs A2, A3, and A1 without the `Process` tests. The `Process` tests start re
 - Use a clean Windows 10 or 11 user account, a VM, or Windows Sandbox. Do not use your daily account for the install and uninstall tests.
 - Use test logins only: a test GitHub account, a test npm token, and so on. Never use a real production token.
 - Install the release under test with the setup zip. After [#64](https://github.com/BasantPandey/CmdWarden/issues/64), also test winget.
-- Have at least one AI harness: Claude Code, Cursor, or Codex. Test each one that you have.
+- Have at least one AI harness: Claude Code, Cursor, Codex, or Grok. Test each one that you have.
 - Look at each screen with care. Look for cut text, bad alignment, wrong colors, and blur. Test at 100% and 150% display scale, and in light and dark mode.
 
 ### 2.1 Install and set up
@@ -72,7 +72,7 @@ These tests need a real keyboard and a real mouse. The card refuses input from s
 
 ### 2.3 AI harness integration
 
-Do these for each harness that you have: Claude Code, Cursor, and Codex. Restart the harness after `cw setup`.
+Do these for each harness that you have: Claude Code, Cursor, Codex, and Grok. Restart the harness after `cw setup`.
 
 | ID | Steps | Expect | Result |
 |----|-------|--------|--------|

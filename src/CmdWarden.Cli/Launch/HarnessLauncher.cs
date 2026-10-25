@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
+using System.Text.RegularExpressions;
 using CmdWarden.Contracts;
 using CmdWarden.Contracts.Scan;
 
@@ -16,7 +17,7 @@ public sealed record Harness(string Id, string DisplayName, string Command, stri
 public sealed record HarnessInstall(Harness Harness, string StartPath, IReadOnlyList<string> StartArgs, string? ImagePath);
 
 /// <summary>
-/// <c>cw launch &lt;harness&gt;</c> (#25): start Claude Code, Codex, or Cursor without the token
+/// <c>cw launch &lt;harness&gt;</c> (#25): start Claude Code, Codex, Cursor, or Grok without the token
 /// variables the scan detectors know, and enroll the harness binary as an AI harness when needed.
 /// </summary>
 [SupportedOSPlatform("windows")]
@@ -27,7 +28,14 @@ public static class HarnessLauncher
         new("claude", "Claude Code", "claude", "claude.exe", Gui: false),
         new("codex", "Codex", "codex", "codex.exe", Gui: false),
         new("cursor", "Cursor", "cursor", "Cursor.exe", Gui: true),
+        new("grok", "Grok", "grok", "grok.exe", Gui: false),
     ];
+
+    /// <summary>The npm shim names the package folder. A timeout stops a crafted shim file.</summary>
+    private static readonly Regex NpmPackage = new(
+        @"node_modules\\((?:@[^\\""]+\\)?[^\\""]+)\\",
+        RegexOptions.CultureInvariant,
+        TimeSpan.FromMilliseconds(100));
 
     public static Harness? Find(string id) =>
         Catalog.FirstOrDefault(h => string.Equals(h.Id, id, StringComparison.OrdinalIgnoreCase));
@@ -69,13 +77,13 @@ public static class HarnessLauncher
         try
         {
             text = File.ReadAllText(cmdPath);
+            var match = NpmPackage.Match(text);
+            return match.Success ? Path.Combine(Path.GetDirectoryName(cmdPath)!, "node_modules", match.Groups[1].Value) : null;
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or RegexMatchTimeoutException)
         {
             return null;
         }
-        var match = System.Text.RegularExpressions.Regex.Match(text, @"node_modules\\((?:@[^\\""]+\\)?[^\\""]+)\\");
-        return match.Success ? Path.Combine(Path.GetDirectoryName(cmdPath)!, "node_modules", match.Groups[1].Value) : null;
     }
 
     /// <summary>A copy of <paramref name="environment"/> without the ambient credential variables, and the names removed.</summary>

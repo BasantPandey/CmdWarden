@@ -16,4 +16,4 @@ The user guide is split into short pages. Start where your question is.
 | [CLI reference](cli-reference.md) | You want every `cw` command on one page |
 | [Glossary](glossary.md) | You need the exact meaning of a term |
 
-For Windows developers who use AI harnesses (Cursor, Claude Code, Codex, and similar) and the CLIs `gh`, `git`, `az`, and `docker`. CLI: **`cw`** (alias `cmdwarden`). Desktop app: **CmdWarden Vault** (Start Menu).
+For Windows developers who use AI harnesses (Cursor, Claude Code, Codex, Grok, and similar) and the CLIs `gh`, `git`, `az`, and `docker`. CLI: **`cw`** (alias `cmdwarden`). Desktop app: **CmdWarden Vault** (Start Menu).

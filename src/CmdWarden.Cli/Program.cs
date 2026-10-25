@@ -418,7 +418,7 @@ public static partial class CliApp
         };
     }
 
-    // cw launch <claude|codex|cursor> [-- args...]
+    // cw launch <claude|codex|cursor|grok> [-- args...]
     private static int LaunchHarness(string[] args)
     {
         if (!OperatingSystem.IsWindows())
@@ -2238,10 +2238,10 @@ public static partial class CliApp
         Row("audit [-n N]", "Show recent gate decisions (local audit trail)");
         Row("audit eventlog on|off|status", "Also write gate decisions to the Windows Application log (one admin prompt)");
         Row("scan", "First-catalog residual risk detectors (read-only)");
-        Row("launch claude|codex|cursor [-- args]", "Start an AI harness without token variables; enroll it if needed");
-        Row("leak-guard install|uninstall claude|cursor|codex", "Hide vaulted secret values in tool output from the model");
-        Row("hook install|uninstall claude|cursor|codex", "Check policy before the harness runs a command; a deny stops it early");
-        Row("mcp [serve] | mcp install|uninstall claude|cursor|codex", "MCP server: run_with_secret, list_allowed, why_denied");
+        Row("launch claude|codex|cursor|grok [-- args]", "Start an AI harness without token variables; enroll it if needed");
+        Row("leak-guard install|uninstall claude|cursor|codex|grok", "Hide vaulted secret values in tool output from the model");
+        Row("hook install|uninstall claude|cursor|codex|grok", "Check policy before the harness runs a command; a deny stops it early");
+        Row("mcp [serve] | mcp install|uninstall claude|cursor|codex|grok", "MCP server: run_with_secret, list_allowed, why_denied");
         Row("env import [<file>]", "Move the secret values of a .env file into the vault; the file keeps KEY=cw://NAME");
         Row("canary install [--env F]|remove|status", "Fake tokens that show an attack when used");
         Row("protect install|uninstall claude|codex", "Turn on the secret protections the harness leaves off");

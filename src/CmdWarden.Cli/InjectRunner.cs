@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using CmdWarden.Contracts;
 
 namespace CmdWarden.Cli;
 
@@ -57,37 +58,11 @@ public static class InjectRunner
     }
 
     /// <summary>
-    /// Absolute path of the program, the way a shell finds it: a path as given, else the first PATH
-    /// entry with the name or the name plus a PATHEXT extension. The name itself when nothing matches.
-    /// Running this exact path means the binary the approval hashed is the binary that starts (#30).
+    /// Absolute path of the program. See <see cref="ProgramPath.Resolve"/>. The binary the approval
+    /// hashed is the binary that starts (#30).
     /// </summary>
-    public static string ResolveProgram(string fileName, string? pathEnv = null, string? pathExt = null)
-    {
-        if (fileName.Contains('\\') || fileName.Contains('/') || Path.IsPathRooted(fileName))
-            return File.Exists(fileName) ? Path.GetFullPath(fileName) : fileName;
-        var extensions = (pathExt ?? Environment.GetEnvironmentVariable("PATHEXT") ?? ".COM;.EXE;.BAT;.CMD")
-            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var names = Path.HasExtension(fileName) ? new[] { fileName } : extensions.Select(e => fileName + e).ToArray();
-        foreach (var dir in (pathEnv ?? Environment.GetEnvironmentVariable("PATH") ?? "")
-                     .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            foreach (var name in names)
-            {
-                try
-                {
-                    var candidate = Path.Combine(dir, name);
-                    if (File.Exists(candidate))
-                        // The name as stored on disk, not the PATHEXT case (claude.exe, not claude.EXE).
-                        return Directory.EnumerateFiles(Path.GetFullPath(dir), name).FirstOrDefault() ?? Path.GetFullPath(candidate);
-                }
-                catch (ArgumentException)
-                {
-                    // Bad PATH entry.
-                }
-            }
-        }
-        return fileName;
-    }
+    public static string ResolveProgram(string fileName, string? pathEnv = null, string? pathExt = null) =>
+        ProgramPath.Resolve(fileName, pathEnv, pathExt);
 
     /// <summary>
     /// Parse: inject +NAME [+NAME2 ...] -- command [args...]

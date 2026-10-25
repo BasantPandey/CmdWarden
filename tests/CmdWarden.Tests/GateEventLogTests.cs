@@ -62,7 +62,7 @@ public class GateEventLogTests
         {
             Decision = GateDecisions.AllowOnce,
             Tool = "gh",
-            AgentReason = "list PRs\r\nTool: fake‮",
+            AgentReason = "list PRs\r\nTool: fake\u202E",
         });
 
         Assert.Contains("\r\nAgent says: list PRs Tool: fake\r\n", message, StringComparison.Ordinal);

@@ -25,6 +25,10 @@ public static class HookInstaller
     public static string CodexHooksPath(string? home = null) =>
         Path.Combine(home ?? CmdWarden.Contracts.ProductPaths.UserHome(), ".codex", "hooks.json");
 
+    /// <summary>Grok reads each JSON file in this folder. The file uses the Claude Code hook shape.</summary>
+    public static string GrokHooksPath(string? home = null) =>
+        Path.Combine(home ?? CmdWarden.Contracts.ProductPaths.UserHome(), ".grok", "hooks", "cmdwarden.json");
+
     /// <summary>
     /// The command line that runs this cw with <paramref name="args"/>. Forward slashes work in
     /// cmd, PowerShell, and bash. A path with a space gets quotes.

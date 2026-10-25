@@ -121,7 +121,10 @@ public static class TeamPolicyCommands
 
     private static string Git(IEnumerable<string> args)
     {
-        var psi = new ProcessStartInfo("git")
+        var gitPath = InjectRunner.ResolveProgram("git");
+        if (!Path.IsPathRooted(gitPath))
+            throw new InvalidOperationException("git is not on PATH.");
+        var psi = new ProcessStartInfo(gitPath)
         {
             UseShellExecute = false,
             RedirectStandardOutput = true,

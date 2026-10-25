@@ -52,7 +52,7 @@ internal static class WindowsHello
         }
     }
 
-    private static unsafe IntPtr Start(IntPtr window, string message)
+    private static IntPtr Start(IntPtr window, string message)
     {
         IntPtr classId = IntPtr.Zero, text = IntPtr.Zero, factory = IntPtr.Zero;
         try
@@ -62,11 +62,9 @@ internal static class WindowsHello
             var iid = IidUserConsentVerifierInterop;
             Check(RoGetActivationFactory(classId, ref iid, out factory));
             // IUserConsentVerifierInterop: IInspectable (6 slots), then RequestVerificationForWindowAsync.
-            var vtable = *(IntPtr**)factory;
-            var request = (delegate* unmanaged[Stdcall]<IntPtr, IntPtr, IntPtr, Guid*, IntPtr*, int>)vtable[6];
+            var request = Vtable<RequestVerification>(factory, 6);
             var opIid = IidAsyncOperationOfResult;
-            IntPtr operation;
-            Check(request(factory, window, text, &opIid, &operation));
+            Check(request(factory, window, text, ref opIid, out var operation));
             return operation;
         }
         finally
@@ -78,16 +76,15 @@ internal static class WindowsHello
         }
     }
 
-    private static unsafe int Status(IntPtr operation)
+    private static int Status(IntPtr operation)
     {
         var iid = IidAsyncInfo;
         Check(Marshal.QueryInterface(operation, in iid, out var info));
         try
         {
             // IAsyncInfo: IInspectable (6 slots), get_Id, get_Status.
-            var getStatus = (delegate* unmanaged[Stdcall]<IntPtr, int*, int>)(*(IntPtr**)info)[7];
-            int status;
-            Check(getStatus(info, &status));
+            var getStatus = Vtable<GetInt32>(info, 7);
+            Check(getStatus(info, out var status));
             return status;
         }
         finally
@@ -96,14 +93,27 @@ internal static class WindowsHello
         }
     }
 
-    private static unsafe int Result(IntPtr operation)
+    private static int Result(IntPtr operation)
     {
         // IAsyncOperation<T>: IInspectable (6 slots), put_Completed, get_Completed, GetResults.
-        var getResults = (delegate* unmanaged[Stdcall]<IntPtr, int*, int>)(*(IntPtr**)operation)[8];
-        int result;
-        Check(getResults(operation, &result));
+        var getResults = Vtable<GetInt32>(operation, 8);
+        Check(getResults(operation, out var result));
         return result;
     }
+
+    /// <summary>The COM method at <paramref name="slot"/>. The delegate stays alive for the call.</summary>
+    private static T Vtable<T>(IntPtr instance, int slot) where T : Delegate
+    {
+        var vtable = Marshal.ReadIntPtr(instance);
+        var method = Marshal.ReadIntPtr(vtable, slot * IntPtr.Size);
+        return Marshal.GetDelegateForFunctionPointer<T>(method);
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate int RequestVerification(IntPtr thisPtr, IntPtr window, IntPtr message, ref Guid iid, out IntPtr operation);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate int GetInt32(IntPtr thisPtr, out int value);
 
     private static void Check(int hr)
     {

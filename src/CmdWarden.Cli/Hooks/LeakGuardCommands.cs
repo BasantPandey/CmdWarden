@@ -15,7 +15,7 @@ public static class LeakGuardCommands
     {
         switch (args)
         {
-            case ["claude" or "cursor" or "codex"]:
+            case ["claude" or "cursor" or "codex" or "grok"]:
                 return await RunHookAsync(args[0]).ConfigureAwait(false);
             case ["install", "codex"]:
                 Report(HookInstaller.InstallClaude(HookInstaller.CodexHooksPath(), HookInstaller.SelfCommand("leak-guard codex"), matcher: CodexMatcher),
@@ -41,13 +41,22 @@ public static class LeakGuardCommands
                 Report(HookInstaller.UninstallCursor(HookInstaller.CursorHooksPath()),
                     "Cursor hooks", HookInstaller.CursorHooksPath(), "removed", "not there");
                 return 0;
+            case ["install", "grok"]:
+                Report(HookInstaller.InstallClaude(HookInstaller.GrokHooksPath(), HookInstaller.SelfCommand("leak-guard grok"), matcher: CodexMatcher),
+                    "Grok PostToolUse hook", HookInstaller.GrokHooksPath(), "added", "already there");
+                return 0;
+            case ["uninstall", "grok"]:
+                Report(HookInstaller.UninstallClaude(HookInstaller.GrokHooksPath()),
+                    "Grok PostToolUse hook", HookInstaller.GrokHooksPath(), "removed", "not there");
+                return 0;
             default:
-                Console.WriteLine("Usage: cw leak-guard install|uninstall claude|cursor|codex");
+                Console.WriteLine("Usage: cw leak-guard install|uninstall claude|cursor|codex|grok");
                 Console.WriteLine("  Replace vaulted secret values in tool output with [CmdWarden: NAME] before the model sees them.");
                 Console.WriteLine("  claude  PostToolUse hook: replaces the value in the output of every tool.");
                 Console.WriteLine("  cursor  Blocks a file read that holds a value, replaces MCP output, notes shell output.");
                 Console.WriteLine("  codex   PostToolUse hook: replaces the tool result with the output that has placeholders.");
-                Console.WriteLine("The harness runs: cw leak-guard claude|cursor|codex  (hook JSON on stdin).");
+                Console.WriteLine("  grok    PostToolUse hook: replaces the value in the output of every tool.");
+                Console.WriteLine("The harness runs: cw leak-guard claude|cursor|codex|grok  (hook JSON on stdin).");
                 return args.Length > 0 && args[0] is "-h" or "--help" or "help" ? 0 : 1;
         }
     }
@@ -79,7 +88,7 @@ public static class LeakGuardCommands
             _ = await AgentLifecycle.EnsureRunningAsync().ConfigureAwait(false);
             var output = harness switch
             {
-                "claude" => await LeakGuardHook.ClaudePostToolUseAsync(input, CheckAsync).ConfigureAwait(false),
+                "claude" or "grok" => await LeakGuardHook.ClaudePostToolUseAsync(input, CheckAsync, harness).ConfigureAwait(false),
                 "codex" => await LeakGuardHook.CodexPostToolUseAsync(input, CheckAsync).ConfigureAwait(false),
                 _ => await LeakGuardHook.CursorAsync(input, CheckAsync).ConfigureAwait(false),
             };
@@ -89,7 +98,7 @@ public static class LeakGuardCommands
         catch (Exception ex)
         {
             var note = $"{ProductInfo.Name} leak guard could not check this output: {AgentFailure(ex)}";
-            Console.Out.Write(harness is "claude" or "codex"
+            Console.Out.Write(harness is "claude" or "codex" or "grok"
                 ? new JsonObject { ["systemMessage"] = note }.ToJsonString()
                 : (string?)input["hook_event_name"] == "beforeReadFile"
                     ? new JsonObject { ["permission"] = "allow", ["user_message"] = note }.ToJsonString()

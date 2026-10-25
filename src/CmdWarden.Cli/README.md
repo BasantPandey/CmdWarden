@@ -1,6 +1,6 @@
 # CmdWarden
 
-CmdWarden makes AI coding agents ask before they use your secrets on Windows. Claude Code, Cursor, and Codex get a policy and an Approval Gate card. Your own terminal keeps working as before.
+CmdWarden makes AI coding agents ask before they use your secrets on Windows. Claude Code, Cursor, Codex, and Grok get a policy and an Approval Gate card. Your own terminal keeps working as before.
 
 This package is the `cw` CLI as a .NET tool. It is for Windows 10 and 11 only.
 
@@ -13,14 +13,14 @@ dotnet tool install -g CmdWarden
 cw setup
 ```
 
-`cw setup` enrolls your terminal, hardens the tools it finds, and wires Claude Code, Cursor, and Codex. Each step asks first.
+`cw setup` enrolls your terminal, hardens the tools it finds, and wires Claude Code, Cursor, Codex, and Grok. Each step asks first.
 
 No .NET SDK? Use the setup zip from the [latest release](https://github.com/BasantPandey/CmdWarden/releases/latest). It carries its own .NET runtime.
 
 ## What it does
 
 - **Gates each tool.** A PATH shim asks the Session Agent before `gh`, `git`, `az`, `docker`, `npm`, `aws`, `kubectl`, or `ssh` uses your login.
-- **Knows who asks.** Policy follows the real app behind the command: your terminal, Claude Code, Cursor, Codex, or an unknown script.
+- **Knows who asks.** Policy follows the real app behind the command: your terminal, Claude Code, Cursor, Codex, Grok, or an unknown script.
 - **Guards `.env` files.** `cw inject --env-file .env -- npm run dev` gives the values only to your program.
 - **Signs in for the agent.** The agent types `cw://NAME` in a sign-in form. You approve, and only the site gets the password or the 2FA code. `cw save NAME --generate` makes a new password that nobody sees.
 - **Fails closed.** No card means no secret. Every release of a secret writes an audit row first.

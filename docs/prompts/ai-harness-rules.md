@@ -1,8 +1,8 @@
 # AI harness rules for CmdWarden
 
-For Windows developers who use AI harnesses (Cursor, Claude Code, Codex, and similar) with `gh`, `git`, `az`, and `docker` under CmdWarden.
+For Windows developers who use AI harnesses (Cursor, Claude Code, Codex, Grok, and similar) with `gh`, `git`, `az`, and `docker` under CmdWarden.
 
-Copy the block below into the rules file of your harness: `CLAUDE.md`, `.cursorrules`, `AGENTS.md`, or the system prompt. Enroll the harness first ([user guide, UC2 Part 2](../use-cases/approve-secret-read-mid-session.md#part-2-enroll-the-ai-harness-stricter-needs-click-to-release-secrets)).
+Copy the block below into the rules file of your harness: `CLAUDE.md`, `.cursorrules`, `AGENTS.md`, or the system prompt. For Grok, put the same block in the project rules that Grok reads. Enroll the harness first ([user guide, UC2 Part 2](../use-cases/approve-secret-read-mid-session.md#part-2-enroll-the-ai-harness-stricter-needs-click-to-release-secrets)). For Grok, also run `cw hook install grok`, `cw leak-guard install grok`, and `cw mcp install grok`, then restart Grok.
 
 ````markdown
 # CmdWarden rules
