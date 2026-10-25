@@ -18,14 +18,14 @@ public static class LeakGuardHook
         "The real values are not available to you. Do not try to read them another way.";
 
     /// <summary>
-    /// Claude Code PostToolUse: <c>updatedToolOutput</c> replaces what the model sees. The output keeps
-    /// the shape of <c>tool_response</c>; only the strings change.
+    /// Claude Code and Grok PostToolUse: <c>updatedToolOutput</c> replaces what the model sees. The output keeps
+    /// the shape of <c>tool_response</c>; only the strings change. <paramref name="source"/> is the harness id.
     /// </summary>
-    public static async Task<string?> ClaudePostToolUseAsync(JsonNode input, Func<IReadOnlyList<string>, string, Task<LeakCheck>> check)
+    public static async Task<string?> ClaudePostToolUseAsync(JsonNode input, Func<IReadOnlyList<string>, string, Task<LeakCheck>> check, string source = "claude")
     {
         if (input["tool_response"] is not { } response)
             return null;
-        var (copy, names) = await RedactAsync(response, check, "claude:" + (string?)input["tool_name"]).ConfigureAwait(false);
+        var (copy, names) = await RedactAsync(response, check, source + ":" + (string?)input["tool_name"]).ConfigureAwait(false);
         if (names.Count == 0)
             return null;
         return new JsonObject

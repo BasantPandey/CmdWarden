@@ -15,7 +15,7 @@ public static class PolicyHookCommands
     {
         switch (args)
         {
-            case ["check", "claude" or "cursor" or "codex"]:
+            case ["check", "claude" or "cursor" or "codex" or "grok"]:
                 return await CheckAsync(args[1]).ConfigureAwait(false);
             case ["install", "codex"]:
                 Report(HookInstaller.InstallClaude(HookInstaller.CodexHooksPath(), HookInstaller.SelfCommand("hook check codex"),
@@ -44,13 +44,22 @@ public static class PolicyHookCommands
                 Report(HookInstaller.UninstallCursor(HookInstaller.CursorHooksPath(), HookInstaller.PolicyMarker),
                     "Cursor beforeShellExecution hook", HookInstaller.CursorHooksPath(), "removed", "not there");
                 return 0;
+            case ["install", "grok"]:
+                Report(HookInstaller.InstallClaude(HookInstaller.GrokHooksPath(), HookInstaller.SelfCommand("hook check grok"),
+                        "PreToolUse", ClaudeMatcher, HookInstaller.PolicyMarker),
+                    "Grok PreToolUse hook", HookInstaller.GrokHooksPath(), "added", "already there");
+                return 0;
+            case ["uninstall", "grok"]:
+                Report(HookInstaller.UninstallClaude(HookInstaller.GrokHooksPath(), "PreToolUse", HookInstaller.PolicyMarker),
+                    "Grok PreToolUse hook", HookInstaller.GrokHooksPath(), "removed", "not there");
+                return 0;
             default:
-                Console.WriteLine("Usage: cw hook install|uninstall claude|cursor|codex");
+                Console.WriteLine("Usage: cw hook install|uninstall claude|cursor|codex|grok");
                 Console.WriteLine("  Check the policy before the harness runs a shell command.");
                 Console.WriteLine("  A deny stops the command, and the agent reads: " + PolicyHook.DenyText(["<why>"]));
                 Console.WriteLine("  Allow and ask add no step: the Approval Gate still asks when the command runs.");
                 Console.WriteLine("  It also stops a read of a .env file that still holds plain secret values.");
-                Console.WriteLine("The harness runs: cw hook check claude|cursor|codex  (hook JSON on stdin).");
+                Console.WriteLine("The harness runs: cw hook check claude|cursor|codex|grok  (hook JSON on stdin).");
                 return args.Length > 0 && args[0] is "-h" or "--help" or "help" ? 0 : 1;
         }
     }

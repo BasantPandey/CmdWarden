@@ -125,7 +125,7 @@ public sealed class ToolPack
                 errors.Add($"secretEnv '{name}' is not a valid vault name.");
             }
         }
-        if (Logo is not null && !Regex.IsMatch(Logo.Color, "^#[0-9A-Fa-f]{6}$"))
+        if (Logo is not null && !Regex.IsMatch(Logo.Color, "^#[0-9A-Fa-f]{6}$", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)))
             errors.Add($"logo color '{Logo.Color}' must be #RRGGBB.");
         if (!CommandClassNames.TryParse(Default, out _))
             errors.Add($"default '{Default}' is not a class (read, write, secret-reveal, unknown).");

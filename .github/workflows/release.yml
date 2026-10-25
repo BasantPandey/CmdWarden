@@ -171,19 +171,20 @@ jobs:
           ./scripts/Test-Portable.ps1 -Folder artifacts/bin @signed
 
       - name: Push nupkg to GitHub Packages
-        run: >
-          dotnet nuget push ${{ github.workspace }}/artifacts/nupkg/CmdWarden.${{ env.VERSION }}.nupkg
-          --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
-          --api-key ${{ secrets.GITHUB_TOKEN }}
-          --skip-duplicate
+        env:
+          NUPKG: ${{ github.workspace }}/artifacts/nupkg/CmdWarden.${{ env.VERSION }}.nupkg
+          NUGET_SOURCE: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+          NUGET_KEY: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: dotnet nuget push "$env:NUPKG" --source "$env:NUGET_SOURCE" --api-key "$env:NUGET_KEY" --skip-duplicate
 
       - name: Push nupkg to NuGet.org
         if: env.NUGET_API_KEY != ''
-        run: >
-          dotnet nuget push ${{ github.workspace }}/artifacts/nupkg/CmdWarden.${{ env.VERSION }}.nupkg
-          --source https://api.nuget.org/v3/index.json
-          --api-key ${{ secrets.NUGET_API_KEY }}
-          --skip-duplicate
+        env:
+          NUPKG: ${{ github.workspace }}/artifacts/nupkg/CmdWarden.${{ env.VERSION }}.nupkg
+          NUGET_KEY: ${{ secrets.NUGET_API_KEY }}
+        shell: pwsh
+        run: dotnet nuget push "$env:NUPKG" --source https://api.nuget.org/v3/index.json --api-key "$env:NUGET_KEY" --skip-duplicate
 
       - name: Zip the portable folder, the setup, and the manifests
         shell: pwsh

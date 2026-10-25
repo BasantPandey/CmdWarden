@@ -8,7 +8,7 @@
 
 **Docs site: [basantpandey.github.io/CmdWarden](https://basantpandey.github.io/CmdWarden/)**
 
-CmdWarden makes AI coding agents ask before they use your secrets on Windows. Claude Code, Cursor, and Codex get a policy and an Approval Gate card. Your own terminal keeps working as before.
+CmdWarden makes AI coding agents ask before they use your secrets on Windows. Claude Code, Cursor, Codex, and Grok get a policy and an Approval Gate card. Your own terminal keeps working as before.
 
 CLI: **`cw`** (alias `cmdwarden`). Desktop app: **CmdWarden Vault**. Free and open source.
 
@@ -25,7 +25,7 @@ Get the [video in high quality (MP4)](docs/images/cmdwarden-promo.mp4).
 cw setup
 ```
 
-No .NET install and no admin prompt: CmdWarden carries its own runtime. `cw setup` enrolls your terminal, hardens the tools it finds, wires Claude Code, Cursor, and Codex, and shows you a real card. Each step asks first.
+No .NET install and no admin prompt: CmdWarden carries its own runtime. `cw setup` enrolls your terminal, hardens the tools it finds, wires Claude Code, Cursor, Codex, and Grok, and shows you a real card. Each step asks first.
 
 The winget package and the NuGet.org package come soon ([#64](https://github.com/BasantPandey/CmdWarden/issues/64)). Until then, `winget install` does not find CmdWarden.
 
@@ -36,11 +36,11 @@ Details, other install ways, and update: **[docs/install.md](docs/install.md)**.
 ## What it does
 
 - **Gates each tool.** A PATH shim asks the Session Agent before `gh`, `git`, `az`, `docker`, `npm`, `aws`, `kubectl`, or `ssh` uses your login.
-- **Knows who asks.** Policy follows the real app behind the command: your terminal, Claude Code, Cursor, Codex, or an unknown install script.
+- **Knows who asks.** Policy follows the real app behind the command: your terminal, Claude Code, Cursor, Codex, Grok, or an unknown install script.
 - **Asks only when it matters.** Reads and low-risk writes of an enrolled harness run with no card. Secret reads, unknown commands, and risky writes ask. One **Allow for session** covers the task.
 - **Guards `.env` files.** `cw env import` moves the values into the vault. `cw inject --env-file .env -- npm run dev` gives them only to your program, and the output shows `[CmdWarden: NAME]`.
 - **Signs in for the agent.** The agent types `cw://NAME` in a sign-in form. You approve, and only the site gets the password or the 2FA code. `cw save NAME --generate` makes a new password that nobody sees ([UC17](docs/use-cases/web-sign-in-through-proxy.md)).
-- **Works with your harness.** A policy hook, a leak guard, and an MCP server for Claude Code, Cursor, and Codex.
+- **Works with your harness.** A policy hook, a leak guard, and an MCP server for Claude Code, Cursor, Codex, and Grok.
 - **Fails closed.** No desktop means no card, and no card means no secret. Every release writes an audit row first.
 
 Full setup with profiles and per-tool tables: **[docs/policy-quickstart.md](docs/policy-quickstart.md)**.

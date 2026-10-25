@@ -13,7 +13,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>cw</ToolCommandName>
     <PackageId>CmdWarden</PackageId>
-    <PackageTags>cmdwarden;security;windows;cli;secrets;ai-agents;claude-code;cursor;gh;git;docker;az</PackageTags>
+    <PackageTags>cmdwarden;security;windows;cli;secrets;ai-agents;claude-code;cursor;grok;gh;git;docker;az</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <!-- NU5111: uninstall\Uninstall-CmdWarden.ps1 is for cw setup, not a NuGet install script. -->

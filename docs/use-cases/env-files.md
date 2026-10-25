@@ -74,7 +74,7 @@ cw inject --template app.yml -- myapp --config {template}
 ## 4. What the agent sees
 
 - `cat .env` shows only `cw://` names.
-- A read of a `.env` file that still holds plain values is stopped by the CmdWarden hook, with a message that tells the agent to use `cw inject --env-file`. The hook covers Claude Code, Cursor, and Codex.
+- A read of a `.env` file that still holds plain values is stopped by the CmdWarden hook, with a message that tells the agent to use `cw inject --env-file`. The hook covers Claude Code, Cursor, Codex, and Grok.
 - `cw setup` also adds `Read(**/.env)` deny rules to Claude Code.
 
 Undo: the values stay in the vault. Put them back by hand, or delete them with `cw delete <NAME>`.

@@ -198,6 +198,8 @@ Issues: [Windows Hello / step-up](https://github.com/BasantPandey/CmdWarden/issu
 - Each match writes an audit row: decision `redact`, reason `LeakRedacted`, tool `leak-guard`, the secret name, the launcher, and the source as purpose.
 - `cw leak-guard install claude` adds a Claude Code `PostToolUse` hook (matcher `*`) to `~/.claude/settings.json`. The hook sends every string of `tool_response` in one call and returns `updatedToolOutput` with the same shape, so the model sees only the placeholder.
 - `cw leak-guard install cursor` adds `beforeReadFile`, `postToolUse`, and `afterShellExecution` to `~/.cursor/hooks.json`. Cursor can block a read (`permission: deny`) and replace MCP output (`updated_mcp_tool_output`). It cannot change shell output, so a shell match only adds a note for the model.
+- `cw leak-guard install grok` adds a `PostToolUse` hook (matcher `.*`) to `~/.grok/hooks/cmdwarden.json`. Grok reads the same `updatedToolOutput` reply as Claude Code. The policy hook is a `PreToolUse` entry in that file (matcher `Bash|PowerShell|Read`). Grok maps those names to `run_terminal_command` and `read_file`. A file read uses `tool_input.target_file` or `tool_input.file_path`.
+- `cw mcp install grok` adds `[mcp_servers.cmdwarden]` to `~/.grok/config.toml`. The command is this `cw` and the argument is `mcp`. A table the user already wrote is left as it is.
 - When the Agent is down, the hook lets the output pass and shows a note. It never blocks the harness.
 - Residual: only exact values; an encoded copy (base64, URL encoding) passes.
 
@@ -255,7 +257,7 @@ Issue: [install and distribution](https://github.com/BasantPandey/CmdWarden/issu
 | audit | Tail gate log |
 | scan | First-catalog detectors |
 | harden \<tool\> | Opt-in shim + pin for catalog tools |
-| launch \<harness\> | Start Claude Code, Codex, or Cursor without ambient token variables ([#25](https://github.com/BasantPandey/CmdWarden/issues/25)) |
+| launch \<harness\> | Start Claude Code, Codex, Cursor, or Grok without ambient token variables ([#25](https://github.com/BasantPandey/CmdWarden/issues/25)) |
 
 **Primary journey:** install → doctor → enroll → harden gh → day-to-day shim use; plus scan / audit / manual vault.
 
@@ -265,7 +267,7 @@ Issue: [v1 cw CLI command surface](https://github.com/BasantPandey/CmdWarden/iss
 
 ### cw launch ([#25](https://github.com/BasantPandey/CmdWarden/issues/25))
 
-- Catalog: `claude` (Claude Code, `claude.exe`), `codex` (Codex, `codex.exe`), `cursor` (Cursor, `Cursor.exe`).
+- Catalog: `claude` (Claude Code, `claude.exe`), `codex` (Codex, `codex.exe`), `cursor` (Cursor, `Cursor.exe`), `grok` (Grok, `grok.exe`).
 - The harness binary is the process that starts shells, so it is the launcher CmdWarden sees. A native install on PATH is that binary. For an npm `.cmd` shim, `cw launch` starts the shim and looks for the binary in the npm package the shim names. Cursor starts from `%LOCALAPPDATA%\Programs\cursor\Cursor.exe`.
 - The child environment is a copy without `AmbientEnv.All`, the list the scan detectors use: `GH_TOKEN`, `GITHUB_TOKEN`, `GH_ENTERPRISE_TOKEN`, `GITHUB_ENTERPRISE_TOKEN`, `GH_PATH`, `AZURE_CLIENT_SECRET`, `AZURE_CLIENT_CERTIFICATE_PATH`, `AZURE_FEDERATED_TOKEN_FILE`, `DOCKER_AUTH_CONFIG`. `cw launch` prints the names it removed, never values.
 - When the binary's policy key has no enrollment, `cw launch` enrolls it as `ai_harness`. An existing enrollment stays as it is.

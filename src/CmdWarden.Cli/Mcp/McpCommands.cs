@@ -41,8 +41,20 @@ public static class McpCommands
             case ["uninstall", "codex"]:
                 Console.WriteLine($"Codex MCP server: {(CodexConfig.Remove(CodexConfig.Path(), CodexBlock) ? "removed" : "not there")} ({CodexConfig.Path()})");
                 return 0;
+            case ["install", "grok"]:
+                Console.WriteLine($"Grok MCP server: {InstallCodex(GrokConfigPath(), ServerCommand()) switch
+                {
+                    CodexConfig.Change.Added => "added",
+                    CodexConfig.Change.Updated => "updated",
+                    CodexConfig.Change.UserOwned => $"skipped: your own [mcp_servers.{ServerName}] table is there",
+                    _ => "already there",
+                }} ({GrokConfigPath()})");
+                return 0;
+            case ["uninstall", "grok"]:
+                Console.WriteLine($"Grok MCP server: {(CodexConfig.Remove(GrokConfigPath(), CodexBlock) ? "removed" : "not there")} ({GrokConfigPath()})");
+                return 0;
             default:
-                Console.WriteLine("Usage: cw mcp [serve] | cw mcp install|uninstall claude|cursor|codex");
+                Console.WriteLine("Usage: cw mcp [serve] | cw mcp install|uninstall claude|cursor|codex|grok");
                 Console.WriteLine("  serve    Run the CmdWarden MCP server on stdio (the harness starts it).");
                 Console.WriteLine("  Tools: run_with_secret, list_allowed, why_denied. Secret values never go back to the model.");
                 return args.Length > 0 && args[0] is "-h" or "--help" or "help" ? 0 : 1;
@@ -55,7 +67,13 @@ public static class McpCommands
     private static int RunClaude(IReadOnlyList<string> args)
     {
         var shown = "claude " + string.Join(' ', args.Select(a => a.Contains(' ') ? $"\"{a}\"" : a));
-        var psi = new ProcessStartInfo("claude") { UseShellExecute = false };
+        var claude = InjectRunner.ResolveProgram("claude");
+        if (!Path.IsPathRooted(claude))
+        {
+            Console.Error.WriteLine($"Claude Code (claude) is not on PATH. Run this when it is: {shown}");
+            return 1;
+        }
+        var psi = new ProcessStartInfo(claude) { UseShellExecute = false };
         foreach (var a in args)
             psi.ArgumentList.Add(a);
         try
@@ -81,6 +99,10 @@ public static class McpCommands
 
     public static string CursorMcpPath(string? home = null) =>
         Path.Combine(home ?? CmdWarden.Contracts.ProductPaths.UserHome(), ".cursor", "mcp.json");
+
+    /// <summary>Grok reads <c>[mcp_servers.cmdwarden]</c> from this file.</summary>
+    public static string GrokConfigPath(string? home = null) =>
+        Path.Combine(home ?? CmdWarden.Contracts.ProductPaths.UserHome(), ".grok", "config.toml");
 
     /// <summary>Adds mcpServers.cmdwarden to the Cursor config. Other servers stay as they are.</summary>
     public static bool InstallCursor(string path, IReadOnlyList<string> command)

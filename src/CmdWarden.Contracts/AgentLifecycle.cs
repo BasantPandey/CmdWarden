@@ -130,9 +130,12 @@ public static class AgentLifecycle
         var apphost = Path.Combine(binaryDir, AgentLocator.AgentExeName);
         var managed = binary.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? binary : siblingDll;
         var privateRuntime = Directory.Exists(Path.Combine(binaryDir, "..", "runtime", "host"));
-        if (File.Exists(managed) && (!File.Exists(apphost) || (DotnetOnPath() && !privateRuntime)))
+        var dotnet = ProgramPath.Resolve("dotnet");
+        if (File.Exists(managed) && (!File.Exists(apphost) || (Path.IsPathRooted(dotnet) && !privateRuntime)))
         {
-            psi.FileName = "dotnet";
+            if (!Path.IsPathRooted(dotnet))
+                return new StatusResult(false, null, pipe, "dotnet is not on PATH. Install the .NET runtime, or publish the agent with its own runtime.");
+            psi.FileName = dotnet;
             psi.ArgumentList.Add(managed);
         }
         else
@@ -278,11 +281,6 @@ public static class AgentLifecycle
         or TimeoutException
         or IOException
         or HttpRequestException;
-
-    private static bool DotnetOnPath() =>
-        (Environment.GetEnvironmentVariable("PATH") ?? "")
-            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Any(dir => File.Exists(Path.Combine(dir, "dotnet.exe")));
 
     private static bool LooksSelfContained(string binaryDir)
     {

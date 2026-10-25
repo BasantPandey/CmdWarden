@@ -69,13 +69,25 @@ Each step asks first. Enter means yes. `cw setup --yes` runs every step with no 
 |------|--------------|
 | terminal | Enrolls this terminal as Trusted. Your own work gets no card. |
 | tools | Hardens each tool it finds: `gh`, `git`, `az`, `docker`, `npm`, `aws`, `kubectl`, and `ssh`. When a tool comes before the shims on the machine PATH, it fixes PATH with one admin prompt. |
-| harnesses | Finds Claude Code, Cursor, and Codex. Enrolls each one at Read. Adds the policy hook, the leak guard, and the MCP server. For Codex, it also offers to enroll the sandbox accounts. |
+| harnesses | Finds Claude Code, Cursor, Codex, and Grok. Enrolls each one at Read. Adds the policy hook, the leak guard, and the MCP server. For Codex, it also offers to enroll the sandbox accounts. |
 | shortcuts | Adds the Start Menu entry, the tray icon at logon, and the Settings > Apps entry. |
 | canary | Plants fake tokens. A use of one shows an alarm and blocks the app that used it. |
 | protect | Turns on the secret protections that each harness has but leaves off. See [Trust](trust.md). |
 | try | Runs `cw try`: a stand-in agent asks for a fake secret, and you see the real card. |
 
 Then restart your AI harness, so it reads the new PATH and hooks. `cw setup` is safe to run again: a step that is done says so.
+
+### Grok
+
+When Grok is installed, the harness step enrolls `grok.exe` at Read. It also adds the hook, the leak guard, and the MCP server.
+
+| Command | File |
+|---------|------|
+| `cw hook install grok` | `~/.grok/hooks/cmdwarden.json` (`PreToolUse`, matcher `Bash\|PowerShell\|Read`) |
+| `cw leak-guard install grok` | The same file (`PostToolUse`, matcher `.*`) |
+| `cw mcp install grok` | `~/.grok/config.toml` (`[mcp_servers.cmdwarden]`) |
+
+Restart Grok after these commands. Grok loads hooks at the start of a session. The policy hook stops a denied shell command and a read of a `.env` file that still holds plain values. The leak guard hides vault values in tool output. The MCP server lets Grok call `run_with_secret`, `list_allowed`, and `why_denied`. No secret value goes back to the model.
 
 Run `cw try` at any time to see the card again. It never uses a real token.
 
@@ -221,7 +233,7 @@ For a winget install, run `cw uninstall` first. It removes the hooks and shims, 
 The uninstaller works when `cw` is broken or gone. Each step runs on its own. A failed step prints a warning, and the next step continues.
 
 1. Unhardens every tool, so their logins go back to the stock stores.
-2. Removes the hooks, MCP servers, and protections from Claude Code, Cursor, and Codex, and removes the canaries.
+2. Removes the hooks, MCP servers, and protections from Claude Code, Cursor, Codex, and Grok, and removes the canaries.
 3. Stops the Session Agent, the Approval Gate, and CmdWarden Vault.
 4. Removes the Start Menu entry and the Desktop icon.
 5. Uninstalls an old dotnet tool copy.

@@ -20,7 +20,8 @@ public sealed class AuditLog
 
     private static readonly Regex GateFileName = new(
         @"^gates-(\d{8})\.ndjson$",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled,
+        TimeSpan.FromMilliseconds(100));
 
     private readonly string _dir;
     private readonly bool _eventLog;

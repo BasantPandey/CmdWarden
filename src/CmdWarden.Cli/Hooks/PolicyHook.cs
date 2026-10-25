@@ -21,15 +21,17 @@ public static class PolicyHook
         $"{ProductInfo.Name} denied this. Ask the user. Do not retry. ({string.Join(" ", details)})";
 
     /// <summary>
-    /// Claude Code and Codex PreToolUse for Bash and PowerShell, and the Claude Code Read tool: a deny
-    /// goes back as permissionDecision. Both harnesses read the same output shape.
+    /// Claude Code, Codex, and Grok PreToolUse for a shell command, and a file read (Read or read_file).
+    /// A deny goes back as permissionDecision. These harnesses read the same output shape.
     /// </summary>
     public static async Task<string?> ClaudePreToolUseAsync(JsonNode input, Func<ToolCall, Task<PolicyVerdict>> check)
     {
         var cwd = (string?)input["cwd"];
-        var denied = (string?)input["tool_name"] == "Read"
-            ? EnvFileDenials([(string?)input["tool_input"]?["file_path"] ?? ""], cwd)
-            : await DeniedAsync((string?)input["tool_input"]?["command"], cwd, check).ConfigureAwait(false);
+        var toolInput = input["tool_input"];
+        var tool = (string?)input["tool_name"];
+        var denied = tool is "Read" or "read_file"
+            ? EnvFileDenials([(string?)toolInput?["file_path"] ?? (string?)toolInput?["target_file"] ?? ""], cwd)
+            : await DeniedAsync((string?)toolInput?["command"], cwd, check).ConfigureAwait(false);
         return denied.Count == 0 ? null : new JsonObject
         {
             ["hookSpecificOutput"] = new JsonObject

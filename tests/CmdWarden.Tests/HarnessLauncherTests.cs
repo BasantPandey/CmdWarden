@@ -42,6 +42,20 @@ public class HarnessLauncherTests : IDisposable
     }
 
     [Fact]
+    public void Grok_native_install_starts_the_same_binary()
+    {
+        var exe = Touch("bin", "grok.exe");
+        var harness = HarnessLauncher.Find("grok");
+        Assert.NotNull(harness);
+        Assert.Equal("grok", harness.Command);
+        Assert.False(harness.Gui);
+
+        var install = HarnessLauncher.Locate(harness, Path.GetDirectoryName(exe), _dir)!;
+        Assert.Equal(exe, install.StartPath, ignoreCase: true);
+        Assert.Equal(exe, install.ImagePath, ignoreCase: true);
+    }
+
+    [Fact]
     public void Native_install_starts_and_enrolls_the_same_binary()
     {
         var exe = Touch("bin", "claude.exe");

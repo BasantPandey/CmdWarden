@@ -43,16 +43,39 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw inject ... --no-masking` | Show the secret values in the output |
 | `cw env import [<file>] [--prefix P] [--all] [--yes]` | Move the secret values of a dotenv file (default `.env`) into the vault. Each moved line becomes `KEY=cw://NAME`. See [Keep .env secrets out of the agent](use-cases/env-files.md) |
 | `cw scan [--move-to-vault]` | Read-only residual risk scan; `--move-to-vault` moves plain MCP server secrets into the vault |
-| `cw launch claude\|codex\|cursor [-- args]` | Start an AI harness without the token variables `cw scan` knows; enroll its binary as ai-harness if needed |
-| `cw leak-guard install\|uninstall claude\|cursor\|codex` | Hook that replaces vaulted secret values in tool output with `[CmdWarden: NAME]` |
-| `cw hook install\|uninstall claude\|cursor\|codex` | Hook that checks the policy before the harness runs a shell command. A deny stops the command, and the agent reads "CmdWarden denied this. Ask the user. Do not retry." Allow and ask add no step. It also stops a read of a `.env` file that holds plain secret values, and a `cw` command that turns protection off |
-| `cw mcp install\|uninstall claude\|cursor\|codex` | Add the CmdWarden MCP server to the harness. Tools: `run_with_secret` (run a program through the gate; the output passes the leak guard), `list_allowed` (policy per tool, secret names only), `why_denied` (the last deny for this launcher) |
+| `cw launch claude\|codex\|cursor\|grok [-- args]` | Start an AI harness without the token variables `cw scan` knows; enroll its binary as ai-harness if needed |
+| `cw leak-guard install\|uninstall claude\|cursor\|codex\|grok` | Hook that replaces vaulted secret values in tool output with `[CmdWarden: NAME]` |
+| `cw hook install\|uninstall claude\|cursor\|codex\|grok` | Hook that checks the policy before the harness runs a shell command. A deny stops the command, and the agent reads "CmdWarden denied this. Ask the user. Do not retry." Allow and ask add no step. It also stops a read of a `.env` file that holds plain secret values, and a `cw` command that turns protection off |
+| `cw mcp install\|uninstall claude\|cursor\|codex\|grok` | Add the CmdWarden MCP server to the harness. Tools: `run_with_secret` (run a program through the gate; the output passes the leak guard), `list_allowed` (policy per tool, secret names only), `why_denied` (the last deny for this launcher) |
 | `cw mcp` | Run the MCP server on stdio. The harness starts it |
 | `cw canary install [--env <file>]...\|remove\|status` | Fake tokens that block the launcher and show an alarm when used |
 | `cw protect install\|uninstall claude\|codex` | Turn on the secret protections of the harness: Claude Code deny rules and env scrub, the Codex shell environment policy. `uninstall` removes only what cw added. See [Trust](trust.md) |
 | `cw audit [-n N]` | Recent gate decisions |
 | `cw audit eventlog on\|off\|status` | Also write each gate decision to the Windows Application log, source `CmdWarden`. `on` and `off` ask for admin once |
 | `cw shortcut install [--desktop]\|remove\|status` | Start Menu (and Desktop) entry for CmdWarden Vault, a `cw launch` entry per harness on this PC, and the tray icon at logon |
+
+## Grok
+
+Grok uses the same commands as the other harnesses. Run them in your own terminal. Then restart Grok.
+
+```powershell
+cw launch grok
+cw hook install grok
+cw leak-guard install grok
+cw mcp install grok
+```
+
+`cw setup` does the same steps when `grok.exe` is on PATH.
+
+| Piece | Where it goes | What it does |
+|-------|----------------|--------------|
+| Policy hook | `~/.grok/hooks/cmdwarden.json`, event `PreToolUse` | Matcher `Bash\|PowerShell\|Read`. Grok maps those names to `run_terminal_command` and `read_file`. A deny stops the call. |
+| Leak guard | Same file, event `PostToolUse` | Matcher `.*`. It replaces each vault value in the tool output with `[CmdWarden: NAME]`. |
+| MCP server | `~/.grok/config.toml`, table `[mcp_servers.cmdwarden]` | Grok starts `cw mcp`. The tools are `run_with_secret`, `list_allowed`, and `why_denied`. |
+
+`cw hook uninstall grok` removes the policy hook. `cw leak-guard uninstall grok` removes the leak guard. `cw mcp uninstall grok` removes the MCP table. Other lines in the files stay.
+
+Grok reads the same hook reply as Claude Code. A deny uses `permissionDecision`. The leak guard uses `updatedToolOutput`.
 
 ## Screens
 

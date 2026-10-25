@@ -62,6 +62,62 @@ public class PolicyHookTests
     }
 
     [Fact]
+    public async Task Grok_shell_deny_uses_the_same_decision_as_claude()
+    {
+        var input = JsonNode.Parse("""{"hook_event_name":"PreToolUse","tool_name":"run_terminal_command","tool_input":{"command":"gh pr create"}}""")!;
+        var output = await PolicyHook.ClaudePreToolUseAsync(input, Verdicts(new() { ["gh"] = PolicyCheckDecisions.Deny }));
+
+        var hso = JsonNode.Parse(output!)!["hookSpecificOutput"]!;
+        Assert.Equal("deny", (string?)hso["permissionDecision"]);
+        Assert.Contains("gh:", (string?)hso["permissionDecisionReason"], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Grok_read_file_of_a_dotenv_file_denies_on_target_file()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "cw-grok-env-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, ".env"), "STRIPE_SECRET_KEY=sk_live_example\n");
+            var input = new JsonObject
+            {
+                ["tool_name"] = "read_file",
+                ["cwd"] = dir,
+                ["tool_input"] = new JsonObject { ["target_file"] = ".env" },
+            };
+            var output = await PolicyHook.ClaudePreToolUseAsync(input, Verdicts(new()));
+            Assert.Equal("deny", (string?)JsonNode.Parse(output!)!["hookSpecificOutput"]!["permissionDecision"]);
+        }
+        finally
+        {
+            try { Directory.Delete(dir, recursive: true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void Grok_hooks_file_holds_the_policy_hook_and_the_leak_guard()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "cw-grok-hooks-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var path = HookInstaller.GrokHooksPath(dir);
+            Assert.EndsWith(Path.Combine(".grok", "hooks", "cmdwarden.json"), path, StringComparison.OrdinalIgnoreCase);
+            Assert.True(HookInstaller.InstallClaude(path, "cw hook check grok", "PreToolUse", PolicyHookCommands.ClaudeMatcher, HookInstaller.PolicyMarker));
+            Assert.True(HookInstaller.InstallClaude(path, "cw leak-guard grok", matcher: LeakGuardCommands.CodexMatcher));
+            var hooks = JsonNode.Parse(File.ReadAllText(path))!["hooks"]!;
+            Assert.Equal("Bash|PowerShell|Read", (string?)hooks["PreToolUse"]![0]!["matcher"]);
+            Assert.Equal(".*", (string?)hooks["PostToolUse"]![0]!["matcher"]);
+            Assert.True(HookInstaller.UninstallClaude(path, "PreToolUse", HookInstaller.PolicyMarker));
+            Assert.True(HookInstaller.UninstallClaude(path));
+        }
+        finally
+        {
+            try { Directory.Delete(dir, recursive: true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
     public async Task Cursor_gets_a_permission_every_time()
     {
         var deny = Verdicts(new() { ["az"] = PolicyCheckDecisions.Deny });

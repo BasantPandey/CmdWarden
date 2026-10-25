@@ -35,7 +35,7 @@ The [CmdWarden Vault](vault.md) section describes every page. Each use case belo
 | **CmdWarden Vault** | Desktop app (Start Menu) to view gates, detectors, hardened tools, secret names, usage, and doctor |
 | **Session allow** | An Approval Gate grant that lasts until the launcher exits or 60 idle minutes. **Approve Once** grants the one class you saw; **Allow for session** grants that class and every lower one. **Allow for session** can also end after 10 minutes or 1 hour |
 
-Enrollment is by **identity key** from `cw whoami`, not by brand name. Cursor, Claude Code, and Codex are examples of the **ai-harness** kind - same enroll commands for each.
+Enrollment is by **identity key** from `cw whoami`, not by brand name. Cursor, Claude Code, Codex, and Grok are examples of the **ai-harness** kind - same enroll commands for each.
 
 `cw whoami` prints the identity CmdWarden sees for the current shell:
 
@@ -63,8 +63,8 @@ Many commands lazy-start the agent; prefer `cw doctor` after install.
 1. Use `gh` / `git` / … **via PATH** in a **new shell** after harden (not absolute path to the real binary - that bypasses the shim).
 2. Work normally. When the Approval Gate appears, click **Approve Once**, **Allow for session**, or **Deny**.
 3. Let the agent say why it runs a command. Set `CW_REASON` for the command, for example `CW_REASON="create the release PR" gh pr create`. The Approval Gate shows the text under the command, with the label **The agent says:**. The audit stores it. CmdWarden never treats it as proof, and policy never reads it. The text is one line of 200 characters or less. A request through the placeholder proxy sends the same text in the `X-CmdWarden-Reason` header ([UC15](use-cases/api-keys-through-proxy.md#tell-the-card-why)).
-4. Stop an agent before it runs a command that CmdWarden will deny. Run `cw hook install claude` or `cw hook install cursor` once. After you deny a tool, the agent gets the deny before the next try, and not a failed command.
-5. Give the agent the CmdWarden MCP server with `cw mcp install claude` or `cw mcp install cursor`. The agent can then see what runs with no prompt, run a command that needs a vault secret, and learn why CmdWarden denied a call. No secret value goes back to the model.
+4. Stop an agent before it runs a command that CmdWarden will deny. Run `cw hook install claude`, `cw hook install cursor`, `cw hook install codex`, or `cw hook install grok` once. After you deny a tool, the agent gets the deny before the next try, and not a failed command. For Grok, the hook file is `~/.grok/hooks/cmdwarden.json`.
+5. Give the agent the CmdWarden MCP server with `cw mcp install claude`, `cw mcp install cursor`, `cw mcp install codex`, or `cw mcp install grok`. The agent can then see what runs with no prompt, run a command that needs a vault secret, and learn why CmdWarden denied a call. No secret value goes back to the model. For Grok, the server is `[mcp_servers.cmdwarden]` in `~/.grok/config.toml`.
 6. Tighten with `cw policy set` only when defaults are not enough ([UC3](use-cases/agent-reads-github-writes-need-approval.md)).
 7. Periodically open CmdWarden Vault (**Detectors**, **Secret Usage**) or run `cw scan` / `cw audit` ([UC7](use-cases/audit-and-scan.md)).
 

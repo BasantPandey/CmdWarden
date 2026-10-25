@@ -9,7 +9,7 @@
 
   Steps:
     1. Unharden every tool, so their logins go back to the stock stores.
-    2. Remove the hooks, MCP servers, and protections from Claude Code, Cursor, and Codex. Remove the canaries.
+    2. Remove the hooks, MCP servers, and protections from Claude Code, Cursor, Codex, and Grok. Remove the canaries.
     3. Stop the Session Agent, the Approval Gate, and CmdWarden Vault.
     4. Remove the Start Menu entry and the Desktop icon.
     5. Uninstall the dotnet tool and clear its tool store.
@@ -190,10 +190,10 @@ else {
 }
 
 # A hook or MCP server left in the harness config would call a cw that is gone.
-Write-Step "Remove the Claude Code, Cursor, and Codex hooks, MCP servers, and protections"
+Write-Step "Remove the Claude Code, Cursor, Codex, and Grok hooks, MCP servers, and protections"
 if ($cw) {
     foreach ($command in "leak-guard", "hook", "mcp") {
-        foreach ($harness in "claude", "cursor", "codex") {
+        foreach ($harness in "claude", "cursor", "codex", "grok") {
             Invoke-Cw $cw @($command, "uninstall", $harness) | Out-Null
         }
     }
@@ -203,8 +203,8 @@ if ($cw) {
     Invoke-Cw $cw @("canary", "remove") | Out-Null
 }
 else {
-    Write-Warn "No working cw found. Remove the entries with 'leak-guard' or 'hook check' from ~\.claude\settings.json, ~\.cursor\hooks.json, and ~\.codex\hooks.json."
-    Write-Warn "Remove the cmdwarden MCP server: claude mcp remove --scope user cmdwarden, its entry in ~\.cursor\mcp.json, and the CmdWarden blocks in ~\.codex\config.toml."
+    Write-Warn "No working cw found. Remove the entries with 'leak-guard' or 'hook check' from ~\.claude\settings.json, ~\.cursor\hooks.json, ~\.codex\hooks.json, and ~\.grok\hooks\cmdwarden.json."
+    Write-Warn "Remove the cmdwarden MCP server: claude mcp remove --scope user cmdwarden, its entry in ~\.cursor\mcp.json, and the CmdWarden blocks in ~\.codex\config.toml and ~\.grok\config.toml."
 }
 Clear-GitHelper
 Clear-DockerHelper

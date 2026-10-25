@@ -12,7 +12,7 @@ public class AgentReasonTests
     [InlineData(" \r\n\t ", null)]
     [InlineData("create the release PR", "create the release PR")]
     [InlineData("  line one\r\n\r\nline two  ", "line one line two")]
-    [InlineData("safe‮gnp.exe", "safe gnp.exe")]
+    [InlineData("safe\u202Egnp.exe", "safe gnp.exe")]
     [InlineData("a\u0000b\u001Bc", "a b c")]
     [InlineData("zero​width", "zero width")]
     public void Clean_gives_one_plain_line(string? raw, string? expected) =>
