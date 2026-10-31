@@ -22,6 +22,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $id = "BasantPandey.CmdWarden"
+$manifestVersion = "1.28.0"
 $url = "https://github.com/$Repo/releases/download/v$Version/CmdWarden.$Version-win-x64.zip"
 $sha = (Get-FileHash $Zip -Algorithm SHA256).Hash
 $winget = Join-Path $Out "winget"
@@ -29,16 +30,16 @@ $scoop = Join-Path $Out "scoop"
 New-Item -ItemType Directory -Force $winget, $scoop | Out-Null
 
 @"
-# yaml-language-server: `$schema=https://aka.ms/winget-manifest.version.1.12.0.schema.json
+# yaml-language-server: `$schema=https://aka.ms/winget-manifest.version.$manifestVersion.schema.json
 PackageIdentifier: $id
 PackageVersion: $Version
 DefaultLocale: en-US
 ManifestType: version
-ManifestVersion: 1.12.0
+ManifestVersion: $manifestVersion
 "@ | Set-Content (Join-Path $winget "$id.yaml") -Encoding utf8NoBOM
 
 @"
-# yaml-language-server: `$schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
+# yaml-language-server: `$schema=https://aka.ms/winget-manifest.installer.$manifestVersion.schema.json
 PackageIdentifier: $id
 PackageVersion: $Version
 InstallerType: zip
@@ -61,11 +62,11 @@ Installers:
     InstallerUrl: $url
     InstallerSha256: $sha
 ManifestType: installer
-ManifestVersion: 1.12.0
+ManifestVersion: $manifestVersion
 "@ | Set-Content (Join-Path $winget "$id.installer.yaml") -Encoding utf8NoBOM
 
 @"
-# yaml-language-server: `$schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
+# yaml-language-server: `$schema=https://aka.ms/winget-manifest.defaultLocale.$manifestVersion.schema.json
 PackageIdentifier: $id
 PackageVersion: $Version
 PackageLocale: en-US
@@ -94,7 +95,7 @@ Tags:
   - cli
 ReleaseNotesUrl: https://github.com/$Repo/releases/tag/v$Version
 ManifestType: defaultLocale
-ManifestVersion: 1.12.0
+ManifestVersion: $manifestVersion
 "@ | Set-Content (Join-Path $winget "$id.locale.en-US.yaml") -Encoding utf8NoBOM
 
 [ordered]@{

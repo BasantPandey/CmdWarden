@@ -1,6 +1,6 @@
 ---
 title: Install CmdWarden
-description: Install CmdWarden on Windows with winget or the setup zip. It carries its own .NET runtime, needs no admin prompt, and cw setup does the rest.
+description: Install CmdWarden on Windows with the setup zip. It carries its own .NET runtime, needs no admin prompt, and cw setup does the rest.
 ---
 
 # Install CmdWarden
@@ -34,9 +34,9 @@ Install alone changes nothing. `gh`, `git`, and the other tools run as before un
 
 ## 2. Install
 
-Pick one way.
+The setup zip is the install that works now.
 
-**Setup zip** (recommended):
+**Setup zip**:
 
 1. Download `CmdWarden.<version>-setup.zip` from the [latest release](https://github.com/BasantPandey/CmdWarden/releases/latest).
 2. Extract the zip, then double-click **`install.cmd`**. Do not run it as admin.
@@ -45,13 +45,7 @@ The installer copies CmdWarden to `%LOCALAPPDATA%\CmdWarden\app`, puts it on you
 
 **Portable zip**: extract `CmdWarden.<version>-win-x64.zip` anywhere and run `.\cw.exe setup`.
 
-**winget** (soon, [#64](https://github.com/BasantPandey/CmdWarden/issues/64)): the package is not in the winget catalog yet. When it is, run:
-
-```powershell
-winget install BasantPandey.CmdWarden
-```
-
-winget puts the install folder on your user PATH. Open a new terminal after the install.
+**winget**: the winget catalog does not have BasantPandey.CmdWarden yet ([#64](https://github.com/BasantPandey/CmdWarden/issues/64)). `winget install` does not find CmdWarden today.
 
 ---
 
@@ -173,14 +167,14 @@ Open **CmdWarden Vault** from the Start Menu. Six pages. Every page is read-only
 
 ### dotnet tool
 
-For .NET developers. It needs the [.NET 10 SDK](https://dotnet.microsoft.com/download).
+NuGet.org does not have the package yet ([#64](https://github.com/BasantPandey/CmdWarden/issues/64)). `dotnet tool install -g CmdWarden` does not work from NuGet.org today.
+
+The tool needs the [.NET 10 SDK](https://dotnet.microsoft.com/download). Download `CmdWarden.<version>.nupkg` from the release into a folder. Then pass that folder:
 
 ```powershell
-dotnet tool install -g CmdWarden
+dotnet tool install -g CmdWarden --add-source C:\packages
 cw setup
 ```
-
-NuGet.org does not have CmdWarden yet ([#64](https://github.com/BasantPandey/CmdWarden/issues/64)). Until then, download `CmdWarden.<version>.nupkg` from the release into a folder and pass that folder: `dotnet tool install -g CmdWarden --add-source C:\packages`.
 
 ### Scoop
 
@@ -207,9 +201,9 @@ Every green **build** on `main` uploads the portable folder. Open [Actions](http
 
 | Install way | Update |
 |-------------|--------|
-| winget | `winget upgrade BasantPandey.CmdWarden` |
 | Setup zip | `cw update` |
-| dotnet tool | `dotnet tool update -g CmdWarden` |
+| winget | The catalog does not have BasantPandey.CmdWarden yet. |
+| dotnet tool | NuGet.org does not have the package yet. |
 
 ```powershell
 cw update --check   # only say if a newer release is available
