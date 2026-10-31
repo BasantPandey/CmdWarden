@@ -65,7 +65,7 @@ See it yourself with no risk: `cw try` starts a stand-in agent that nobody enrol
 
     ---
 
-    winget, the setup zip, or the dotnet tool.
+    The setup zip is the install that works now. The winget catalog does not have BasantPandey.CmdWarden yet. NuGet.org does not have the package yet.
 
     [:octicons-arrow-right-24: Install](install.md)
 

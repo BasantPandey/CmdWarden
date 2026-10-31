@@ -27,7 +27,7 @@ cw setup
 
 No .NET install and no admin prompt: CmdWarden carries its own runtime. `cw setup` enrolls your terminal, hardens the tools it finds, wires Claude Code, Cursor, Codex, and Grok, and shows you a real card. Each step asks first.
 
-The winget package and the NuGet.org package come soon ([#64](https://github.com/BasantPandey/CmdWarden/issues/64)). Until then, `winget install` does not find CmdWarden.
+The setup zip is the install that works now. The winget catalog does not have BasantPandey.CmdWarden yet. NuGet.org does not have the package yet. `winget install` does not find CmdWarden today. `dotnet tool install -g CmdWarden` does not work from NuGet.org today ([#64](https://github.com/BasantPandey/CmdWarden/issues/64)).
 
 See the card with no risk at any time: `cw try`. **Uninstall:** `cw uninstall`.
 

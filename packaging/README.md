@@ -17,7 +17,11 @@ Make the manifests by hand for any zip:
 
 ## winget
 
+The manifests use schema 1.28.0. winget-pkgs rejected schema 1.12.0 on [microsoft/winget-pkgs#442236](https://github.com/microsoft/winget-pkgs/pull/442236) (2026-10-30) and told the author to use 1.28.0.
+
 The installer manifest uses `ArchiveBinariesDependOnPath: true`. winget then puts the install folder on PATH and makes no symlink. `cw.exe` must run from its own folder, because it finds `runtime\` next to it.
+
+The winget catalog does not have BasantPandey.CmdWarden yet. `winget install` does not find CmdWarden today.
 
 Check a manifest before you submit it:
 
