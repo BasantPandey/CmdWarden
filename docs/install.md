@@ -1,6 +1,6 @@
 ---
 title: Install CmdWarden
-description: Install CmdWarden on Windows with the setup zip. It carries its own .NET runtime, needs no admin prompt, and cw setup does the rest.
+description: Install CmdWarden on Windows with winget or the setup zip. It carries its own .NET runtime, needs no admin prompt, and cw setup does the rest.
 ---
 
 # Install CmdWarden
@@ -52,7 +52,7 @@ winget source update
 winget install BasantPandey.CmdWarden
 ```
 
-winget puts the install folder on your user PATH. Open a new terminal after the install.
+winget puts the install folder on your user PATH. Open a new terminal after the install. The public page is [winstall](https://winstall.app/apps/BasantPandey.CmdWarden). It shows version 0.10.0.
 
 ---
 
