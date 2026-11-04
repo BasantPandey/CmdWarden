@@ -74,6 +74,7 @@ nav:
       - Tool packs: tool-packs.md
       - Troubleshooting: troubleshooting.md
       - CLI reference: cli-reference.md
+      - Command walkthrough: command-walkthrough.md
       - Glossary: glossary.md
   - Internals:
       - Architecture: spec/cmdwarden.md
