@@ -1,6 +1,6 @@
 ---
 title: Install CmdWarden
-description: Install CmdWarden on Windows with the setup zip. It carries its own .NET runtime, needs no admin prompt, and cw setup does the rest.
+description: Install CmdWarden on Windows with winget or the setup zip. It carries its own .NET runtime, needs no admin prompt, and cw setup does the rest.
 ---
 
 # Install CmdWarden
@@ -34,7 +34,7 @@ Install alone changes nothing. `gh`, `git`, and the other tools run as before un
 
 ## 2. Install
 
-The setup zip is the install that works now.
+Pick the setup zip or winget.
 
 **Setup zip**:
 
@@ -45,7 +45,14 @@ The installer copies CmdWarden to `%LOCALAPPDATA%\CmdWarden\app`, puts it on you
 
 **Portable zip**: extract `CmdWarden.<version>-win-x64.zip` anywhere and run `.\cw.exe setup`.
 
-**winget**: the winget catalog does not have BasantPandey.CmdWarden yet ([#64](https://github.com/BasantPandey/CmdWarden/issues/64)). `winget install` does not find CmdWarden today.
+**winget**: the catalog has BasantPandey.CmdWarden version 0.10.0. The commands are `cw` and `cmdwarden`. Run:
+
+```powershell
+winget source update
+winget install BasantPandey.CmdWarden
+```
+
+winget puts the install folder on your user PATH. Open a new terminal after the install. The public page is [winstall](https://winstall.app/apps/BasantPandey.CmdWarden). It shows version 0.10.0.
 
 ---
 
@@ -202,7 +209,7 @@ Every green **build** on `main` uploads the portable folder. Open [Actions](http
 | Install way | Update |
 |-------------|--------|
 | Setup zip | `cw update` |
-| winget | The catalog does not have BasantPandey.CmdWarden yet. |
+| winget | `winget upgrade BasantPandey.CmdWarden` |
 | dotnet tool | NuGet.org does not have the package yet. |
 
 ```powershell

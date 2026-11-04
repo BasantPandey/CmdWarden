@@ -32,7 +32,7 @@ CI runs A2, A3, and A1 without the `Process` tests. The `Process` tests start re
 
 - Use a clean Windows 10 or 11 user account, a VM, or Windows Sandbox. Do not use your daily account for the install and uninstall tests.
 - Use test logins only: a test GitHub account, a test npm token, and so on. Never use a real production token.
-- Install the release under test with the setup zip. After [#64](https://github.com/BasantPandey/CmdWarden/issues/64), also test winget.
+- Install the release under test with the setup zip. Also install BasantPandey.CmdWarden 0.10.0 with winget.
 - Have at least one AI harness: Claude Code, Cursor, Codex, or Grok. Test each one that you have.
 - Look at each screen with care. Look for cut text, bad alignment, wrong colors, and blur. Test at 100% and 150% display scale, and in light and dark mode.
 
@@ -40,7 +40,7 @@ CI runs A2, A3, and A1 without the `Process` tests. The `Process` tests start re
 
 | ID | Steps | Expect | Result |
 |----|-------|--------|--------|
-| M1 | After #64: run `winget install BasantPandey.CmdWarden`. Open a new terminal. Run `cw version`. | No admin prompt. `cw version` shows the release version. | |
+| M1 | Run `winget source update`. Run `winget install BasantPandey.CmdWarden`. Open a new terminal. Run `cw version`. | No admin prompt. `cw version` shows 0.10.0. | |
 | M2 | On a second clean user, extract the setup zip. Double-click `install.cmd`. | No admin prompt. **CmdWarden** is in Settings > Apps. The installer offers to run `cw setup`. | |
 | M3 | Run the signature check from [Install, section 4](../install.md#4-verify). | Each row shows `Valid`. | |
 | M4 | Run `cw setup`. Press Enter at each question. | Each step asks first. Each step ends with a clear result. The last step shows the card of `cw try`. | |

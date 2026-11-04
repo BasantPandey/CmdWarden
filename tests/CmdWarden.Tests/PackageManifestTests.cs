@@ -5,7 +5,9 @@ using System.Text.RegularExpressions;
 namespace CmdWarden.Tests;
 
 /// <summary>
-/// Issue 64: the manifest script writes schema 1.28.0, and the install pages do not claim a live catalog.
+/// Issue 64: the manifest script writes schema 1.28.0.
+/// The install pages name the live winget package 0.10.0.
+/// NuGet.org stays unpublished.
 /// </summary>
 public class PackageManifestTests
 {
@@ -68,15 +70,17 @@ public class PackageManifestTests
         {
             Assert.Contains("setup zip", page, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("BasantPandey.CmdWarden", page, StringComparison.Ordinal);
-            Assert.Contains("catalog does not have", page, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("0.10.0", page, StringComparison.Ordinal);
+            Assert.Contains("winget install BasantPandey.CmdWarden", page, StringComparison.Ordinal);
             Assert.Contains("NuGet.org does not have", page, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("catalog does not have", page, StringComparison.OrdinalIgnoreCase);
             AssertNoLiveCatalogClaim(page);
         }
 
         Assert.Contains("schema 1.28.0", packaging, StringComparison.Ordinal);
         Assert.Contains("microsoft/winget-pkgs#442236", packaging, StringComparison.Ordinal);
-        Assert.Contains("2026-10-30", packaging, StringComparison.Ordinal);
-        Assert.Contains("use 1.28.0", packaging, StringComparison.Ordinal);
+        Assert.Contains("0.10.0", packaging, StringComparison.Ordinal);
+        Assert.Contains("winget install BasantPandey.CmdWarden", packaging, StringComparison.Ordinal);
         Assert.DoesNotMatch(
             new Regex(@"submit[^.\n]{0,40}1\.12\.0", RegexOptions.IgnoreCase),
             packaging);
@@ -127,7 +131,6 @@ public class PackageManifestTests
         Assert.DoesNotMatch(new Regex(@"(?i)nuget\.org already"), page);
         Assert.DoesNotMatch(new Regex(@"(?i)smartscreen is clean"), page);
         Assert.DoesNotMatch(new Regex(@"(?i)binaries are signed"), page);
-        Assert.DoesNotMatch(new Regex(@"(?im)^`?winget install (BasantPandey\.CmdWarden|CmdWarden)`?\s*$"), page);
         Assert.DoesNotMatch(new Regex(@"(?im)^`?dotnet tool install -g CmdWarden`?\s*$"), page);
     }
 
