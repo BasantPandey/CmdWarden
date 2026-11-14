@@ -1,7 +1,7 @@
 # One-shot secret for a script
 
 **When:** You need a password/API key in **one** child process (deploy script, curl, custom tool) and do not want it in `.env` committed or permanently in the parent shell.  
-Also see [UC2 Part 1](approve-secret-read-mid-session.md#part-1-beginning-set-up-and-create-the-secret-no-popup) for the same save/inject tour with expected screens, and [UC9](vault-add-remove-secrets.md) for the desktop way to save and delete.
+Also see [Set up and create the secret](approve-secret-read-mid-session.md#set-up-and-create-the-secret-no-popup) for the same save/inject tour with expected screens, and [UC9](vault-add-remove-secrets.md) for the desktop way to save and delete.
 
 ```powershell
 cw save MY_API_KEY

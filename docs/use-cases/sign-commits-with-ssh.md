@@ -4,7 +4,7 @@
 
 Git signs a commit with `ssh-keygen -Y sign`. After `cw harden ssh`, that sign goes through the CmdWarden ssh gate, like a push over ssh ([UC13](gate-ssh-keys.md)). The gate reads it as class `write`.
 
-## Step 1: Gate the ssh agent
+## Gate the ssh agent
 
 Do [UC13](gate-ssh-keys.md) first. Your key must be in the OpenSSH agent:
 
@@ -20,7 +20,7 @@ ssh-add -L
 
 *Expect:* one line for each key, for example `ssh-ed25519 AAAAC3Nza... you@laptop`. Copy the line of the key that signs.
 
-## Step 2: Tell git to sign with that key
+## Tell git to sign with that key
 
 ```powershell
 git config --global gpg.format ssh
@@ -29,15 +29,15 @@ git config --global user.signingkey "key::ssh-ed25519 AAAAC3Nza... you@laptop"
 git config --global commit.gpgsign true
 ```
 
-Put the line from Step 1 after `key::`. With `key::`, git asks the agent to sign, and no key file is read.
+After you gate the ssh agent, put that public key line after `key::`. With `key::`, git asks the agent to sign, and no key file is read.
 
 `gpg.ssh.program` must be the Windows OpenSSH `ssh-keygen`. The `ssh-keygen` of Git for Windows cannot read the gate pipe.
 
-## Step 3: Add the key to GitHub as a signing key
+## Add the key to GitHub as a signing key
 
-On GitHub, open **Settings**, then **SSH and GPG keys**, then **New SSH key**. Set **Key type** to **Signing Key**, and paste the line from Step 1. A key that you use to push must also be there as an **Authentication Key**.
+On GitHub, open **Settings**, then **SSH and GPG keys**, then **New SSH key**. Set **Key type** to **Signing Key**, and paste that public key line. A key that you use to push must also be there as an **Authentication Key**.
 
-## Step 4: Check a signed commit
+## Check a signed commit
 
 Make a file that tells git which key is yours, so git can check the signature:
 

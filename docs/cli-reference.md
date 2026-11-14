@@ -4,7 +4,7 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 
 | Command | Role |
 |---------|------|
-| `cw setup [--yes] [--skip <step,...>]` | Set up everything in one step: terminal, tools, harnesses, shortcuts, canary, protections. Ends with `cw try`. See [Install](install.md#3-set-up) |
+| `cw setup [--yes] [--skip <step,...>]` | Set up everything in one step: terminal, tools, harnesses, shortcuts, canary, protections. Ends with `cw try`. See [Set up](install.md#set-up) |
 | `cw try` | A stand-in agent that nobody enrolled asks for the fake secret `CW_TRY_TOKEN`. You see the real Approval Gate card, then the audit row |
 | `cw version` | Product / CLI version |
 | `cw update [--check]` | Install the newest release. The setup zip must match the sha256 digest of the release |
@@ -28,18 +28,18 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw proxy setup [--port N] [--trust]` | Make the per-user CA and turn on the [placeholder proxy](use-cases/api-keys-through-proxy.md) on 127.0.0.1 |
 | `cw proxy add <NAME> --host <host>` / `remove <NAME>` | Put the vault entry NAME in place of `cw://NAME` for these hosts |
 | `cw proxy add <NAME> --host <host> --body <path> --field <f>` | A sign-in key: only the body field f on that path gets the value, after the card ([UC17](use-cases/web-sign-in-through-proxy.md)) |
-| `cw proxy add <NAME> ... --body <path> --field <f> --totp` | The vault entry is a TOTP key or an `otpauth://` link: the field gets the current one-time code ([UC17 step 6](use-cases/web-sign-in-through-proxy.md#step-6-fill-two-factor-codes-optional)) |
+| `cw proxy add <NAME> ... --body <path> --field <f> --totp` | The vault entry is a TOTP key or an `otpauth://` link: the field gets the current one-time code ([Fill two-factor codes](use-cases/web-sign-in-through-proxy.md#fill-two-factor-codes-optional)) |
 | `cw proxy list\|strict on\|off\|uninstall` | Show the proxy; `strict on` gives 403 to a host that no key lists; remove the CA and config |
 | `cw harden --list` | One row per catalog tool and tool pack, same probe as `cw doctor` |
 | `cw harden gh\|git\|docker\|az --strong` | Also move the tool's stock credentials into the Vault |
 | `cw unharden gh\|git\|docker\|az\|ssh\|<pack tool>` | Restore the stock store, remove pin and shim |
 | `cw doctor --fix-path` | Put the shims dir first on the machine PATH (one UAC prompt) |
 | `cw save <NAME>` / `cw delete <NAME>` | Named vault secret |
-| `cw save <NAME> --generate [--length N] [--force]` | Save a random password (24 characters by default) and never show it. `--force` replaces an entry that exists ([UC17 step 7](use-cases/web-sign-in-through-proxy.md#step-7-make-a-new-account-optional)) |
+| `cw save <NAME> --generate [--length N] [--force]` | Save a random password (24 characters by default) and never show it. `--force` replaces an entry that exists ([Make a new account](use-cases/web-sign-in-through-proxy.md#make-a-new-account-optional)) |
 | `cw read <NAME> [--no-newline]` | Show one secret value. The class is `secret-reveal`: you get the card each time, and Windows Hello when it is set up. A session grant never covers it |
 | `cw inject +NAME -- <cmd>` | Run cmd with secret in child env only. The output shows `[CmdWarden: NAME]` in place of each value |
 | `cw inject --env-file <file> -- <cmd>` | Same, for each `KEY=cw://NAME` line of a dotenv file. One card covers the whole set. Plain lines pass through |
-| `cw inject --template <file> -- <cmd> {template}` | Fill each `cw://NAME` of a config file in a private copy. The command gets the path in `{template}` and `CW_TEMPLATE`. The copy goes away when the command ends ([UC16 step 3](use-cases/env-files.md#3-fill-a-config-file-for-one-run)) |
+| `cw inject --template <file> -- <cmd> {template}` | Fill each `cw://NAME` of a config file in a private copy. The command gets the path in `{template}` and `CW_TEMPLATE`. The copy goes away when the command ends ([Fill a config file for one run](use-cases/env-files.md#fill-a-config-file-for-one-run)) |
 | `cw inject ... --no-masking` | Show the secret values in the output |
 | `cw env import [<file>] [--prefix P] [--all] [--yes]` | Move the secret values of a dotenv file (default `.env`) into the vault. Each moved line becomes `KEY=cw://NAME`. See [Keep .env secrets out of the agent](use-cases/env-files.md) |
 | `cw scan [--move-to-vault]` | Read-only residual risk scan; `--move-to-vault` moves plain MCP server secrets into the vault |

@@ -14,14 +14,14 @@ Three surfaces exist:
 | Surface | How you open it | What you check |
 |---------|-----------------|----------------|
 | CLI | Type `cw` in a terminal | Text and the exit code |
-| Approval Gate | A gated command opens the card | Deny, Allow for session, Approve Once |
+| Approval Gate | A gated command opens the card | Deny, **Allow for session**, **Approve Once** |
 | CmdWarden Vault | Start Menu or the tray icon | The same data as the CLI, with no secret value |
 
 The CLI name is `cw`. The alias is `cmdwarden`. Both names run the same commands.
 
 ---
 
-## 1. Install
+## Install
 
 You need Windows 10 or 11 and a desktop session. The card needs that session. You need about 250 MB of disk.
 
@@ -53,11 +53,11 @@ winget source update
 winget install BasantPandey.CmdWarden
 ```
 
-Open a new terminal. Run `cw version`. You see 0.10.0. The winstall page is https://winstall.app/apps/BasantPandey.CmdWarden. It shows version 0.10.0. The setup zip above stays available. See [Install](install.md).
+Open a new terminal. Run `cw version`. You see 0.10.0. The [winstall page](https://winstall.app/apps/BasantPandey.CmdWarden) shows version 0.10.0. The setup zip above stays available. See [Install](install.md).
 
 ### NuGet.org
 
-NuGet.org has package CmdWarden 0.12.0: https://www.nuget.org/packages/CmdWarden/0.12.0.
+NuGet.org has package CmdWarden 0.12.0: [CmdWarden 0.12.0 on NuGet.org](https://www.nuget.org/packages/CmdWarden/0.12.0).
 
 You need the .NET 10 SDK. Run:
 
@@ -69,7 +69,7 @@ Open a new terminal. Run `cw setup`. The gallery form is `dotnet tool install --
 
 ---
 
-## 2. Set up
+## Set up
 
 In your own terminal, run:
 
@@ -117,15 +117,15 @@ State lives under `%LOCALAPPDATA%\CmdWarden\`.
 
 ---
 
-## 3. The Approval Gate
+## The Approval Gate
 
 The card is a small window on the desktop. The command waits until you answer.
 
 | Button | Key | What happens next |
 |--------|-----|-------------------|
 | Deny | Esc | The command does not run. The exit code is 3 |
-| Allow for session | Enter, when the card offers it | This class and every lower class run. The grant ends when the launcher exits or the time ends |
-| Approve Once | 1, or Enter when that is the only allow | This one class runs. The grant ends when the launcher exits or after 60 idle minutes |
+| **Allow for session** | Enter, when the card offers it | This class and every lower class run. The grant ends when the launcher exits or the time ends |
+| **Approve Once** | 1, or Enter when that is the only allow | This one class runs. The grant ends when the launcher exits or after 60 idle minutes |
 
 **Allow for session** is for an enrolled app. A secret read does not get that button. A high-risk command does not keep a session allow.
 
@@ -133,7 +133,7 @@ Above the buttons, pick how long **Allow for session** lasts: **Until exit**, **
 
 A closed card is a deny. No desktop means no card. No card means the command does not run.
 
-When Windows Hello is on, you approve, then you pass Hello. The default mode is `secret-reveal`. A cancelled Hello does not count as an approval.
+When Windows Hello is on, you approve, then you pass Hello. The default mode is `secret-reveal`. A canceled Hello does not count as an approval.
 
 The card can show **The agent says:** when the command set `CW_REASON`. That line is a note. Policy does not treat it as proof.
 
@@ -172,9 +172,9 @@ After a deny, a quick retry can stop with no new card. The tray shows one notice
 
 ---
 
-## 4. Set up Grok
+## Set up Grok
 
-Do this after section 2, or run these commands yourself.
+After [Set up](#set-up), do this, or run these commands yourself.
 
 Grok must be on PATH. The native binary on a normal install is `grok.exe`.
 
@@ -194,7 +194,7 @@ cw policy list
 | Leak guard | The same file | Event `PostToolUse`. Matcher `.*` |
 | MCP server | `%USERPROFILE%\.grok\config.toml` | Table `[mcp_servers.cmdwarden]` |
 
-Restart Grok after these commands. Grok reads hooks at the start of a session.
+After these commands, restart Grok. Grok reads hooks at the start of a session.
 
 `cw protect` does not cover Grok. Claude Code and Codex are the protect targets.
 
@@ -210,7 +210,7 @@ You also see the vault secret names. You do not see secret values.
 
 ---
 
-## 5. Grok approve and deny
+## Grok approve and deny
 
 Use a hardened `gh`. Use a repo you can afford to touch. A read is enough for the first check.
 
@@ -230,7 +230,7 @@ A write opens the card. The hook still lets the command start. The shim shows th
 
 1. Look at the desktop card.
 2. Read the command line on the card.
-3. Press **1** for Approve Once. Or press Enter when Approve Once is the only allow.
+3. Press **1** for **Approve Once**. Or press **Enter** when **Approve Once** is the only allow.
 4. Pass Windows Hello when the card asks.
 
 You see the normal tool output in Grok. The command ran. `cw audit` shows **Approved**.
@@ -344,7 +344,7 @@ Type a fake value when asked. Then ask Grok to run:
 cw inject +CW_DEMO -- cmd /c echo %CW_DEMO%
 ```
 
-The card appears. Press Approve Once.
+The card appears. Press **Approve Once**.
 
 You see `[CmdWarden: CW_DEMO]` in the output. You do not see the value. Press Deny on a second run. The child does not start. The exit code is 3.
 
@@ -360,7 +360,7 @@ If the Session Agent is down, Grok sees that CmdWarden holds the output back. St
 
 ---
 
-## 6. Every CLI command
+## Every CLI command
 
 Run these in your own terminal. Replace `<NAME>` and paths with your values. Use fake secret values on a test PC.
 
@@ -482,7 +482,7 @@ Undo one tool. This restores the stock store for a strong harden:
 cw unharden gh
 ```
 
-Open a new terminal after you change shims.
+After you change shims, open a new terminal.
 
 ### save, read, delete, inject, env
 
@@ -557,7 +557,7 @@ cw leak-guard uninstall grok
 cw mcp uninstall grok
 ```
 
-Other lines in the Grok files stay. Restart Grok after a change.
+Other lines in the Grok files stay. After a change, restart Grok.
 
 `cw mcp` with no extra argument runs the MCP server. Grok starts that process. You do not run it by hand for a normal test.
 
@@ -626,7 +626,7 @@ This removes hooks, shims, the agent, the Vault app, and the Settings > Apps ent
 
 ---
 
-## 7. The Vault app and the tray
+## The Vault app and the tray
 
 Open **CmdWarden Vault** from the Start Menu. Or run the shortcut path from `cw shortcut status`.
 
@@ -660,7 +660,7 @@ A blocked retry or a canary use shows a notice. You get one notice per launcher 
 
 ---
 
-## 8. Record the run
+## Record the run
 
 After each check, write four lines:
 
@@ -672,8 +672,8 @@ After each check, write four lines:
 A pass looks like this:
 
 - A Grok read of `gh` shows no card and **Auto-allow**.
-- Approve Once shows the tool output and **Approved**.
-- Allow for session shows a row in `cw policy sessions`.
+- **Approve Once** shows the tool output and **Approved**.
+- **Allow for session** shows a row in `cw policy sessions`.
 - Deny shows `CmdWarden: you denied this gh command.` and exit code 3.
 - A harness weaken command does not change `cw policy list`.
 - The Vault **Secret Usage** page shows the same decisions.

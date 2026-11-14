@@ -7,9 +7,9 @@ description: Free code signing provided by SignPath.io, certificate by SignPath 
 
 Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
 
-**Status:** the application to SignPath Foundation is open ([#64](https://github.com/BasantPandey/CmdWarden/issues/64)). Releases are not signed yet.
+**Status:** the application to SignPath Foundation is open ([issue 64](https://github.com/BasantPandey/CmdWarden/issues/64)). Releases are not signed yet.
 
-## What we sign
+## Files the release signs
 
 The release workflow signs only the files that the CmdWarden team builds from this repository. [Release signing](spec/release-signing.md) lists each file. Third-party files keep the signature of their owner.
 
@@ -44,4 +44,4 @@ This program will not transfer any information to other networked systems unless
 
 ## Report a problem
 
-Open an issue at [github.com/BasantPandey/CmdWarden/issues](https://github.com/BasantPandey/CmdWarden/issues). For a security problem, follow [Report a problem](trust.md#report-a-problem).
+Open an issue on the [CmdWarden issue list](https://github.com/BasantPandey/CmdWarden/issues). For a security problem, follow [Report a problem](trust.md#report-a-problem).

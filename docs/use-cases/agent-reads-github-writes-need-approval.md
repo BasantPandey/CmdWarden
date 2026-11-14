@@ -1,6 +1,6 @@
 # Let the agent read GitHub, gate writes and token export
 
-**When:** AI harness is enrolled as `ai-harness` (default **Read**). Safe **read** `gh` may auto-allow; **secret-reveal** / **write** should show the same Approval Gate popup as [UC2 Part 3](approve-secret-read-mid-session.md#part-3-middle-of-the-ai-session-agent-tries-to-read-that-secret-popup).
+**When:** AI harness is enrolled as `ai-harness` (default **Read**). Safe **read** `gh` may auto-allow; **secret-reveal** / **write** should show the same Approval Gate popup as [Read the secret mid-session](approve-secret-read-mid-session.md#middle-of-the-ai-session-agent-tries-to-read-that-secret).
 
 ```powershell
 cw policy list

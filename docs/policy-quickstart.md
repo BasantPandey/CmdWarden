@@ -6,7 +6,7 @@ Install first: [install.md](install.md). Terms: [Glossary](glossary.md).
 
 ---
 
-## 1. One-minute setup
+## One-minute setup
 
 The short way: run `cw setup` in **your normal terminal**. It does all of this section, finds the AI harness for you, and ends with a real card. The steps below do the same by hand.
 
@@ -40,7 +40,7 @@ You are done. The defaults are the **Recommended** profile below. You do not nee
 
 ---
 
-## 2. Pick a profile
+## Pick a profile
 
 Policy is per **tool x launcher**. The `"*"` tool name sets one level for every tool on one launcher.
 
@@ -82,7 +82,7 @@ cw policy set <harnessKey> "*" Trusted
 
 ---
 
-## 3. What each level auto-allows
+## What each level auto-allows
 
 Every command gets one **command class**: **read**, **write**, **secret-reveal**, or **unknown**.
 
@@ -157,7 +157,7 @@ docker has **no secret-reveal class**. `Trusted` auto-allows every classified do
 
 ---
 
-## 4. Per-tool overrides
+## Per-tool overrides
 
 A tool row beats the `"*"` row on the same launcher. Set one tool, keep the rest:
 
@@ -220,7 +220,7 @@ cw policy list
 - `cw policy sync --remove` removes the team rules.
 - A damaged team file stops the gate until you sync again or remove it.
 
-## 5. Other tools and scripts
+## Other tools and scripts
 
 Any script or CLI can get a vault secret through `cw inject`. The default tool name is `inject` and the default class is **write**. An agent at **Read** always gets a prompt for inject. That is on purpose.
 
@@ -238,7 +238,7 @@ Do not use inject in place of `cw harden gh`. Harden owns `GH_TOKEN` in the Vaul
 
 ---
 
-## 6. Strong mode (optional)
+## Strong mode (optional)
 
 Compat mode (the default above) gates the run and leaves the tool's own credential store in place. Strong mode moves the credentials into the Vault and deletes the originals.
 
@@ -252,7 +252,7 @@ cw harden docker --strong  # config.json auths -> Vault; docker uses docker-cred
 
 ---
 
-## 7. Change your mind
+## Change your mind
 
 ```powershell
 cw policy list                          # keys, kinds, levels

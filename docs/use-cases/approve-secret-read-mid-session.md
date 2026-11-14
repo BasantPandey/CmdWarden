@@ -12,7 +12,7 @@ Saving does **not** show the popup. The popup appears only when something tries 
 
 ---
 
-## Part 1 - Beginning: set up and **create** the secret (no popup)
+## Set up and create the secret (no popup)
 
 Do this in **your normal Windows Terminal / PowerShell** (not the AI chat).
 
@@ -48,7 +48,7 @@ cw inject +DEMO_TOKEN -- cmd /c echo %DEMO_TOKEN%
 
 ---
 
-## Part 2 - Enroll the AI harness (stricter: needs click to release secrets)
+## Enroll the AI harness (stricter: needs click to release secrets)
 
 In the **AI product’s integrated terminal** (Cursor / Claude Code / Codex terminal panel):
 
@@ -65,7 +65,7 @@ Give the harness the rules in [AI harness rules](../prompts/ai-harness-rules.md)
 
 ---
 
-## Part 3 - Middle of the AI session: agent tries to **read** that secret → **popup**
+## Middle of the AI session: Agent tries to read that secret
 
 Stay in the AI product. In the **chat**, ask something that makes the agent run **inject for the secret you created**, for example:
 
@@ -85,7 +85,7 @@ What happens next:
 
    | You click or press | Result in the AI session |
    |--------------------|---------------------------|
-   | **Approve Once** (**Enter**, or **1** when the card offers Allow for session) | This read is allowed; the child can use `DEMO_TOKEN`; agent can continue. Later reads of the **same class** for this tool and secret are allowed until the launcher exits or after 60 idle minutes. A higher class prompts again. |
+   | **Approve Once** (**Enter**, or **1** when the card offers **Allow for session**) | This read is allowed; the child can use `DEMO_TOKEN`; agent can continue. Later reads of the **same class** for this tool and secret are allowed until the launcher exits or after 60 idle minutes. A higher class prompts again. |
    | **Allow for session** (**Enter** or **A**) | This read and every later read of the same class (or lower) for this tool and secret are allowed. The grant ends when the launcher process exits or after 60 idle minutes. To end it sooner, choose **10 minutes** or **1 hour** in the **Allow for session lasts** row first. The button is hidden for unenrolled launchers. It never covers secret-reveal. |
    | **Deny** (**Esc**) | Release is blocked; agent sees failure / permission denied. For 2 minutes, the same launcher gets no new popup for this tool. Each retry is denied at once. |
    | Close the window | Same as unavailable → **fail closed** (block). |

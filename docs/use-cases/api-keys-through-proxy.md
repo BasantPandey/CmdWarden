@@ -67,7 +67,7 @@ A host that no key lists passes through untouched. The proxy does not open its T
 cw proxy strict on
 ```
 
-Then a call to such a host gets `403`. Use it when the agent must only reach the listed APIs.
+Then a call to such a host gets `403`. When the agent must only reach the listed APIs, use it.
 
 ## Your CA
 
