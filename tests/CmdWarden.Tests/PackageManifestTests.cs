@@ -73,6 +73,11 @@ public class PackageManifestTests
             Assert.Contains("0.10.0", page, StringComparison.Ordinal);
             Assert.Contains("winget install BasantPandey.CmdWarden", page, StringComparison.Ordinal);
             Assert.Contains("NuGet.org has package CmdWarden 0.12.0", page, StringComparison.Ordinal);
+            Assert.Contains("https://www.nuget.org/packages/CmdWarden/0.12.0", page, StringComparison.Ordinal);
+            Assert.Contains("dotnet tool install -g CmdWarden", page, StringComparison.Ordinal);
+            Assert.Contains(".NET 10 SDK", page, StringComparison.Ordinal);
+            Assert.DoesNotContain("NuGet.org does not have the package yet", page, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("does not work from NuGet.org", page, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("catalog does not have", page, StringComparison.OrdinalIgnoreCase);
             AssertNoLiveCatalogClaim(page);
         }
