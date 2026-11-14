@@ -14,7 +14,7 @@
     <NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="System.Management.Automation" Version="7.7.0" />
+    <PackageReference Include="System.Management.Automation" Version="7.6.6" />
     <!-- System.Management.Automation brings Pkcs 10.0.5, which has GHSA-846f-f764-76mx. -->
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.15" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.15" />

@@ -9,6 +9,10 @@ updates:
       nuget:
         patterns: ['*']
         update-types: [minor, patch]
+    ignore:
+      # 7.7.0 targets net11.0 only. This repo stays on net10.0.
+      - dependency-name: System.Management.Automation
+        versions: [">= 7.7.0"]
 
   # #97: the docs build packages in requirements-docs.txt.
   - package-ecosystem: pip
