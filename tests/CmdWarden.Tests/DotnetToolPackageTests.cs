@@ -39,6 +39,20 @@ public class DotnetToolPackageTests
     }
 
     [Fact]
+    public void Release_workflow_pushes_with_nuget_trusted_publishing()
+    {
+        var path = Path.Combine(TestPaths.RepoRoot, ".github", "workflows", "release.yml");
+        var text = File.ReadAllText(path);
+        Assert.Contains("id-token: write", text, StringComparison.Ordinal);
+        Assert.Contains("uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0", text, StringComparison.Ordinal);
+        Assert.Contains("user: basantpandey", text, StringComparison.Ordinal);
+        Assert.Contains("https://api.nuget.org/v3/index.json", text, StringComparison.Ordinal);
+        Assert.Contains("steps.nuget-login.outputs.NUGET_API_KEY", text, StringComparison.Ordinal);
+        Assert.Contains("steps.login.outputs.NUGET_API_KEY", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("secrets.NUGET_API_KEY", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Pack_nupkg_contains_lg_and_agent_payload()
     {
         if (!OperatingSystem.IsWindows())

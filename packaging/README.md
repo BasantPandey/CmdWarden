@@ -48,6 +48,6 @@ The manifest has `checkver` and `autoupdate`, so a bucket bot can follow new rel
 | Secret or variable | Use |
 |--------------------|-----|
 | `SIGNPATH_API_TOKEN` (secret), `SIGNPATH_ORGANIZATION_ID`, `SIGNPATH_PROJECT_SLUG`, `SIGNPATH_SIGNING_POLICY_SLUG` (variables) | Sign every exe and dll through SignPath Foundation (free for open source) |
-| `NUGET_API_KEY` | Push the dotnet tool to NuGet.org |
+| NuGet.org trusted publishing | Push the dotnet tool. Policy name CmdWarden. Package owner basantpandey. Workflow file release.yml. No long-lived API key. |
 | `WINGET_TOKEN` | Submit the winget manifests |
 | `REQUIRE_SIGNING` (variable) | `true` stops a release that is not signed |
