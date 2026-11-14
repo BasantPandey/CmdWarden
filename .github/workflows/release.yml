@@ -2,7 +2,7 @@
 # tests, and publishes:
 #   CmdWarden.0.8.0-win-x64.zip   portable folder with its own .NET runtime (winget and Scoop use it)
 #   CmdWarden.0.8.0-setup.zip     the same folder in app\, plus install.cmd and uninstall.cmd
-#   CmdWarden.0.8.0.nupkg         dotnet tool for .NET developers (also to NuGet.org when NUGET_API_KEY is set)
+#   CmdWarden.0.8.0.nupkg         dotnet tool for .NET developers (also to NuGet.org through trusted publishing)
 #   CmdWarden.0.8.0-packages.zip  winget and Scoop manifests with the real sha256
 #   CmdWarden.0.8.0.cdx.json      the SBOM (CycloneDX): every package in the portable folder
 #   CmdWarden.0.8.0.intoto.jsonl  the build provenance bundle of all these files
@@ -12,12 +12,19 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      nuget_version:
+        description: Existing release version to push to NuGet.org. Example 0.12.0
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 jobs:
   pack-release:
+    if: github.event_name == 'push'
     runs-on: windows-latest
     permissions:
       contents: write
@@ -31,7 +38,6 @@ jobs:
       SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
       ARTIFACT_SIGNING_ENDPOINT: ${{ secrets.ARTIFACT_SIGNING_ENDPOINT }}
       CODE_SIGNING_PFX: ${{ secrets.CODE_SIGNING_PFX }}
-      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
       WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
 
     steps:
@@ -178,11 +184,17 @@ jobs:
         shell: pwsh
         run: dotnet nuget push "$env:NUPKG" --source "$env:NUGET_SOURCE" --api-key "$env:NUGET_KEY" --skip-duplicate
 
+      # Trusted publishing policy CmdWarden. Package owner basantpandey. Workflow file release.yml.
+      - name: NuGet login
+        id: nuget-login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: basantpandey
+
       - name: Push nupkg to NuGet.org
-        if: env.NUGET_API_KEY != ''
         env:
           NUPKG: ${{ github.workspace }}/artifacts/nupkg/CmdWarden.${{ env.VERSION }}.nupkg
-          NUGET_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         shell: pwsh
         run: dotnet nuget push "$env:NUPKG" --source https://api.nuget.org/v3/index.json --api-key "$env:NUGET_KEY" --skip-duplicate
 
@@ -254,8 +266,7 @@ jobs:
           foreach ($a in $assets) { if (-not (Test-Path $a)) { throw "Missing asset: $a" } }
           $signature = if ($env:SIGNED -eq "true") { 'Every CmdWarden exe and dll is signed. Check them:' }
             else { 'This release is not signed yet: Windows SmartScreen may warn. Compare the sha256 of the zip with this page. A signed release shows `Valid` here:' }
-          $dotnetTool = if ($env:NUGET_API_KEY) { '`dotnet tool install -g CmdWarden`' }
-            else { "Download ``CmdWarden.$v.nupkg`` to a folder, then ``dotnet tool install -g CmdWarden --add-source <folder>``" }
+          $dotnetTool = '`dotnet tool install -g CmdWarden`'
 
           $notes = @"
           ## CmdWarden $v
@@ -323,3 +334,39 @@ jobs:
           $hash = (Get-FileHash wingetcreate.exe -Algorithm SHA256).Hash
           if ($hash -ne "24042BD37915805615E6CF969AC57C6439124C3FE85823327F5F3FB24BD9FFEA") { throw "wingetcreate.exe sha256 is $hash, not the pinned value." }
           ./wingetcreate.exe submit --token $env:WINGET_TOKEN --prtitle "New version: BasantPandey.CmdWarden $env:VERSION" artifacts/packages/winget
+
+  push-existing-nupkg:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Download the release nupkg
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.nuget_version }}
+        run: |
+          $v = $env:VERSION
+          if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "Version must look like 0.12.0" }
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          $url = "https://github.com/BasantPandey/CmdWarden/releases/download/v$v/CmdWarden.$v.nupkg"
+          Invoke-WebRequest -Uri $url -OutFile "artifacts/CmdWarden.$v.nupkg"
+
+      - name: NuGet login
+        id: login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: basantpandey
+
+      - name: Push to NuGet.org
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.nuget_version }}
+          NUGET_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        run: dotnet nuget push "artifacts/CmdWarden.$env:VERSION.nupkg" --api-key "$env:NUGET_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
