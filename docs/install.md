@@ -1,6 +1,6 @@
 ---
 title: Install CmdWarden
-description: Install CmdWarden on Windows with winget or the setup zip. It carries its own .NET runtime, needs no admin prompt, and cw setup does the rest.
+description: Install CmdWarden on Windows with the setup zip, winget, or NuGet.org. It carries its own .NET runtime, needs no admin prompt, and cw setup does the rest.
 ---
 
 # Install CmdWarden
@@ -34,7 +34,7 @@ Install alone changes nothing. `gh`, `git`, and the other tools run as before un
 
 ## 2. Install
 
-Pick the setup zip or winget.
+Pick the setup zip, winget, or NuGet.org.
 
 **Setup zip**:
 
@@ -53,6 +53,14 @@ winget install BasantPandey.CmdWarden
 ```
 
 winget puts the install folder on your user PATH. Open a new terminal after the install. The public page is [winstall](https://winstall.app/apps/BasantPandey.CmdWarden). It shows version 0.10.0.
+
+**NuGet.org**: NuGet.org has package CmdWarden 0.12.0: https://www.nuget.org/packages/CmdWarden/0.12.0. The tool needs the [.NET 10 SDK](https://dotnet.microsoft.com/download). The gallery form is `dotnet tool install --global CmdWarden --version 0.12.0`.
+
+```powershell
+dotnet tool install -g CmdWarden
+```
+
+Open a new terminal. Then run `cw setup`.
 
 ---
 

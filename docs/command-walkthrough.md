@@ -55,6 +55,18 @@ winget install BasantPandey.CmdWarden
 
 Open a new terminal. Run `cw version`. You see 0.10.0. The setup zip above stays available. See [Install](install.md).
 
+### NuGet.org
+
+NuGet.org has package CmdWarden 0.12.0: https://www.nuget.org/packages/CmdWarden/0.12.0.
+
+You need the .NET 10 SDK. Run:
+
+```powershell
+dotnet tool install -g CmdWarden
+```
+
+Open a new terminal. Run `cw setup`. The gallery form is `dotnet tool install --global CmdWarden --version 0.12.0`.
+
 ---
 
 ## 2. Set up
