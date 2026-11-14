@@ -52,7 +52,7 @@ winget source update
 winget install BasantPandey.CmdWarden
 ```
 
-winget puts the install folder on your user PATH. Open a new terminal after the install. The public page is [winstall](https://winstall.app/apps/BasantPandey.CmdWarden). It shows version 0.10.0.
+winget puts the install folder on your user PATH. Open a new terminal after the install. The winstall page is https://winstall.app/apps/BasantPandey.CmdWarden. It shows version 0.10.0.
 
 **NuGet.org**: NuGet.org has package CmdWarden 0.12.0: https://www.nuget.org/packages/CmdWarden/0.12.0. The tool needs the [.NET 10 SDK](https://dotnet.microsoft.com/download). The gallery form is `dotnet tool install --global CmdWarden --version 0.12.0`.
 

@@ -53,7 +53,7 @@ winget source update
 winget install BasantPandey.CmdWarden
 ```
 
-Open a new terminal. Run `cw version`. You see 0.10.0. The setup zip above stays available. See [Install](install.md).
+Open a new terminal. Run `cw version`. You see 0.10.0. The winstall page is https://winstall.app/apps/BasantPandey.CmdWarden. It shows version 0.10.0. The setup zip above stays available. See [Install](install.md).
 
 ### NuGet.org
 
