@@ -7,7 +7,7 @@ namespace CmdWarden.Tests;
 /// <summary>
 /// Issue 64: the manifest script writes schema 1.28.0.
 /// The install pages name the live winget package 0.10.0.
-/// NuGet.org stays unpublished.
+/// NuGet.org has package CmdWarden 0.12.0.
 /// </summary>
 public class PackageManifestTests
 {
@@ -72,7 +72,7 @@ public class PackageManifestTests
             Assert.Contains("BasantPandey.CmdWarden", page, StringComparison.Ordinal);
             Assert.Contains("0.10.0", page, StringComparison.Ordinal);
             Assert.Contains("winget install BasantPandey.CmdWarden", page, StringComparison.Ordinal);
-            Assert.Contains("NuGet.org does not have", page, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("NuGet.org has package CmdWarden 0.12.0", page, StringComparison.Ordinal);
             Assert.DoesNotContain("catalog does not have", page, StringComparison.OrdinalIgnoreCase);
             AssertNoLiveCatalogClaim(page);
         }
@@ -131,7 +131,6 @@ public class PackageManifestTests
         Assert.DoesNotMatch(new Regex(@"(?i)nuget\.org already"), page);
         Assert.DoesNotMatch(new Regex(@"(?i)smartscreen is clean"), page);
         Assert.DoesNotMatch(new Regex(@"(?i)binaries are signed"), page);
-        Assert.DoesNotMatch(new Regex(@"(?im)^`?dotnet tool install -g CmdWarden`?\s*$"), page);
     }
 
     private static string ReadRepo(string root, params string[] parts)
