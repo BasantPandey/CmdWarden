@@ -61,6 +61,14 @@ public class PackageManifestTests
     {
         var root = TestPaths.RepoRoot;
         var readme = ReadRepo(root, "README.md");
+        Assert.Contains(
+            "https://www.bestpractices.dev/projects/16697/badge",
+            readme,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "](https://www.bestpractices.dev/projects/16697)",
+            readme,
+            StringComparison.Ordinal);
         var index = ReadRepo(root, "docs", "index.md");
         var install = ReadRepo(root, "docs", "install.md");
         var packaging = ReadRepo(root, "packaging", "README.md");

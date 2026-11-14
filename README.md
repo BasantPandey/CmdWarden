@@ -5,6 +5,7 @@
 [![release](https://img.shields.io/github/v/release/BasantPandey/CmdWarden?display_name=tag)](https://github.com/BasantPandey/CmdWarden/releases/latest)
 [![platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d4)](docs/install.md)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/BasantPandey/CmdWarden/badge)](https://scorecard.dev/viewer/?uri=github.com/BasantPandey/CmdWarden)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16697/badge)](https://www.bestpractices.dev/projects/16697)
 
 **Docs site: [basantpandey.github.io/CmdWarden](https://basantpandey.github.io/CmdWarden/)**
 
