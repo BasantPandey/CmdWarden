@@ -49,24 +49,24 @@ nav:
       - AI harness rules: prompts/ai-harness-rules.md
   - Use cases:
       - use-cases/index.md
-      - UC1 Gate your GitHub token: use-cases/gate-github-token-from-ai-agent.md
-      - UC2 Approve a secret read mid-session: use-cases/approve-secret-read-mid-session.md
-      - UC3 Agent reads, writes need approval: use-cases/agent-reads-github-writes-need-approval.md
-      - UC4 Trust your terminal, not the agent: use-cases/trust-terminal-not-agent.md
-      - UC5 One-shot secret for a script: use-cases/one-shot-secret-for-script.md
-      - UC6 Gate git, az, and docker: use-cases/gate-git-az-docker.md
-      - UC7 Audit and scan: use-cases/audit-and-scan.md
-      - UC8 Undo or uninstall: use-cases/undo-and-uninstall.md
-      - UC9 Secrets in the Vault app: use-cases/vault-add-remove-secrets.md
-      - UC10 Gate npm: use-cases/gate-npm.md
-      - UC11 Gate the AWS CLI: use-cases/gate-aws.md
-      - UC12 Gate kubectl: use-cases/gate-kubectl.md
-      - UC13 Gate ssh key use: use-cases/gate-ssh-keys.md
-      - UC14 Short-lived GitHub tokens: use-cases/short-lived-github-tokens.md
-      - UC15 Keep API keys out of the agent: use-cases/api-keys-through-proxy.md
-      - UC16 Keep .env secrets out of the agent: use-cases/env-files.md
-      - UC17 Sign in without the password: use-cases/web-sign-in-through-proxy.md
-      - UC18 Sign commits with a gated ssh key: use-cases/sign-commits-with-ssh.md
+      - UC1 gate your GitHub token: use-cases/gate-github-token-from-ai-agent.md
+      - UC2 approve a secret read mid-session: use-cases/approve-secret-read-mid-session.md
+      - UC3 agent reads, writes need approval: use-cases/agent-reads-github-writes-need-approval.md
+      - UC4 trust your terminal, not the agent: use-cases/trust-terminal-not-agent.md
+      - UC5 one-shot secret for a script: use-cases/one-shot-secret-for-script.md
+      - UC6 gate git, az, and docker: use-cases/gate-git-az-docker.md
+      - UC7 audit and scan: use-cases/audit-and-scan.md
+      - UC8 undo or uninstall: use-cases/undo-and-uninstall.md
+      - UC9 secrets in the Vault app: use-cases/vault-add-remove-secrets.md
+      - UC10 gate npm: use-cases/gate-npm.md
+      - UC11 gate the AWS CLI: use-cases/gate-aws.md
+      - UC12 gate kubectl: use-cases/gate-kubectl.md
+      - UC13 gate ssh key use: use-cases/gate-ssh-keys.md
+      - UC14 short-lived GitHub tokens: use-cases/short-lived-github-tokens.md
+      - UC15 keep API keys out of the agent: use-cases/api-keys-through-proxy.md
+      - UC16 keep .env secrets out of the agent: use-cases/env-files.md
+      - UC17 sign in without the password: use-cases/web-sign-in-through-proxy.md
+      - UC18 sign commits with a gated ssh key: use-cases/sign-commits-with-ssh.md
   - Guide:
       - user-guide.md
       - How it works: concepts.md

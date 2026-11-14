@@ -9,19 +9,19 @@ CmdWarden carries its own .NET runtime. You need no .NET install and no admin pr
 
 | Section | Go there when |
 |---------|---------------|
-| [1. Requirements](#1-requirements) | You start from a clean machine |
-| [2. Install](#2-install) | You install for the first time |
-| [3. Set up](#3-set-up) | You protect your tools and your AI harness |
-| [4. Verify](#4-verify) | You check the install |
-| [5. What you get](#5-what-you-get) | You want to see the app before you set it up |
-| [6. Other install ways](#6-other-install-ways) | You want the dotnet tool or a build from source |
-| [7. Update](#7-update) | A new release is out |
-| [8. Uninstall](#8-uninstall) | You remove CmdWarden |
-| [9. Troubleshooting](#9-troubleshooting) | Something fails |
+| [Requirements](#requirements) | You start from a clean machine |
+| [Install](#install) | You install for the first time |
+| [Set up](#set-up) | You protect your tools and your AI harness |
+| [Verify](#verify) | You check the install |
+| [What you get](#what-you-get) | You want to see the app before you set it up |
+| [Other install ways](#other-install-ways) | You want the dotnet tool or a build from source |
+| [Update](#update) | A new release is out |
+| [Uninstall](#uninstall) | You remove CmdWarden |
+| [Troubleshooting](#troubleshooting) | Something fails |
 
 ---
 
-## 1. Requirements
+## Requirements
 
 | Need | Notes |
 |------|-------|
@@ -32,7 +32,7 @@ Install alone changes nothing. `gh`, `git`, and the other tools run as before un
 
 ---
 
-## 2. Install
+## Install
 
 Pick the setup zip, winget, or NuGet.org.
 
@@ -52,9 +52,9 @@ winget source update
 winget install BasantPandey.CmdWarden
 ```
 
-winget puts the install folder on your user PATH. Open a new terminal after the install. The winstall page is https://winstall.app/apps/BasantPandey.CmdWarden. It shows version 0.10.0.
+winget puts the install folder on your user PATH. After the install, open a new terminal. The [winstall page](https://winstall.app/apps/BasantPandey.CmdWarden) shows version 0.10.0.
 
-**NuGet.org**: NuGet.org has package CmdWarden 0.12.0: https://www.nuget.org/packages/CmdWarden/0.12.0. The tool needs the [.NET 10 SDK](https://dotnet.microsoft.com/download). The gallery form is `dotnet tool install --global CmdWarden --version 0.12.0`.
+**NuGet.org**: NuGet.org has package CmdWarden 0.12.0: [CmdWarden 0.12.0 on NuGet.org](https://www.nuget.org/packages/CmdWarden/0.12.0). The tool needs the [.NET 10 SDK](https://dotnet.microsoft.com/download). The gallery form is `dotnet tool install --global CmdWarden --version 0.12.0`.
 
 ```powershell
 dotnet tool install -g CmdWarden
@@ -64,7 +64,7 @@ Open a new terminal. Then run `cw setup`.
 
 ---
 
-## 3. Set up
+## Set up
 
 Run this once, in **your own terminal**, not in the AI harness:
 
@@ -102,7 +102,7 @@ Run `cw try` at any time to see the card again. It never uses a real token.
 
 ---
 
-## 4. Verify
+## Verify
 
 Open a **new** terminal, then run:
 
@@ -136,11 +136,11 @@ A harden copies the shims to `%LOCALAPPDATA%\CmdWarden\shims` and the base runti
 
 ---
 
-## 5. What you get
+## What you get
 
 ### Approval Gate
 
-The card appears on your desktop when policy does not auto-allow a secret release. The command waits until you click **Deny**, **Allow for session**, or **Approve Once**. When the card offers **Allow for session**, it is the default: press **Enter**. Press **1** for Approve Once and **Esc** for Deny. The card offers it to an enrolled app, never for a secret read. Other cards show Deny and Approve Once (**Enter**).
+The card appears on your desktop when policy does not auto-allow a secret release. The command waits until you click **Deny**, **Allow for session**, or **Approve Once**. When the card offers **Allow for session**, it is the default: press **Enter**. Press **1** for **Approve Once** and **Esc** for **Deny**. The card offers it to an enrolled app, never for a secret read. Other cards show **Deny** and **Approve Once** (**Enter**).
 
 ![Approval Gate card](images/approval-gate.png)
 
@@ -178,11 +178,11 @@ Open **CmdWarden Vault** from the Start Menu. Six pages. Every page is read-only
 
 ---
 
-## 6. Other install ways
+## Other install ways
 
 ### dotnet tool
 
-NuGet.org has package CmdWarden 0.12.0: https://www.nuget.org/packages/CmdWarden/0.12.0. The tool needs the [.NET 10 SDK](https://dotnet.microsoft.com/download). The gallery form is `dotnet tool install --global CmdWarden --version 0.12.0`.
+NuGet.org has package CmdWarden 0.12.0: [CmdWarden 0.12.0 on NuGet.org](https://www.nuget.org/packages/CmdWarden/0.12.0). The tool needs the [.NET 10 SDK](https://dotnet.microsoft.com/download). The gallery form is `dotnet tool install --global CmdWarden --version 0.12.0`.
 
 ```powershell
 dotnet tool install -g CmdWarden
@@ -206,11 +206,11 @@ The script builds every part and copies the .NET runtime of your SDK next to the
 
 ### GitHub Actions artifact
 
-Every green **build** on `main` uploads the portable folder. Open [Actions](https://github.com/BasantPandey/CmdWarden/actions), pick the latest run, download the artifact, extract it, and run `.\cw.exe`.
+Every green **build** on `main` uploads the portable folder. Open the [CmdWarden Actions tab](https://github.com/BasantPandey/CmdWarden/actions), pick the latest run, download the artifact, extract it, and run `.\cw.exe`.
 
 ---
 
-## 7. Update
+## Update
 
 | Install way | Update |
 |-------------|--------|
@@ -227,7 +227,7 @@ cw update           # install the newest release
 
 ---
 
-## 8. Uninstall
+## Uninstall
 
 Use one of these:
 
@@ -259,7 +259,7 @@ Options:
 
 ---
 
-## 9. Troubleshooting
+## Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
@@ -269,7 +269,7 @@ Options:
 | `cw doctor` says agent binary missing | The install folder is not complete. Install again. |
 | `cw doctor` says pipe exists but access denied | An agent runs elevated or as another user. Run `cw agent stop` from that terminal, then `cw agent start` from a normal one. |
 | No Approval Gate card | Check `agent\approval-gate\CmdWarden.ApprovalGate.exe` exists in the install folder. A missing card fails closed. |
-| `cw` is broken and you want it gone | Run the uninstaller (section 8). It does not need a working `cw`. |
+| `cw` is broken and you want it gone | Run the [uninstaller](#uninstall). It does not need a working `cw`. |
 
 ---
 

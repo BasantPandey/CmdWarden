@@ -1,4 +1,4 @@
-# CmdWarden - Product and Architecture Specification
+# CmdWarden product and architecture specification
 
 **Status:** Handoff-ready (wayfinder map complete)  
 **Product:** CmdWarden  
@@ -10,7 +10,7 @@ This document consolidates standing decisions, research, and resolved wayfinder 
 
 ---
 
-## 1. Purpose and positioning
+## Purpose and positioning
 
 CmdWarden is a **Windows security layer** that gates CLI secret use by **tool** and **Launcher** identity so AI harnesses and supply-chain code cannot freely read or exfiltrate credentials.
 
@@ -20,7 +20,7 @@ It is an **inspired twin** of macOS Automic Vault's *job* (vault + tool×launche
 
 ---
 
-## 2. Standing architecture decisions
+## Standing architecture decisions
 
 | Area | Decision |
 |------|----------|
@@ -38,7 +38,7 @@ It is an **inspired twin** of macOS Automic Vault's *job* (vault + tool×launche
 
 ---
 
-## 3. Components
+## Components
 
 ```text
 ┌─────────────┐     named pipe gRPC      ┌──────────────────┐
@@ -72,7 +72,7 @@ It is an **inspired twin** of macOS Automic Vault's *job* (vault + tool×launche
 
 ---
 
-## 4. Session Agent and IPC
+## Session Agent and IPC
 
 - Listens on named pipe `CmdWarden-<UserName>` (override `CW_PIPE_NAME`).
 - **CurrentUserOnly** pipe ACL.
@@ -84,7 +84,7 @@ Research: session-agent-ipc.md.
 
 ---
 
-## 5. Identity (Launcher)
+## Identity (Launcher)
 
 On each request:
 
@@ -99,7 +99,7 @@ Research: windows-launcher-identity.md.
 
 ---
 
-## 6. Policy and enrollment
+## Policy and enrollment
 
 ### Levels × classes (auto-allow matrix)
 
@@ -110,7 +110,7 @@ Research: windows-launcher-identity.md.
 | **Trusted** | yes | yes | no | no |
 | **Full** | yes | yes | yes | yes |
 
-If not auto-allow → **Approval Gate** (user: Approve Once / Deny; domain: Allow once / Deny). If UI unavailable → **fail closed** (block).
+If not auto-allow → **Approval Gate** (user: **Approve Once** / Deny; domain: Allow once / Deny). If UI unavailable → **fail closed** (block).
 
 ### Enrollment (v1)
 
@@ -124,7 +124,7 @@ Issue: [launcher enrollment UX](https://github.com/BasantPandey/CmdWarden/issues
 
 ---
 
-## 7. Vault
+## Vault
 
 - Win32 Cred* GENERIC under targets such as `CmdWarden/secret/<NAME>`.
 - Release only after policy (and optional Approval Gate); audit write first (**fail closed** if audit fails).
@@ -159,7 +159,7 @@ Summary for architecture readers:
 
 ---
 
-## 8. Approval Gate
+## Approval Gate
 
 **UI source of truth:** [Approval Gate](../install.md#approval-gate).
 
@@ -169,30 +169,30 @@ Summary for architecture readers:
 - **Host:** **Out-of-process** Fluent-style helper under `agent/approval-gate/` (default interactive). MessageBox via `CW_APPROVAL_MODE=messagebox` only. Missing helper → **Unavailable** (fail closed).
 - **Surface:** native title bar (Lintel + `CmdWarden`); compact in-window brand row; launcher icon + display name + `wants to run`; command block (invocation, tool path, `cwd`, secret **names**); reason line; Details expander (collapsed); **Deny** / **Approve Once**.
 - **Never:** secret **values**; Always Approve on dialog; full process chain on main surface.
-- **Outcomes:** Approve Once → `AllowOnce`; Deny → `Deny`; cannot show / timeout → `Unavailable` → **fail closed**.
-- **Allow for session:** third button, shown only for enrolled launchers and never for secret-reveal; Approve Once stays the default. Grants the launcher process (pid + start time) the approved class and lower for tool + secret until it exits or is idle 60 minutes (`CW_SESSION_IDLE_SECONDS`). Granting call is audited `session-grant`; covered calls `session-allow` with reason `SessionAllow`. Helper exit code 3; scripted mode `CW_APPROVAL_MODE=session`.
-- **Timed session grants ([#46](https://github.com/BasantPandey/CmdWarden/issues/46)):** the popup offers Until exit, 10 minutes, or 1 hour for Allow for session. Exit code bits 8-9 carry the length (0x100 = 10 minutes, 0x200 = 1 hour); a length on any other answer fails closed. The grant stores an end time. Of two end times the earlier one stays, so a later answer never makes a grant last longer. `cw policy sessions` and the Secret Gates page show the end time. The `session-grant` audit row has `grantLength`: `10m`, `1h`, or `until-exit`.
+- **Outcomes:** **Approve Once** → `AllowOnce`; Deny → `Deny`; cannot show / timeout → `Unavailable` → **fail closed**.
+- **Allow for session:** third button, shown only for enrolled launchers and never for secret-reveal; **Approve Once** stays the default. Grants the launcher process (pid + start time) the approved class and lower for tool + secret until it exits or is idle 60 minutes (`CW_SESSION_IDLE_SECONDS`). Granting call is audited `session-grant`; covered calls `session-allow` with reason `SessionAllow`. Helper exit code 3; scripted mode `CW_APPROVAL_MODE=session`.
+- **Timed session grants ([issue 46](https://github.com/BasantPandey/CmdWarden/issues/46)):** the popup offers Until exit, 10 minutes, or 1 hour for **Allow for session**. Exit code bits 8-9 carry the length (0x100 = 10 minutes, 0x200 = 1 hour); a length on any other answer fails closed. The grant stores an end time. Of two end times the earlier one stays, so a later answer never makes a grant last longer. `cw policy sessions` and the Secret Gates page show the end time. The `session-grant` audit row has `grantLength`: `10m`, `1h`, or `until-exit`.
 - **Deny cooldown:** after a Deny, the same launcher process gets no new popup for that tool for 2 minutes (`CW_DENY_COOLDOWN_SECONDS`). Other arguments do not open a new popup. Each blocked call is audited `deny` with reason `DenyCooldown`. Only one popup shows at a time. A waiting call checks the cooldown before its popup opens.
-- **Approve Once lasts the session:** an Approve Once click grants the launcher process the **one class it showed** for tool + secret, on the same terms as Allow for session (enrolled launcher, never secret-reveal, launcher exit or 60 idle minutes). A higher class prompts again. A later decision **adds** to the live grant, so a narrow answer never takes coverage away. Covered calls audit `session-allow`; the granting call still audits `allow-once`.
-- **Real input only ([#23](https://github.com/BasantPandey/CmdWarden/issues/23)):** Approve Once and Allow for session accept only keyboard or mouse input that the helper's low-level hooks saw without the injected flag. `SendInput`, `PostMessage`, and UI Automation `Invoke` get no answer, and the popup shows `Use your keyboard, or move the mouse off this card and back.` A click counts only when real mouse moves brought the pointer onto the popup. A pointer that a program moves (`SetCursorPos`), or that is on the popup when it opens, must leave the popup and come back. Deny accepts every input type.
-- **Approval binds the files ([#30](https://github.com/BasantPandey/CmdWarden/issues/30)):** `cw inject` resolves the program on PATH (with PATHEXT) and finds the script its interpreter runs (`bash x.sh`, `pwsh -File x.ps1`, `python x.py`, `node x.js`, `cmd /c x.cmd`; inline `-c` / `-Command` / `-e` has no file). It locks those files against writes and deletes until the child exits, and sends their paths as `bound_paths`. The Agent hashes them at approval time and returns `bound_files`; `cw inject` checks the hashes again just before the start and does not run on a mismatch. The transient key includes the hashes, and a session grant covers only the files and hashes a person approved. A changed file opens a new popup with the heading `Script changed after approval`, and the decision row gets reason `ScriptChanged`. Each shim locks the pinned binary and checks `real_sha256` just before the start; the lock lasts the run, so a pinned `az.cmd` cannot change while `cmd` reads it.
-- **Hidden PowerShell ([#31](https://github.com/BasantPandey/CmdWarden/issues/31)):** on `Authorize` and `ReleaseSecret`, the Agent reads the command line of each `pwsh.exe` / `powershell.exe` in the caller chain, up to and with the launcher, and parses it with the PowerShell parser (`System.Management.Automation.Language`). Opaque: `-EncodedCommand` (any accepted prefix), `-Command -` (stdin), `Invoke-Expression` / `iex`, `&` or `.` on a name built at run time, `[ScriptBlock]::Create`, `InvokeScript` / `NewScriptBlock` / `ExpandString`, a method name built at run time, a nested PowerShell with an opaque part, code that does not parse, and a `-File` script that cannot be read or holds any of these. An opaque part forces the Approval Gate whatever the policy level. The card heading is `Hidden PowerShell command` with the reason, no transient or session answer covers the call, the card offers no session, and the decision row gets reason `HiddenCommand`. A plain `gh pr list` keeps its normal policy.
-- **Windows Hello ([#24](https://github.com/BasantPandey/CmdWarden/issues/24)):** after a real Approve, the popup asks for Windows Hello (fingerprint, face, or PIN) through `UserConsentVerifier` when the policy says so. `policy.json` field `hello`, set with `cw policy hello off|secret-reveal|write-and-up` (default `secret-reveal`), shown by `cw policy list`. Verified → the approve stands, audit reason `HelloVerified`. Cancel, retries exhausted, or device busy → Deny, audit reason `HelloCanceled`. No Hello device, not set up, or disabled by policy → the plain popup decides, audit reason `HelloUnavailable`. The helper adds a flag to its exit code: `0x10` verified, `0x20` unavailable (on an approve), `0x40` cancelled (on a deny). Any other combination fails closed.
+- **Approve Once lasts the session:** an **Approve Once** click grants the launcher process the **one class it showed** for tool + secret, on the same terms as **Allow for session** (enrolled launcher, never secret-reveal, launcher exit or 60 idle minutes). A higher class prompts again. A later decision **adds** to the live grant, so a narrow answer never takes coverage away. Covered calls audit `session-allow`; the granting call still audits `allow-once`.
+- **Real input only ([issue 23](https://github.com/BasantPandey/CmdWarden/issues/23)):** **Approve Once** and **Allow for session** accept only keyboard or mouse input that the helper's low-level hooks saw without the injected flag. `SendInput`, `PostMessage`, and UI Automation `Invoke` get no answer, and the popup shows `Use your keyboard, or move the mouse off this card and back.` A click counts only when real mouse moves brought the pointer onto the popup. A pointer that a program moves (`SetCursorPos`), or that is on the popup when it opens, must leave the popup and come back. Deny accepts every input type.
+- **Approval binds the files ([issue 30](https://github.com/BasantPandey/CmdWarden/issues/30)):** `cw inject` resolves the program on PATH (with PATHEXT) and finds the script its interpreter runs (`bash x.sh`, `pwsh -File x.ps1`, `python x.py`, `node x.js`, `cmd /c x.cmd`; inline `-c` / `-Command` / `-e` has no file). It locks those files against writes and deletes until the child exits, and sends their paths as `bound_paths`. The Agent hashes them at approval time and returns `bound_files`; `cw inject` checks the hashes again just before the start and does not run on a mismatch. The transient key includes the hashes, and a session grant covers only the files and hashes a person approved. A changed file opens a new popup with the heading `Script changed after approval`, and the decision row gets reason `ScriptChanged`. Each shim locks the pinned binary and checks `real_sha256` just before the start; the lock lasts the run, so a pinned `az.cmd` cannot change while `cmd` reads it.
+- **Hidden PowerShell ([issue 31](https://github.com/BasantPandey/CmdWarden/issues/31)):** on `Authorize` and `ReleaseSecret`, the Agent reads the command line of each `pwsh.exe` / `powershell.exe` in the caller chain, up to and with the launcher, and parses it with the PowerShell parser (`System.Management.Automation.Language`). Opaque: `-EncodedCommand` (any accepted prefix), `-Command -` (stdin), `Invoke-Expression` / `iex`, `&` or `.` on a name built at run time, `[ScriptBlock]::Create`, `InvokeScript` / `NewScriptBlock` / `ExpandString`, a method name built at run time, a nested PowerShell with an opaque part, code that does not parse, and a `-File` script that cannot be read or holds any of these. An opaque part forces the Approval Gate whatever the policy level. The card heading is `Hidden PowerShell command` with the reason, no transient or session answer covers the call, the card offers no session, and the decision row gets reason `HiddenCommand`. A plain `gh pr list` keeps its normal policy.
+- **Windows Hello ([issue 24](https://github.com/BasantPandey/CmdWarden/issues/24)):** after a real Approve, the popup asks for Windows Hello (fingerprint, face, or PIN) through `UserConsentVerifier` when the policy says so. `policy.json` field `hello`, set with `cw policy hello off|secret-reveal|write-and-up` (default `secret-reveal`), shown by `cw policy list`. Verified → the approve stands, audit reason `HelloVerified`. Cancel, retries exhausted, or device busy → Deny, audit reason `HelloCanceled`. No Hello device, not set up, or disabled by policy → the plain popup decides, audit reason `HelloUnavailable`. The helper adds a flag to its exit code: `0x10` verified, `0x20` unavailable (on an approve), `0x40` canceled (on a deny). Any other combination fails closed.
 - **CI:** scripted modes via `CW_APPROVAL_MODE`.
 - **Transient reuse:** a human `AllowOnce` / `Deny` is reused, in memory only, for an exact retry (same launcher pid + start time, tool, class, secret name, command line) while the launcher process lives; `CW_TRANSIENT_REUSE_SECONDS` adds an optional time cap; audited with reason `TransientReuse`. Policy auto-allow and `Unavailable` are recomputed every call.
 - **Invalidation:** all memory clears on agent stop and on workstation lock (`SessionSwitch` / `SessionLock`). `cw policy set` clears entries whose launcher key or tool matches; `cw policy unenroll` clears that launcher key; a `cw harden <tool>` that re-pins the binary clears that tool. Cleared through the existing policy-store and pin-store call sites - no polling.
 - **Visibility / revocation:** `cw policy sessions` lists active session allows (id, launcher key + kind, pid, tool, secret name, class, granted / last-used / idle-expiry); `--revoke <id>` / `--revoke-all` withdraw them and print the count. Backed by `ListSessionAllows` / `RevokeSessionAllow` RPCs - names only, no prompt. Transient entries are never listed. The Secret Gates tab mirrors the list read-only under the Defaults card.
-- **Release signing ([#42](https://github.com/BasantPandey/CmdWarden/issues/42)):** the release signs every exe and dll with the company name CmdWarden, in the zip and inside the nupkg, and the two install scripts. The Session Agent starts only an Approval Gate with its own signer, when it is signed. Every signature check uses WinVerifyTrust, so a copied signature block does not count. See [Release signing](./release-signing.md).
-- **Tray icon ([#43](https://github.com/BasantPandey/CmdWarden/issues/43)):** `CmdWarden.SecretsManager.exe --tray` runs one tray icon per user (own mutex). It polls `ListSessionAllows` every 5 seconds and lists each grant; **Revoke** and **Revoke all** call `RevokeSessionAllow`. It reads new audit rows and shows a notification for `DenyCooldown` and `CanaryHit`, one per launcher, tool, and reason each minute. `cw shortcut install` writes the Startup entry and starts the icon; `cw shortcut remove` and the uninstaller delete the entry.
-- **Policy edits in the Vault ([#44](https://github.com/BasantPandey/CmdWarden/issues/44)):** the Secret Gates page enrolls a launcher (Ctrl+E; the dialog lists unenrolled launchers from the audit), sets a level per tool (click the level pill), and unenrolls a launcher (Unenroll button, or select and Del). Each change has a dialog step and writes the policy file through PolicyStore, the same as `cw policy`. The agent diff on its next load drops the matching approval memory. A kind change now counts as a launcher change too.
+- **Release signing ([issue 42](https://github.com/BasantPandey/CmdWarden/issues/42)):** the release signs every exe and dll with the company name CmdWarden, in the zip and inside the nupkg, and the two install scripts. The Session Agent starts only an Approval Gate with its own signer, when it is signed. Every signature check uses WinVerifyTrust, so a copied signature block does not count. See [Release signing](./release-signing.md).
+- **Tray icon ([issue 43](https://github.com/BasantPandey/CmdWarden/issues/43)):** `CmdWarden.SecretsManager.exe --tray` runs one tray icon per user (own mutex). It polls `ListSessionAllows` every 5 seconds and lists each grant; **Revoke** and **Revoke all** call `RevokeSessionAllow`. It reads new audit rows and shows a notification for `DenyCooldown` and `CanaryHit`, one per launcher, tool, and reason each minute. `cw shortcut install` writes the Startup entry and starts the icon; `cw shortcut remove` and the uninstaller delete the entry.
+- **Policy edits in the Vault ([issue 44](https://github.com/BasantPandey/CmdWarden/issues/44)):** the Secret Gates page enrolls a launcher (Ctrl+E; the dialog lists unenrolled launchers from the audit), sets a level per tool (click the level pill), and unenrolls a launcher (Unenroll button, or select and Del). Each change has a dialog step and writes the policy file through PolicyStore, the same as `cw policy`. The agent diff on its next load drops the matching approval memory. A kind change now counts as a launcher change too.
 
 Issues: [Windows Hello / step-up](https://github.com/BasantPandey/CmdWarden/issues/24).
 
 ---
 
-## 8a. Leak guard and canary tokens
+## Leak guard and canary tokens
 
-**Leak guard ([#27](https://github.com/BasantPandey/CmdWarden/issues/27)).** The Session Agent holds the real values, so it finds a leak with no guess.
+**Leak guard ([issue 27](https://github.com/BasantPandey/CmdWarden/issues/27)).** The Session Agent holds the real values, so it finds a leak with no guess.
 
 - `CheckLeak { texts, source }` returns each text with every CmdWarden vault value (`CmdWarden/*`, at least 8 characters) replaced by `[CmdWarden: NAME]`, plus the matched names. Values never leave the Agent.
 - Each match writes an audit row: decision `redact`, reason `LeakRedacted`, tool `leak-guard`, the secret name, the launcher, and the source as purpose.
@@ -203,14 +203,14 @@ Issues: [Windows Hello / step-up](https://github.com/BasantPandey/CmdWarden/issu
 - When the Agent is down, the hook lets the output pass and shows a note. It never blocks the harness.
 - Residual: only exact values; an encoded copy (base64, URL encoding) passes.
 
-**Canary tokens ([#29](https://github.com/BasantPandey/CmdWarden/issues/29)).** A fake token that no normal work uses is a clear sign of an attack.
+**Canary tokens ([issue 29](https://github.com/BasantPandey/CmdWarden/issues/29)).** A fake token that no normal work uses is a clear sign of an attack.
 
 - `cw canary install [--env <file>]...` saves `GH_TOKEN_BACKUP` in the vault, appends a `[backup-admin]` profile to `~/.aws/credentials`, and appends `GITHUB_TOKEN=` to each named .env template. `canaries.json` under the product root records each value and the exact text added.
 - The Agent treats a canary as used when: a leak guard text holds a value, a shim argv holds a value, the SHA-256 of a shim caller env value matches (`env_value_hashes`, never values), or `ReleaseSecret` asks for the canary vault entry or names a value on its command line.
 - On a use: the Agent clears every grant and remembered answer of that launcher key, blocks the launcher process for every tool (default 1 hour, `CW_CANARY_COOLDOWN_SECONDS`, or until the launcher restarts), writes a `deny` row with reason `CanaryHit`, and shows an alarm card in the lower right corner (interactive gate only).
 - `cw canary remove` takes out the exact text it added (or each line with a canary value, when someone edited it), deletes the vault entry when it still holds the fake value, and empties `canaries.json`. `cw canary status` lists the places.
 
-## 9. Audit
+## Audit
 
 | Item | Spec |
 |------|------|
@@ -227,7 +227,7 @@ Issue: [audit log storage and retention](https://github.com/BasantPandey/CmdWard
 
 ---
 
-## 10. Install and distribution
+## Install and distribution
 
 | Item | Spec |
 |------|------|
@@ -242,7 +242,7 @@ Issue: [install and distribution](https://github.com/BasantPandey/CmdWarden/issu
 
 ---
 
-## 11. CLI surface (v1)
+## CLI surface (v1)
 
 `cw` / `cmdwarden`:
 
@@ -257,7 +257,7 @@ Issue: [install and distribution](https://github.com/BasantPandey/CmdWarden/issu
 | audit | Tail gate log |
 | scan | First-catalog detectors |
 | harden \<tool\> | Opt-in shim + pin for catalog tools |
-| launch \<harness\> | Start Claude Code, Codex, Cursor, or Grok without ambient token variables ([#25](https://github.com/BasantPandey/CmdWarden/issues/25)) |
+| launch \<harness\> | Start Claude Code, Codex, Cursor, or Grok without ambient token variables ([issue 25](https://github.com/BasantPandey/CmdWarden/issues/25)) |
 
 **Primary journey:** install → doctor → enroll → harden gh → day-to-day shim use; plus scan / audit / manual vault.
 
@@ -265,7 +265,7 @@ Issue: [v1 cw CLI command surface](https://github.com/BasantPandey/CmdWarden/iss
 
 ---
 
-### cw launch ([#25](https://github.com/BasantPandey/CmdWarden/issues/25))
+### cw launch ([issue 25](https://github.com/BasantPandey/CmdWarden/issues/25))
 
 - Catalog: `claude` (Claude Code, `claude.exe`), `codex` (Codex, `codex.exe`), `cursor` (Cursor, `Cursor.exe`), `grok` (Grok, `grok.exe`).
 - The harness binary is the process that starts shells, so it is the launcher CmdWarden sees. A native install on PATH is that binary. For an npm `.cmd` shim, `cw launch` starts the shim and looks for the binary in the npm package the shim names. Cursor starts from `%LOCALAPPDATA%\Programs\cursor\Cursor.exe`.
@@ -274,22 +274,22 @@ Issue: [v1 cw CLI command surface](https://github.com/BasantPandey/CmdWarden/iss
 - A running Cursor gets a new window in the old process, with the old environment; `cw launch cursor` says so.
 - `cw shortcut install` adds `<Harness> (CmdWarden).lnk` to the Start Menu for each harness on this PC; `cw shortcut remove` deletes them.
 
-## 12. Scan engine
+## Scan engine
 
 - **Coded C# detectors** in product (versioned with tool) - not downloadable rule packs.
 - Structured findings: id, tool, severity, title, summary, evidence (no secrets), remediation / harden_hint.
 - **`cw scan`** on demand; first catalog (`gh`/`git`/`az`/`docker`) + light system checks.
 - Read-only; hints at `cw harden …`; **no** auto-harden; **no** FS watcher in v1.
-- **MCP and harness config ([#28](https://github.com/BasantPandey/CmdWarden/issues/28)):** `mcp.plain_secret` reads `~/.claude.json` (top level and per project), `~/.claude/settings.json`, `~/.cursor/mcp.json`, Claude Desktop `claude_desktop_config.json`, VS Code `mcp.json`, and in the working folder `.mcp.json`, `.claude/settings*.json`, `.cursor/mcp.json`, `.vscode/mcp.json`. A finding is an `env` or `headers` value with a known token prefix (`ghp_`, `github_pat_`, `sk-`, `xoxb-`, `AKIA`, and others), a `Bearer` or `token` header, or a secret-like key name (`TOKEN`, `SECRET`, `API_KEY`, ...). Placeholders (`${VAR}`, `<...>`, `[CmdWarden: ...]`) do not count. Evidence names the file and the key, never the value.
+- **MCP and harness config ([issue 28](https://github.com/BasantPandey/CmdWarden/issues/28)):** `mcp.plain_secret` reads `~/.claude.json` (top level and per project), `~/.claude/settings.json`, `~/.cursor/mcp.json`, Claude Desktop `claude_desktop_config.json`, VS Code `mcp.json`, and in the working folder `.mcp.json`, `.claude/settings*.json`, `.cursor/mcp.json`, `.vscode/mcp.json`. A finding is an `env` or `headers` value with a known token prefix (`ghp_`, `github_pat_`, `sk-`, `xoxb-`, `AKIA`, and others), a `Bearer` or `token` header, or a secret-like key name (`TOKEN`, `SECRET`, `API_KEY`, ...). Placeholders (`${VAR}`, `<...>`, `[CmdWarden: ...]`) do not count. Evidence names the file and the key, never the value.
 - **Move to vault:** for an `env` value of a server that starts a command, `ScanFinding.Fix` carries the location. `cw scan --move-to-vault` and the **Move to vault** button on the Detectors page save the value as vault secret `<KEY>` (a different existing value stops the move before any change), set the file value to `[CmdWarden: <KEY>]`, and wrap the server as `cw inject --tool mcp --class read +<KEY> -- <command> <args>`. The server gets the value at start from the vault; `cw policy set <key> mcp <level>` controls it. Headers and remote servers get the finding without an automatic fix. `cw scan --move-to-vault` stops when Claude Code runs, because Claude Code rewrites `~/.claude.json`.
 
-- **Vault age ([#97](https://github.com/BasantPandey/CmdWarden/issues/97)):** `vault.old_entry` names each vault secret whose value did not change for 90 days or more, with its age in days. It reads the last write time from Credential Manager, never the value. Canary entries, the `cw try` token, and TOTP keys of the proxy do not count.
+- **Vault age ([issue 97](https://github.com/BasantPandey/CmdWarden/issues/97)):** `vault.old_entry` names each vault secret whose value did not change for 90 days or more, with its age in days. It reads the last write time from Credential Manager, never the value. Canary entries, the `cw try` token, and TOTP keys of the proxy do not count.
 
 Issue: [scan engine shape](https://github.com/BasantPandey/CmdWarden/issues/19).
 
 ---
 
-## 13. PATH shims (common)
+## PATH shims (common)
 
 Research: path-shim-patterns.md.
 
@@ -302,13 +302,13 @@ Research: path-shim-patterns.md.
 
 ---
 
-## 14. First catalog harden designs
+## First catalog harden designs
 
-All **compat mode by default**. Strong mode is opt-in per tool with `--strong` for `gh`, `git`, `docker` (plan first-catalog-strong-mode-plan.md), and `az` ([#26](https://github.com/BasantPandey/CmdWarden/issues/26)). Strong mode moves the stock store into the vault and deletes the originals; `cw unharden` writes them back.
+All **compat mode by default**. Strong mode is opt-in per tool with `--strong` for `gh`, `git`, `docker` (plan first-catalog-strong-mode-plan.md), and `az` ([issue 26](https://github.com/BasantPandey/CmdWarden/issues/26)). Strong mode moves the stock store into the vault and deletes the originals; `cw unharden` writes them back.
 
-### 14.1 gh
+### gh
 
-Research: gh-windows-harden.md. Issue: [#22](https://github.com/BasantPandey/CmdWarden/issues/22).
+Research: gh-windows-harden.md. Issue: [issue 22](https://github.com/BasantPandey/CmdWarden/issues/22).
 
 | Item | Design |
 |------|--------|
@@ -321,9 +321,9 @@ Research: gh-windows-harden.md. Issue: [#22](https://github.com/BasantPandey/Cmd
 
 Spike implement shipped: issues #7 (shim pin), #8 (harden gh), #9 (classifier table), #10 (audit wiring).
 
-### 14.2 git
+### git
 
-Research: git-windows-harden.md. Issue: [#23](https://github.com/BasantPandey/CmdWarden/issues/23).
+Research: git-windows-harden.md. Issue: [issue 23](https://github.com/BasantPandey/CmdWarden/issues/23).
 
 | Item | Design |
 |------|--------|
@@ -336,9 +336,9 @@ Research: git-windows-harden.md. Issue: [#23](https://github.com/BasantPandey/Cm
 
 **Independent of gh harden** - both required for first catalog.
 
-### 14.3 az
+### az
 
-Research: az-windows-harden.md. Issue: [#24](https://github.com/BasantPandey/CmdWarden/issues/24).
+Research: az-windows-harden.md. Issue: [issue 24](https://github.com/BasantPandey/CmdWarden/issues/24).
 
 | Item | Design |
 |------|--------|
@@ -346,12 +346,12 @@ Research: az-windows-harden.md. Issue: [#24](https://github.com/BasantPandey/Cmd
 | Harden | Pin real `az.cmd` (+ python); shim `az.cmd`/`az.exe`; leave MSAL cache |
 | Runtime | No user-token env inject; gate only |
 | Classes | `account get-access-token` → **secret-reveal**; login/CRUD → **write**; list/show → **read** |
-| Strong | `cw harden az --strong` ([#26](https://github.com/BasantPandey/CmdWarden/issues/26)): the login files of the az config dir (`AZURE_CONFIG_DIR`, else `~\.azure`): `azureProfile.json`, `msal_token_cache.*`, `service_principal_entries.*`, `msal_http_cache.bin`, plus copies of `config` and `clouds.config`, move into `%LOCALAPPDATA%\CmdWarden\az\login.bin`, protected with DPAPI (current user) plus a CmdWarden entropy value; the login files are deleted from the stock dir, so a plain `az` has no login. An allowed shim run gets a run folder `az\runs\<shim pid>-<start ticks>` with the files, named in the child env as `AZURE_CONFIG_DIR` (`AZURE_EXTENSION_DIR` stays at the stock `cliextensions`); the audit row names `az/login`. After the run, whatever the exit code, the shim calls `MigrateToolStore { tool=az, run_dir }`; only the shim process that got the folder can hand it back, the store takes the files (a logout removes the login), and the folder goes. Each strong az run sweeps folders of dead shims. Doctor reports Degraded when a login file is back in the stock dir (`stock az login returned`). `cw unharden az` writes the files back (settings changed since stay), deletes the store and run folders, and removes the pin and shim. Residual: two overlapping runs; the last capture wins |
+| Strong | `cw harden az --strong` ([issue 26](https://github.com/BasantPandey/CmdWarden/issues/26)): the login files of the az config dir (`AZURE_CONFIG_DIR`, else `~\.azure`): `azureProfile.json`, `msal_token_cache.*`, `service_principal_entries.*`, `msal_http_cache.bin`, plus copies of `config` and `clouds.config`, move into `%LOCALAPPDATA%\CmdWarden\az\login.bin`, protected with DPAPI (current user) plus a CmdWarden entropy value; the login files are deleted from the stock dir, so a plain `az` has no login. An allowed shim run gets a run folder `az\runs\<shim pid>-<start ticks>` with the files, named in the child env as `AZURE_CONFIG_DIR` (`AZURE_EXTENSION_DIR` stays at the stock `cliextensions`); the audit row names `az/login`. After the run, whatever the exit code, the shim calls `MigrateToolStore { tool=az, run_dir }`; only the shim process that got the folder can hand it back, the store takes the files (a logout removes the login), and the folder goes. Each strong az run sweeps folders of dead shims. Doctor reports Degraded when a login file is back in the stock dir (`stock az login returned`). `cw unharden az` writes the files back (settings changed since stay), deletes the store and run folders, and removes the pin and shim. Residual: two overlapping runs; the last capture wins |
 | Residual | Absolute path; same-user DPAPI; SP env; Azure PowerShell out of scope |
 
-### 14.4 docker
+### docker
 
-Research: docker-windows-harden.md. Issue: [#25](https://github.com/BasantPandey/CmdWarden/issues/25).
+Research: docker-windows-harden.md. Issue: [issue 25](https://github.com/BasantPandey/CmdWarden/issues/25).
 
 | Item | Design |
 |------|--------|
@@ -365,27 +365,27 @@ Research: docker-windows-harden.md. Issue: [#25](https://github.com/BasantPandey
 
 ---
 
-## 15. Threat notes (summary)
+## Threat notes (summary)
 
 The [Threat model](../threat-model.md) page has the full list, with the status and the test of each attack.
 
 | Threat | Mitigation |
 |--------|------------|
 | AI harness dumps tokens (`gh auth token`, `git credential fill`, `az account get-access-token`, helper get) | Command class secret-reveal + policy (AI default Read) + Approval Gate / block |
-| Ambient long-lived env tokens | Child-only inject where applicable; scan profiles; `cw launch <harness>` starts the harness without them ([#25](https://github.com/BasantPandey/CmdWarden/issues/25)) |
+| Ambient long-lived env tokens | Child-only inject where applicable; scan profiles; `cw launch <harness>` starts the harness without them ([issue 25](https://github.com/BasantPandey/CmdWarden/issues/25)) |
 | Same-user CredRead / DPAPI | Agent policy is the gate; strong mode empties the stock store for `gh` / `git` / `docker` / `az`; residual accepted in compat |
 | Absolute path bypass of PATH shim | Scan + guidance; WDAC out of PATH-only v1 |
-| Secret values in tool output read by the model | Leak guard hooks replace each vaulted value with `[CmdWarden: NAME]` ([#27](https://github.com/BasantPandey/CmdWarden/issues/27)) |
-| Prompt injection that hunts for tokens | Canary tokens raise an alarm and block the launcher ([#29](https://github.com/BasantPandey/CmdWarden/issues/29)) |
-| Script or binary changed after approval (TOCTOU) | Approval binds file hashes; files stay locked until the child exits ([#30](https://github.com/BasantPandey/CmdWarden/issues/30)) |
-| Wrapper bypass | PowerShell wrappers in the caller chain are parsed; hidden code forces the Approval Gate ([#31](https://github.com/BasantPandey/CmdWarden/issues/31)). Other wrappers stay a residual (PATH-only) |
-| Approval clickjacking, self-approval by injected input | Native UI; Approve accepts only non-injected hook input, no UI Automation Invoke ([#23](https://github.com/BasantPandey/CmdWarden/issues/23)); phone OOB out of scope |
+| Secret values in tool output read by the model | Leak guard hooks replace each vaulted value with `[CmdWarden: NAME]` ([issue 27](https://github.com/BasantPandey/CmdWarden/issues/27)) |
+| Prompt injection that hunts for tokens | Canary tokens raise an alarm and block the launcher ([issue 29](https://github.com/BasantPandey/CmdWarden/issues/29)) |
+| Script or binary changed after approval (TOCTOU) | Approval binds file hashes; files stay locked until the child exits ([issue 30](https://github.com/BasantPandey/CmdWarden/issues/30)) |
+| Wrapper bypass | PowerShell wrappers in the caller chain are parsed; hidden code forces the Approval Gate ([issue 31](https://github.com/BasantPandey/CmdWarden/issues/31)). Other wrappers stay a residual (PATH-only) |
+| Approval clickjacking, self-approval by injected input | Native UI; Approve accepts only non-injected hook input, no UI Automation Invoke ([issue 23](https://github.com/BasantPandey/CmdWarden/issues/23)); phone OOB out of scope |
 
 Broader Automic comparison: automic-vault-architecture.md.
 
 ---
 
-## 16. Explicit non-goals (v1 / this handoff)
+## Explicit non-goals (v1 / this handoff)
 
 - 100+ tool harden catalog
 - Phone / out-of-band approval
@@ -403,7 +403,7 @@ Broader Automic comparison: automic-vault-architecture.md.
 
 ---
 
-## 17. Implementation status and next build work
+## Implementation status and next build work
 
 ### Done
 
@@ -423,7 +423,7 @@ See map [CmdWarden product handoff (beyond spike)](https://github.com/BasantPand
 
 ---
 
-## 18. Related documents
+## Related documents
 
 | Doc | Role |
 |-----|------|

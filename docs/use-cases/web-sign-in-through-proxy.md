@@ -3,7 +3,7 @@ title: Let an agent sign in to a web site without seeing the password
 description: The agent types cw://NAME in the password field. You approve the card. The CmdWarden proxy puts the real password in the sign-in request, so the agent and the page never get it.
 ---
 
-# UC17 Let an agent sign in without the password
+# UC17 let an agent sign in without the password
 
 **When:** An AI agent drives a browser, for example with Playwright MCP or Chrome DevTools MCP. It must sign in to a web site. You do not want to give the agent your password.
 
@@ -17,7 +17,7 @@ CmdWarden proxy ──POST /session password=<real password>──> github.com
 github.com ──session cookie──> Browser
 ```
 
-## Step 1: Turn on the proxy
+## Turn on the proxy
 
 Do this one time. The browser uses the Windows certificate store, so it must trust the CmdWarden CA.
 
@@ -27,7 +27,7 @@ cw proxy setup --trust
 
 *Expect:* Windows asks you to confirm the CA. The CA goes to the root store of your user only. See [UC15](api-keys-through-proxy.md) for more about the proxy.
 
-## Step 2: Find the sign-in path and the password field
+## Find the sign-in path and the password field
 
 The proxy fills one field on one path. Find them one time for each site:
 
@@ -46,7 +46,7 @@ Examples:
 
 Sites change their sign-in pages. Always check the path and the field in your browser.
 
-## Step 3: Save the password and name the field
+## Save the password and name the field
 
 Run these commands in your own terminal, not in the agent. The policy hook stops an agent that runs `cw proxy add`.
 
@@ -66,7 +66,7 @@ In Git Bash, set `MSYS_NO_PATHCONV=1` first. Git Bash changes `/session` into a 
 
 `cw save` asks for the value, and the value goes to the vault. A key that has `--body` is a **sign-in key**. It goes only in that field, on that path, on that host. It never goes in a header or in another field.
 
-## Step 4: Send the agent browser through the proxy
+## Send the agent browser through the proxy
 
 Pick the browser tool of your agent.
 
@@ -99,7 +99,7 @@ Chrome 136 and later needs its own `--user-data-dir` for `--remote-debugging-por
 
 Use port `47831` unless you set another port with `cw proxy setup --port`. Run `cw proxy list` to see the port.
 
-## Step 5: Tell the agent to use the placeholder
+## Tell the agent to use the placeholder
 
 Give the agent a rule like this:
 
@@ -111,11 +111,11 @@ Never ask me for the password.
 
 *Expect:* The agent clicks **Sign in**. You get the Approval Gate card. The card shows `POST https://github.com/session` and the text "Fills GITHUB_WEB_PASSWORD in the field password and sends it to github.com". Click **Approve Once** or **Allow for session**. The site gets the real password, and the agent is signed in.
 
-## Step 6: Fill two-factor codes (optional)
+## Fill two-factor codes (optional)
 
 A site can ask for a code from an authenticator app after the password. CmdWarden can fill that code too. The vault keeps the TOTP key of the site, and the proxy makes the current code. The agent never sees the key.
 
-1. Find the 2FA path and the code field, as in Step 2. Sign in one time, and find the `POST` that sends the 6-digit code.
+1. Find the 2FA path and the code field, as in [Find the sign-in path and the password field](#find-the-sign-in-path-and-the-password-field). Sign in one time, and find the `POST` that sends the 6-digit code.
 2. Get the TOTP key of the site. When you turn on 2FA, the site shows a QR code. Most sites also show a text key, or "setup key", next to it. Some show an `otpauth://totp/...` link.
 3. Save the key, and name the field, in your own terminal:
 
@@ -135,11 +135,11 @@ The proxy reads `digits`, `period`, and `algorithm` from an `otpauth://` link. W
 
 **If the code field takes only 6 characters:** many code fields have a length limit or accept only digits, so `cw://GITHUB_TOTP` does not fit. Use a short name, for example `cw save T` and `cw://T`, which has 6 characters. A field that accepts only digits still blocks the placeholder. Then the agent must set the field value with a script and send the form.
 
-## Step 7: Make a new account (optional)
+## Make a new account (optional)
 
 The agent can make an account on a site, and nobody sees the password. CmdWarden makes a random password in the vault.
 
-1. Find the sign-up path and its password fields, as in Step 2. Many sign-up forms have a second "confirm password" field.
+1. Find the sign-up path and its password fields, as in [Find the sign-in path and the password field](#find-the-sign-in-path-and-the-password-field). Many sign-up forms have a second "confirm password" field.
 2. Make the password, and name the fields, in your own terminal:
 
     ```powershell

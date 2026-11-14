@@ -1,6 +1,6 @@
 # Release signing
 
-The release workflow signs every CmdWarden exe and dll, and the two install scripts ([#42](https://github.com/BasantPandey/CmdWarden/issues/42)). A signed file gets fewer SmartScreen warnings. The Session Agent also checks the signer of the Approval Gate.
+The release workflow signs every CmdWarden exe and dll, and the two install scripts ([issue 42](https://github.com/BasantPandey/CmdWarden/issues/42)). A signed file gets fewer SmartScreen warnings. The Session Agent also checks the signer of the Approval Gate.
 
 ## What the release signs
 

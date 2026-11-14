@@ -30,7 +30,7 @@ The [CmdWarden Vault](vault.md) section describes every page. Each use case belo
 | **Enroll** | Register a launcher as terminal or ai-harness so defaults apply |
 | **Harden** | Opt-in: pin real binary + PATH shim (+ vault token for `gh`) |
 | **Policy level** | Deny / Read / Trusted / Full for a **tool × launcher** pair |
-| **Approval Gate** | Desktop **Deny / Allow for session / Approve Once** card when auto-allow does not apply (appears while the agent tool call waits) |
+| **Approval Gate** | Desktop **Deny / **Allow for session** / Approve Once** card when auto-allow does not apply (appears while the agent tool call waits) |
 | **Vault** | Secrets in Windows Credential Manager, released only to allowed children |
 | **CmdWarden Vault** | Desktop app (Start Menu) to view gates, detectors, hardened tools, secret names, usage, and doctor |
 | **Session allow** | An Approval Gate grant that lasts until the launcher exits or 60 idle minutes. **Approve Once** grants the one class you saw; **Allow for session** grants that class and every lower one. **Allow for session** can also end after 10 minutes or 1 hour |
@@ -56,7 +56,7 @@ cw agent status
 cw agent stop
 ```
 
-Many commands lazy-start the agent; prefer `cw doctor` after install.
+Many commands lazy-start the agent. After install, prefer `cw doctor`.
 
 ## Day-to-day
 

@@ -5,13 +5,13 @@ description: How to test CmdWarden before a release. Automated checks first, the
 
 # Test plan
 
-Use this page before each release. Part 1 is automated. Part 2 is manual. Part 3 tells why some tests stay manual.
+Use this page before each release. [Automated checks](#automated-checks) run in CI. [Manual checks](#manual-checks) need you. [Why some tests stay manual](#why-some-tests-stay-manual) explains the rest.
 
 Write **Pass** or **Fail** in the Result column. For each Fail, open an issue with the test ID, the step, and a screenshot.
 
 ---
 
-## Part 1 - Automated checks
+## Automated checks
 
 Run these on your PC from the repo root. A person must be logged on to the desktop, because some tests open the real Approval Gate card.
 
@@ -26,7 +26,7 @@ CI runs A2, A3, and A1 without the `Process` tests. The `Process` tests start re
 
 ---
 
-## Part 2 - Manual checks
+## Manual checks
 
 ### Before you start
 
@@ -36,20 +36,20 @@ CI runs A2, A3, and A1 without the `Process` tests. The `Process` tests start re
 - Have at least one AI harness: Claude Code, Cursor, Codex, or Grok. Test each one that you have.
 - Look at each screen with care. Look for cut text, bad alignment, wrong colors, and blur. Test at 100% and 150% display scale, and in light and dark mode.
 
-### 2.1 Install and set up
+### Install and set up
 
 | ID | Steps | Expect | Result |
 |----|-------|--------|--------|
 | M1 | Run `winget source update`. Run `winget install BasantPandey.CmdWarden`. Open a new terminal. Run `cw version`. | No admin prompt. `cw version` shows 0.10.0. | |
 | M2 | On a second clean user, extract the setup zip. Double-click `install.cmd`. | No admin prompt. **CmdWarden** is in Settings > Apps. The installer offers to run `cw setup`. | |
-| M3 | Run the signature check from [Install, section 4](../install.md#4-verify). | Each row shows `Valid`. | |
+| M3 | Run the signature check from [Verify](../install.md#verify). | Each row shows `Valid`. | |
 | M4 | Run `cw setup`. Press Enter at each question. | Each step asks first. Each step ends with a clear result. The last step shows the card of `cw try`. | |
 | M5 | Run `cw setup` again. | Each step says that it is done. Nothing changes. | |
 | M6 | Run `cw doctor`. | Session Agent **UP**. No red row. | |
 
-### 2.2 Approval Gate card
+### Approval Gate card
 
-These tests need a real keyboard and a real mouse. The card refuses input from scripts on purpose. See Part 3.
+These tests need a real keyboard and a real mouse. The card refuses input from scripts on purpose. See [Why some tests stay manual](#why-some-tests-stay-manual).
 
 | ID | Steps | Expect | Result |
 |----|-------|--------|--------|
@@ -70,20 +70,20 @@ These tests need a real keyboard and a real mouse. The card refuses input from s
 | G15 | Do G14 again. Cancel Windows Hello. | The command is blocked. | |
 | G16 | Run `cw try`. End the `CmdWarden.ApprovalGate` process in Task Manager while the card shows. | The command is blocked (fail closed). No secret goes out. | |
 
-### 2.3 AI harness integration
+### AI harness integration
 
-Do these for each harness that you have: Claude Code, Cursor, Codex, and Grok. Restart the harness after `cw setup`.
+Do these for each harness that you have: Claude Code, Cursor, Codex, and Grok. After `cw setup`, restart the harness.
 
 | ID | Steps | Expect | Result |
 |----|-------|--------|--------|
 | H1 | In the harness terminal, run `cw whoami`. | The launcher is the harness, with kind **ai-harness**. | |
 | H2 | Ask the agent: "Run `gh issue list` on this repo." | It runs with no card (Read class). | |
 | H3 | Ask the agent: "Run `gh auth token` and show me the result." | The card shows. Deny it. The agent says that CmdWarden denied the command. | |
-| H4 | Do [UC2](../use-cases/approve-secret-read-mid-session.md) part 3 with `DEMO_TOKEN`. Approve. | The command runs. The agent output shows `[CmdWarden: DEMO_TOKEN]`, not the value. | |
+| H4 | Do the mid-session read in [Approve or deny a secret read mid-session](../use-cases/approve-secret-read-mid-session.md#middle-of-the-ai-session-agent-tries-to-read-that-secret) with `DEMO_TOKEN`. Approve. | The command runs. The agent output shows `[CmdWarden: DEMO_TOKEN]`, not the value. | |
 | H5 | Ask the agent to list its MCP tools. | The CmdWarden tools show, for example `run_with_secret`. | |
 | H6 | Ask the agent to use a canary token from `cw canary status`. | An alarm shows. CmdWarden blocks the harness. | |
 
-### 2.4 Tools and features
+### Tools and features
 
 Each use case page has the steps and the expected result. Do the steps and compare.
 
@@ -104,7 +104,7 @@ Each use case page has the steps and the expected result. Do the steps and compa
 | T13 | [UC16 Keep .env secrets out of the agent](../use-cases/env-files.md) | |
 | T14 | [UC17 Let an agent sign in without the password](../use-cases/web-sign-in-through-proxy.md) | |
 
-### 2.5 CmdWarden Vault app and tray icon
+### CmdWarden Vault app and tray icon
 
 | ID | Steps | Expect | Result |
 |----|-------|--------|--------|
@@ -115,7 +115,7 @@ Each use case page has the steps and the expected result. Do the steps and compa
 | V5 | Resize the window from small to full screen. | The layout stays clean at each size. | |
 | V6 | Open the tray icon menu after some cards. | The count of answered cards is correct. Live session allows show, and you can revoke one. | |
 
-### 2.6 Update and uninstall
+### Update and uninstall
 
 | ID | Steps | Expect | Result |
 |----|-------|--------|--------|
@@ -125,13 +125,13 @@ Each use case page has the steps and the expected result. Do the steps and compa
 
 ---
 
-## Part 3 - Why some tests stay manual
+## Why some tests stay manual
 
 A script cannot do these tests. This is on purpose, or it needs a real outside service.
 
 | Area | Why a script cannot test it |
 |------|-----------------------------|
-| Approve on the real card (G4, G5, G8 to G12) | The card accepts Approve only from a real keyboard or mouse ([#23](https://github.com/BasantPandey/CmdWarden/issues/23)). An agent that can click Approve can approve its own request. The test `ApprovalGateInjectedInputTests` proves that scripts cannot click Approve. So only a person can prove that a real click works. |
+| Approve on the real card (G4, G5, G8 to G12) | The card accepts Approve only from a real keyboard or mouse ([issue 23](https://github.com/BasantPandey/CmdWarden/issues/23)). An agent that can click Approve can approve its own request. The test `ApprovalGateInjectedInputTests` proves that scripts cannot click Approve. So only a person can prove that a real click works. |
 | Windows Hello (G14, G15) | Hello needs a real face, finger, or PIN. |
 | Look of the screens | A script can take a screenshot (A4). A person must decide if it looks right. |
 | AI harness behavior (H1 to H6) | The harness and its model change often. A script cannot tell if the agent reads the deny message correctly. |

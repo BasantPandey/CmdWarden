@@ -65,7 +65,7 @@ See it yourself with no risk: `cw try` starts a stand-in agent that nobody enrol
 
     ---
 
-    Use the setup zip, or install BasantPandey.CmdWarden 0.10.0 with `winget install BasantPandey.CmdWarden`. The winstall page is https://winstall.app/apps/BasantPandey.CmdWarden. NuGet.org has package CmdWarden 0.12.0: https://www.nuget.org/packages/CmdWarden/0.12.0. With the .NET 10 SDK, run `dotnet tool install -g CmdWarden`.
+    Use the setup zip, or install BasantPandey.CmdWarden 0.10.0 with `winget install BasantPandey.CmdWarden`. The [winstall page](https://winstall.app/apps/BasantPandey.CmdWarden) lists that package. NuGet.org has package CmdWarden 0.12.0: [CmdWarden 0.12.0 on NuGet.org](https://www.nuget.org/packages/CmdWarden/0.12.0). With the .NET 10 SDK, run `dotnet tool install -g CmdWarden`.
 
     [:octicons-arrow-right-24: Install](install.md)
 
@@ -107,4 +107,4 @@ See it yourself with no risk: `cw try` starts a stand-in agent that nobody enrol
 
 ## Requirements
 
-Windows 10 or 11 with a desktop session. CmdWarden is free, written in C#, and open source on [GitHub](https://github.com/BasantPandey/CmdWarden).
+Windows 10 or 11 with a desktop session. CmdWarden is free, written in C#, and open source on the [CmdWarden repository](https://github.com/BasantPandey/CmdWarden).
