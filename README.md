@@ -33,7 +33,15 @@ The winget package is BasantPandey.CmdWarden version 0.10.0. Run this command:
 winget install BasantPandey.CmdWarden
 ```
 
-The commands are `cw` and `cmdwarden`. Run `winget source update` when your source is old. The setup zip above also installs CmdWarden. NuGet.org has package CmdWarden 0.12.0: https://www.nuget.org/packages/CmdWarden/0.12.0. With the .NET 10 SDK, run `dotnet tool install -g CmdWarden`. The gallery form is `dotnet tool install --global CmdWarden --version 0.12.0`.
+The commands are `cw` and `cmdwarden`. Run `winget source update` when your source is old. The setup zip above also installs CmdWarden.
+
+NuGet.org has package CmdWarden 0.12.0: https://www.nuget.org/packages/CmdWarden/0.12.0. You need the .NET 10 SDK. Run this command:
+
+```powershell
+dotnet tool install -g CmdWarden
+```
+
+The gallery form is `dotnet tool install --global CmdWarden --version 0.12.0`.
 
 See the card with no risk at any time: `cw try`. **Uninstall:** `cw uninstall`.
 

@@ -1,4 +1,4 @@
-# Package managers (winget, Scoop)
+# Package managers (winget, Scoop, NuGet.org)
 
 The release makes the winget and Scoop manifests for you. Each release has `CmdWarden.<version>-packages.zip` with manifests that carry the real sha256 of the portable zip.
 
@@ -8,6 +8,7 @@ The portable zip `CmdWarden.<version>-win-x64.zip` carries its own .NET runtime.
 |---------|--------|----------------------|
 | **winget** | `winget/` in the packages zip | `winget install BasantPandey.CmdWarden` |
 | **Scoop** | `scoop/cmdwarden.json` in the packages zip | `scoop install cmdwarden` (from a bucket) |
+| **NuGet.org** | [CmdWarden 0.12.0](https://www.nuget.org/packages/CmdWarden/0.12.0) | `dotnet tool install -g CmdWarden` |
 
 Make the manifests by hand for any zip:
 
@@ -31,6 +32,14 @@ winget install --manifest artifacts\packages\winget
 ```
 
 The release submits the manifests to [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) when the `WINGET_TOKEN` secret is set. The token is a GitHub classic token with the `public_repo` scope. Without it, submit the manifests by hand: `wingetcreate submit --token <token> artifacts\packages\winget`.
+
+## NuGet.org
+
+NuGet.org has package CmdWarden 0.12.0: https://www.nuget.org/packages/CmdWarden/0.12.0. The tool needs the .NET 10 SDK. The package id is CmdWarden. The command is `cw`.
+
+```powershell
+dotnet tool install -g CmdWarden
+```
 
 ## Scoop
 

@@ -234,7 +234,7 @@ Issue: [audit log storage and retention](https://github.com/BasantPandey/CmdWard
 | Vehicle | **dotnet tool** (global, per-user) |
 | Package | **One package**: CLI + Session Agent, same version |
 | Scope | Per-user only - no admin / machine-wide v1 |
-| Feed | Local/CI nupkg for handoff; nuget.org deferred |
+| Feed | NuGet.org has package CmdWarden 0.12.0: https://www.nuget.org/packages/CmdWarden/0.12.0 |
 | Update | `dotnet tool update -g` |
 | Install vs harden | Install = **binaries only**; harden/setup adds Path + shims |
 
