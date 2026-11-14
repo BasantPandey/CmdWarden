@@ -16,6 +16,12 @@ Do not open a public issue for a security problem.
 
 We answer in 7 days. We tell you the plan for a fix, and we name you in the advisory if you want that.
 
+A public vulnerability is fixed in 60 days.
+A critical vulnerability is fixed faster than that.
+The 0.9.0 notes name GHSA-846f-f764-76mx.
+Do not commit a real credential.
+GitHub secret scanning watches this public repo.
+
 ## In scope
 
 - A way to get a vault secret with no Approval Gate card, or past a Deny.

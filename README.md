@@ -7,6 +7,8 @@
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/BasantPandey/CmdWarden/badge)](https://scorecard.dev/viewer/?uri=github.com/BasantPandey/CmdWarden)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16697/badge)](https://www.bestpractices.dev/projects/16697)
 
+The [Passing evidence](docs/passing-criteria.md) records each Passing answer. Release notes are in [NEWS.md](NEWS.md).
+
 **Docs site: [basantpandey.github.io/CmdWarden](https://basantpandey.github.io/CmdWarden/)**
 
 CmdWarden makes AI coding agents ask before they use your secrets on Windows. Claude Code, Cursor, Codex, and Grok get a policy and an Approval Gate card. Your own terminal keeps working as before.
