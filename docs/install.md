@@ -174,12 +174,10 @@ Open **CmdWarden Vault** from the Start Menu. Six pages. Every page is read-only
 
 ### dotnet tool
 
-NuGet.org does not have the package yet ([#64](https://github.com/BasantPandey/CmdWarden/issues/64)). `dotnet tool install -g CmdWarden` does not work from NuGet.org today.
-
-The tool needs the [.NET 10 SDK](https://dotnet.microsoft.com/download). Download `CmdWarden.<version>.nupkg` from the release into a folder. Then pass that folder:
+NuGet.org has package CmdWarden 0.12.0. The tool needs the [.NET 10 SDK](https://dotnet.microsoft.com/download).
 
 ```powershell
-dotnet tool install -g CmdWarden --add-source C:\packages
+dotnet tool install -g CmdWarden
 cw setup
 ```
 
@@ -210,7 +208,7 @@ Every green **build** on `main` uploads the portable folder. Open [Actions](http
 |-------------|--------|
 | Setup zip | `cw update` |
 | winget | `winget upgrade BasantPandey.CmdWarden` |
-| dotnet tool | NuGet.org does not have the package yet. |
+| dotnet tool | `dotnet tool update -g CmdWarden` |
 
 ```powershell
 cw update --check   # only say if a newer release is available

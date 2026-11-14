@@ -65,7 +65,7 @@ See it yourself with no risk: `cw try` starts a stand-in agent that nobody enrol
 
     ---
 
-    Install BasantPandey.CmdWarden 0.10.0 with `winget install BasantPandey.CmdWarden`, or use the setup zip. NuGet.org does not have the package yet.
+    Install BasantPandey.CmdWarden 0.10.0 with `winget install BasantPandey.CmdWarden`, or use the setup zip. NuGet.org has package CmdWarden 0.12.0.
 
     [:octicons-arrow-right-24: Install](install.md)
 
