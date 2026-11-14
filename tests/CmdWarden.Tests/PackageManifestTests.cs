@@ -72,6 +72,7 @@ public class PackageManifestTests
             Assert.Contains("BasantPandey.CmdWarden", page, StringComparison.Ordinal);
             Assert.Contains("0.10.0", page, StringComparison.Ordinal);
             Assert.Contains("winget install BasantPandey.CmdWarden", page, StringComparison.Ordinal);
+            Assert.Contains("https://winstall.app/apps/BasantPandey.CmdWarden", page, StringComparison.Ordinal);
             Assert.Contains("NuGet.org has package CmdWarden 0.12.0", page, StringComparison.Ordinal);
             Assert.Contains("https://www.nuget.org/packages/CmdWarden/0.12.0", page, StringComparison.Ordinal);
             Assert.Contains("dotnet tool install -g CmdWarden", page, StringComparison.Ordinal);
@@ -86,6 +87,8 @@ public class PackageManifestTests
         Assert.Contains("microsoft/winget-pkgs#442236", packaging, StringComparison.Ordinal);
         Assert.Contains("0.10.0", packaging, StringComparison.Ordinal);
         Assert.Contains("winget install BasantPandey.CmdWarden", packaging, StringComparison.Ordinal);
+        Assert.Contains("https://winstall.app/apps/BasantPandey.CmdWarden", packaging, StringComparison.Ordinal);
+        Assert.Contains("https://www.nuget.org/packages/CmdWarden/0.12.0", packaging, StringComparison.Ordinal);
         Assert.DoesNotMatch(
             new Regex(@"submit[^.\n]{0,40}1\.12\.0", RegexOptions.IgnoreCase),
             packaging);

@@ -22,7 +22,7 @@ The manifests use schema 1.28.0. [microsoft/winget-pkgs#442236](https://github.c
 
 The installer manifest uses `ArchiveBinariesDependOnPath: true`. winget then puts the install folder on PATH and makes no symlink. `cw.exe` must run from its own folder, because it finds `runtime\` next to it.
 
-Run `winget install BasantPandey.CmdWarden`. The commands are `cw` and `cmdwarden`. Run `winget source update` when your source is old.
+Run `winget install BasantPandey.CmdWarden`. The commands are `cw` and `cmdwarden`. Run `winget source update` when your source is old. The winstall page is https://winstall.app/apps/BasantPandey.CmdWarden. It shows version 0.10.0.
 
 Check a manifest before you submit it:
 
