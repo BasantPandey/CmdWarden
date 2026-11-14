@@ -174,7 +174,7 @@ Open **CmdWarden Vault** from the Start Menu. Six pages. Every page is read-only
 
 ### dotnet tool
 
-NuGet.org has package CmdWarden 0.12.0. The tool needs the [.NET 10 SDK](https://dotnet.microsoft.com/download).
+NuGet.org has package CmdWarden 0.12.0: https://www.nuget.org/packages/CmdWarden/0.12.0. The tool needs the [.NET 10 SDK](https://dotnet.microsoft.com/download). The gallery form is `dotnet tool install --global CmdWarden --version 0.12.0`.
 
 ```powershell
 dotnet tool install -g CmdWarden
