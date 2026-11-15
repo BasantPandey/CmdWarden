@@ -106,6 +106,40 @@ public class PackageManifestTests
         Assert.DoesNotMatch(new Regex(@"(?i)releases are signed"), signing);
     }
 
+    [Fact]
+    public void Passing_evidence_keeps_the_vault_and_totp()
+    {
+        var root = TestPaths.RepoRoot;
+        var news = ReadRepo(root, "NEWS.md");
+        var passing = ReadRepo(root, "docs", "passing-criteria.md");
+        var security = ReadRepo(root, "SECURITY.md");
+        var contributing = ReadRepo(root, "CONTRIBUTING.md");
+        var props = ReadRepo(root, "Directory.Build.props");
+        var vault = ReadRepo(root, "src", "CmdWarden.Contracts", "AzStrongStore.cs");
+        var totp = ReadRepo(root, "src", "CmdWarden.Contracts", "Proxy", "OneTimeCode.cs");
+
+        Assert.Contains("GHSA-846f-f764-76mx", news, StringComparison.Ordinal);
+        Assert.Contains("https://github.com/BasantPandey/CmdWarden/releases/tag/v0.12.0", news, StringComparison.Ordinal);
+        Assert.Contains("No release in this file is signed.", news, StringComparison.Ordinal);
+        Assert.Contains("`crypto_password_storage` is N/A.", passing, StringComparison.Ordinal);
+        Assert.Contains("The vault stores recoverable secrets with DPAPI.", passing, StringComparison.Ordinal);
+        Assert.Contains("`crypto_weaknesses` is Unmet.", passing, StringComparison.Ordinal);
+        Assert.Contains("TOTP accepts SHA-1 for compatibility.", passing, StringComparison.Ordinal);
+        Assert.Contains("`test_most` is Unmet.", passing, StringComparison.Ordinal);
+        Assert.Contains("`dynamic_analysis_enable_assertions` is Unmet.", passing, StringComparison.Ordinal);
+        Assert.Contains("docs/cli-reference.md", passing, StringComparison.Ordinal);
+        Assert.DoesNotContain("replace DPAPI", passing, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("releases are signed", passing, StringComparison.OrdinalIgnoreCase);
+
+        Assert.Contains("A public vulnerability is fixed in 60 days.", security, StringComparison.Ordinal);
+        Assert.Contains("We answer a bug report on that issue tracker.", contributing, StringComparison.Ordinal);
+        Assert.Contains("<TreatWarningsAsErrors>true</TreatWarningsAsErrors>", props, StringComparison.Ordinal);
+
+        Assert.Contains("ProtectedData.Protect", vault, StringComparison.Ordinal);
+        Assert.Contains("HMACSHA1.HashData", totp, StringComparison.Ordinal);
+        Assert.Contains("\"SHA1\"", totp, StringComparison.Ordinal);
+    }
+
     private static void AssertManifests(string wingetDir, string sha)
     {
         var names = new[]

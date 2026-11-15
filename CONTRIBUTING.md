@@ -5,6 +5,8 @@ Thank you for your help. This page tells you how to report a problem, how to bui
 ## Report a problem
 
 - **A bug or an idea:** open an [issue](https://github.com/BasantPandey/CmdWarden/issues). Give the `cw version` output, the command, what you expected, and what you saw. Do not paste a secret value.
+- We answer a bug report on that issue tracker.
+- We answer an enhancement request on that issue tracker.
 - **A security problem:** do not open a public issue. Follow the [security policy](SECURITY.md).
 
 ## Build and test
