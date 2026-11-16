@@ -3,36 +3,36 @@
 Launch draft. LinkedIn shows the first two lines, then "...more". The hook must land in line one.
 
 ## Post
-
-Your AI coding agent can read your GitHub token. On Windows, nothing stops it.
-
-I found this out the hard way. Claude Code ran `gh auth token` in my terminal. The token came back in plain text. Cursor and Codex can do the same. Any process the agent starts gets the same credentials my terminal has.
-
-So I built CmdWarden.
-
-It sits between the launcher and the tool. Your terminal stays trusted. The AI harness gets a policy. When the agent runs gh, git, az, or docker, a small card pops up on the desktop:
-
-Deny. Allow for session. Approve Once.
-
-What makes it different:
-
-- The secret goes into one child process for one run. The agent's shell never holds it.
-- Policy is per tool and per launcher. Read for the agent, Full for you.
-- Every decision writes an audit row first. If the card cannot show, the request fails closed.
-- Setup is four commands. Day to day you still type `gh` and `git` as usual.
-
-It is open source, MIT, written in C# on .NET 10, for Windows 10 and 11.
-
-Docs with nine short use cases, from "gate my GitHub token" to "undo everything":
-https://basantpandey.github.io/CmdWarden/
-
-Code and issues:
-https://github.com/BasantPandey/CmdWarden
-
-If you run AI coding agents on Windows, try it and tell me what breaks. If it saves you a token, a star helps the next person find it.
-
-#AIAgents #DevSecOps #Windows #dotnet #ClaudeCode #Cursor #GitHub #OpenSource
-
+>
+> Your AI coding agent can read your GitHub token. On Windows, nothing stops it.
+>
+> I found this out the hard way. Claude Code ran `gh auth token` in my terminal. The token came back in plain text. Cursor and Codex can do the same. Any process the agent starts gets the same credentials my terminal has.
+>
+> So I built CmdWarden.
+>
+> It sits between the launcher and the tool. Your terminal stays trusted. The AI harness gets a policy. When the agent runs gh, git, az, or docker, a small card pops up on the desktop:
+>
+> Deny. Allow for session. Approve Once.
+>
+> What makes it different:
+>
+> - The secret goes into one child process for one run. The agent's shell never holds it.
+> - Policy is per tool and per launcher. Read for the agent, Full for you.
+> - Every decision writes an audit row first. If the card cannot show, the request fails closed.
+> - Setup is four commands. Day to day you still type `gh` and `git` as usual.
+>
+> It is open source, MIT, written in C# on .NET 10, for Windows 10 and 11.
+>
+> Docs with nine short use cases, from "gate my GitHub token" to "undo everything":
+> https://basantpandey.github.io/CmdWarden/
+>
+> Code and issues:
+> https://github.com/BasantPandey/CmdWarden
+>
+> If you run AI coding agents on Windows, try it and tell me what breaks. If it saves you a token, a star helps the next person find it.
+>
+> #AIAgents #DevSecOps #Windows #dotnet #ClaudeCode #Cursor #GitHub #OpenSource
+>
 ## Image
 
 Attach `docs/images/approval-gate.png`. One image. A carousel gets fewer views than one strong image.

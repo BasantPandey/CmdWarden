@@ -23,8 +23,8 @@ CmdWarden does not defend against malware with admin rights, or against a person
 
 | Status | Meaning |
 |--------|---------|
-| **Stopped** | The attack fails. A test checks it. |
-| **Slowed** | The easy forms fail. A careful attacker who runs as your user can still get past. |
+| Stopped | The attack fails. A test checks it. |
+| Slowed | The easy forms fail. A careful attacker who runs as your user can still get past. |
 | **Open** | CmdWarden does not stop it. The page says what to do. |
 
 ## Attacks and answers
@@ -48,7 +48,7 @@ CmdWarden does not defend against malware with admin rights, or against a person
 
 ## What stays open
 
-These attacks work for an agent that runs as **your own Windows user**. CmdWarden makes them harder or easier to see. It does not stop them.
+These attacks work for an agent that runs as your own Windows user. CmdWarden makes them harder or easier to see. It does not stop them.
 
 | Attack | Why it works | What to do |
 |--------|--------------|------------|

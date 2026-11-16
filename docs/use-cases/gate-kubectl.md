@@ -1,6 +1,6 @@
 # Gate kubectl
 
-**When:** An AI harness runs `kubectl` against your clusters. You want it to read pods and logs freely, but ask you before it reads Secret objects, prints the raw kubeconfig, or deletes something.
+When: An AI harness runs `kubectl` against your clusters. You want it to read pods and logs freely, but ask you before it reads Secret objects, prints the raw kubeconfig, or deletes something.
 
 ```powershell
 cw harden kubectl
@@ -22,8 +22,8 @@ A shell in a pod can read every secret that the pod mounts, so `exec` and its ki
 
 ## What `cw scan` finds
 
-- **kubectl.plain_secret_file** (high): a `token`, `client-key-data`, or `password` line in `~/.kube/config`. An exec credential plugin (for example `kubelogin`) is safer than a static token.
-- **kubectl.not_hardened** (medium): kubectl is on PATH with no pin.
+- kubectl.plain_secret_file (high): a `token`, `client-key-data`, or `password` line in `~/.kube/config`. An exec credential plugin (for example `kubelogin`) is safer than a static token.
+- kubectl.not_hardened (medium): kubectl is on PATH with no pin.
 
 ## Undo
 

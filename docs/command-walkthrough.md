@@ -14,8 +14,8 @@ Three surfaces exist:
 | Surface | How you open it | What you check |
 |---------|-----------------|----------------|
 | CLI | Type `cw` in a terminal | Text and the exit code |
-| Approval Gate | A gated command opens the card | Deny, **Allow for session**, **Approve Once** |
-| CmdWarden Vault | Start Menu or the tray icon | The same data as the CLI, with no secret value |
+| Approval Gate | A gated command opens the card | **Deny**, **Allow for session**, **Approve Once** |
+| CmdWarden Vault | **Start Menu** or the tray icon | The same data as the CLI, with no secret value |
 
 The CLI name is `cw`. The alias is `cmdwarden`. Both names run the same commands.
 
@@ -34,7 +34,7 @@ The install does not change `gh` or `git`. Those tools stay as they are until `c
 3. Double-click `install.cmd`. Run it as your user.
 4. The installer copies the app to `%LOCALAPPDATA%\CmdWarden\app`.
 5. It adds `cw` to your user PATH.
-6. It adds **CmdWarden** under Settings > Apps.
+6. It adds CmdWarden under **Settings** > **Apps**.
 7. Open a new terminal.
 
 You see `cw` on PATH. `cw version` prints the product version.
@@ -44,7 +44,7 @@ You see `cw` on PATH. `cw version` prints the product version.
 1. Extract `CmdWarden.<version>-win-x64.zip`.
 2. In that folder, run `.\cw.exe setup`.
 
-### winget
+### The `winget` package
 
 The catalog has BasantPandey.CmdWarden version 0.10.0. The commands are `cw` and `cmdwarden`.
 
@@ -84,7 +84,7 @@ Each step asks first. Press Enter for yes. `cw setup --yes` runs every step with
 | terminal | Enroll this terminal as Trusted | Your own shell gets no card for normal work |
 | tools | Harden each tool that is installed | `gh`, `git`, `az`, `docker`, `npm`, `aws`, `kubectl`, and `ssh` when they exist |
 | harnesses | Enroll each harness at Read | Hook, leak guard, and MCP server for Claude Code, Cursor, Codex, and Grok |
-| shortcuts | Start Menu, tray, Settings > Apps | **CmdWarden Vault** in the Start Menu |
+| shortcuts | **Start Menu**, tray, **Settings** > **Apps** | CmdWarden Vault in the **Start Menu** |
 | canary | Plant fake tokens | A use of one shows an alarm and blocks that app |
 | protect | Turn on harness protections | Claude Code and Codex only. Grok has no `cw protect` step |
 | try | Show the real card | A stand-in agent asks for the fake secret `CW_TRY_TOKEN` |
@@ -111,7 +111,7 @@ You see these results:
 - `cw whoami` names this terminal and its policy key.
 - `cw policy list` shows this terminal as Trusted.
 - `cw policy list` shows each harness as an AI harness at Read.
-- `cw harden --list` shows **Hardened** for each tool that setup found.
+- `cw harden --list` shows Hardened for each tool that setup found.
 
 State lives under `%LOCALAPPDATA%\CmdWarden\`.
 
@@ -168,7 +168,7 @@ The same deny line exists for `git`, `az`, `docker`, `npm`, `aws`, `kubectl`, an
 
 After a deny, a quick retry can stop with no new card. The tray shows one notice. The reason is the deny cooldown.
 
-`cw audit` then shows a **Denied** row. The reason code is `UserDenied`. A timeout row uses `ApprovalUnavailable`. An approval row uses **Approved** or **Session granted**. A read at level Read uses **Auto-allow**.
+`cw audit` then shows a **Denied** row. The reason code is `UserDenied`. A timeout row uses `ApprovalUnavailable`. An approval row uses **Approved** or Session granted. A read at level Read uses Auto-allow.
 
 ---
 
@@ -220,7 +220,7 @@ Say this to Grok, in your words: run `gh repo view` in this repo, and tell me th
 
 `gh repo view` is a read. Grok is at Read. The hook adds no step. The shim allows the call. No card appears.
 
-You see the normal `gh` text in the Grok reply. `cw audit` shows **Auto-allow** for `gh` and class `read`.
+You see the normal `gh` text in the Grok reply. `cw audit` shows Auto-allow for `gh` and class `read`.
 
 ### Approve Once
 
@@ -239,7 +239,7 @@ The next write of that class can run with no new card. The grant ends when Grok 
 
 ### Allow for session
 
-Repeat a write. On the card, press Enter for **Allow for session**. Pick **Until exit**, **10 minutes**, or **1 hour**.
+Repeat a write. On the card, press **Enter** for **Allow for session**. Pick **Until exit**, **10 minutes**, or **1 hour**.
 
 You see the tool output. The next command in that class runs with no card. Lower classes also run with no card. The grant ends when the time ends or when Grok exits.
 
@@ -373,7 +373,7 @@ cw version
 
 `cw help` lists every command. `cw version` prints the version. An unknown command prints `Unknown command:` and the help. The exit code is 1.
 
-### doctor, agent, whoami
+### `doctor`, `agent`, and `whoami`
 
 ```powershell
 cw doctor
@@ -381,7 +381,7 @@ cw agent status
 cw whoami
 ```
 
-`cw doctor` checks the Session Agent, the Vault binary, and the Start Menu shortcut. `--fix-path` puts the shim folder first on the machine PATH. That step asks for admin once.
+`cw doctor` checks the Session Agent, the Vault binary, and the **Start Menu** shortcut. `--fix-path` puts the shim folder first on the machine PATH. That step asks for admin once.
 
 ```powershell
 cw agent stop
@@ -393,7 +393,7 @@ After stop, a hardened `gh --version` fails closed. You see the agent-down line 
 
 `cw whoami` prints the launcher path, the policy key, and the kind.
 
-### policy
+### Policy
 
 ```powershell
 cw policy list
@@ -454,7 +454,7 @@ cw policy sync --remove
 
 A team rule only lowers a level. It does not raise one.
 
-### harden and unharden
+### `harden` and `unharden`
 
 ```powershell
 cw harden --list
@@ -468,7 +468,7 @@ cw harden kubectl
 cw harden ssh
 ```
 
-You see a pin and a PATH shim. `cw doctor` and the Vault page **Hardened Tools** show **Hardened**.
+You see a pin and a PATH shim. `cw doctor` and the Vault page **Hardened Tools** show Hardened.
 
 `--strong` also moves that tool's stored login into the vault:
 
@@ -484,14 +484,14 @@ cw unharden gh
 
 After you change shims, open a new terminal.
 
-### save, read, delete, inject, env
+### `save`, `read`, `delete`, `inject`, and `env`
 
 ```powershell
 cw save CW_DEMO
 cw scan
 ```
 
-`cw save` asks for the value. The Vault page **Secrets** shows the name `CW_DEMO`. It does not show the value.
+`cw save` asks for the value. The Vault page Secrets shows the name `CW_DEMO`. It does not show the value.
 
 ```powershell
 cw read CW_DEMO
@@ -520,7 +520,7 @@ cw delete CW_DEMO
 
 `cw env import` moves secret-looking values into the vault. The file keeps `KEY=cw://NAME`. `cw delete CW_DEMO` removes that vault name. The Vault app asks before a delete.
 
-### audit and scan
+### `audit` and `scan`
 
 ```powershell
 cw audit -n 20
@@ -538,7 +538,7 @@ cw audit eventlog status
 
 `cw scan` is read-only. `--move-to-vault` moves plain MCP server secrets into the vault. The Vault page **Detectors** shows the same findings. An empty scan says there is nothing to fix.
 
-### launch, hook, leak guard, mcp
+### `launch`, hook, leak guard, and `mcp`
 
 ```powershell
 cw launch grok
@@ -561,7 +561,7 @@ Other lines in the Grok files stay. After a change, restart Grok.
 
 `cw mcp` with no extra argument runs the MCP server. Grok starts that process. You do not run it by hand for a normal test.
 
-### canary, protect, shortcut
+### `canary`, `protect`, and `shortcut`
 
 ```powershell
 cw canary status
@@ -577,7 +577,7 @@ cw shortcut install --desktop
 
 `cw protect` covers Claude Code and Codex. It does not cover Grok or Cursor.
 
-`cw shortcut install` adds the Start Menu entry and starts the tray at logon. `--desktop` also adds a Desktop icon.
+`cw shortcut install` adds the **Start Menu** entry and starts the tray at logon. `--desktop` also adds a **Desktop** icon.
 
 Remove them when the test is over:
 
@@ -587,7 +587,7 @@ cw protect uninstall claude
 cw shortcut remove
 ```
 
-### proxy and GitHub App
+### Proxy and GitHub App
 
 These commands change how a secret is sent. Use them on a test host.
 
@@ -610,7 +610,7 @@ cw github app remove
 
 Setup gives `gh` a GitHub App token for one repo. The token ends in one hour.
 
-### update and uninstall
+### `update` and `uninstall`
 
 ```powershell
 cw update --check
@@ -622,20 +622,20 @@ You see whether a newer release exists. `cw update` installs it. The setup zip m
 cw uninstall
 ```
 
-This removes hooks, shims, the agent, the Vault app, and the Settings > Apps entry. Run it only when you want the product gone.
+This removes hooks, shims, the agent, the Vault app, and the **Settings** > **Apps** entry. Run it only when you want the product gone.
 
 ---
 
 ## The Vault app and the tray
 
-Open **CmdWarden Vault** from the Start Menu. Or run the shortcut path from `cw shortcut status`.
+Open CmdWarden Vault from the **Start Menu**. Or run the shortcut path from `cw shortcut status`.
 
-The title bar shows **Session Agent** as Up or Agent down. Press F5 to refresh.
+The title bar shows Session Agent as Up or Agent down. Press F5 to refresh.
 
 | Page | What you do | CLI twin | What you see |
 |------|-------------|----------|--------------|
 | Secret Gates | Enroll with Ctrl+E. Click a level. Unenroll with Del | `cw policy list`, `cw policy set`, `cw policy enroll` | The same levels as the CLI |
-| Detectors | Press F5 to scan | `cw scan` | One card per finding, or **Nothing to fix** |
+| Detectors | Press F5 to scan | `cw scan` | One card per finding, or Nothing to fix |
 | Hardened Tools | Read the pills | `cw harden --list` | Hardened, Degraded, or Not hardened |
 | Secrets | Ctrl+N adds a name. Del deletes it | `cw save`, `cw delete` | Names only |
 | Secret Usage | Read the newest rows | `cw audit` | Auto-allow, Approved, Session granted, Denied |
@@ -651,8 +651,8 @@ Click the tray icon.
 
 - Each row is a live session allow. **Revoke** ends that grant.
 - **Revoke all** matches `cw policy sessions --revoke-all`.
-- **Open CmdWarden Vault** opens the window.
-- **Exit tray icon** closes the icon until the next logon.
+- Open CmdWarden Vault opens the window.
+- Exit tray icon closes the icon until the next logon.
 
 A blocked retry or a canary use shows a notice. You get one notice per launcher and tool each minute.
 
@@ -671,7 +671,7 @@ After each check, write four lines:
 
 A pass looks like this:
 
-- A Grok read of `gh` shows no card and **Auto-allow**.
+- A Grok read of `gh` shows no card and Auto-allow.
 - **Approve Once** shows the tool output and **Approved**.
 - **Allow for session** shows a row in `cw policy sessions`.
 - Deny shows `CmdWarden: you denied this gh command.` and exit code 3.

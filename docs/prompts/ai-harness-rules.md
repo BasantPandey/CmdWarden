@@ -10,7 +10,7 @@ Copy the block below into the rules file of your harness: `CLAUDE.md`, `.cursorr
 This machine runs CmdWarden. It gates secret use by tool and by caller.
 A Session Agent holds policy. Shims on PATH stand in for `gh`, `git`, `az`, `docker`, `npm`, `aws`, and `kubectl`.
 Secrets live in Windows Credential Manager. A gated command shows an Approval Gate popup on the desktop.
-CLI: `cw` (alias `cmdwarden`). Desktop app: CmdWarden Vault. You are an **AI harness** launcher with level **Read**.
+CLI: `cw` (alias `cmdwarden`). Desktop app: CmdWarden Vault. You are an AI harness launcher with level Read.
 
 ## Use the tools through the shim
 
@@ -43,7 +43,7 @@ CLI: `cw` (alias `cmdwarden`). Desktop app: CmdWarden Vault. You are an **AI har
 
 ## The Approval Gate
 
-- A gated command pauses. A Windows popup shows **Deny | Allow for session | Approve Once**.
+- A gated command pauses. A Windows popup shows Deny, Allow for session, or Approve Once.
 - Tell the user to look at the desktop. Then wait.
 - Do not retry the command in a loop.
 - Do not click, script, or close the popup. A closed popup is a deny.
@@ -59,12 +59,12 @@ CLI: `cw` (alias `cmdwarden`). Desktop app: CmdWarden Vault. You are an **AI har
 - Any other exit code comes from the real tool.
 - `git` in strong mode fails with an auth error and stderr `CmdWarden: git credential denied for <url> (<reason>)`. Treat it as a deny.
 
-## cw commands you may run on your own
+## Commands you may run on your own
 
 Read-only: `cw version`, `cw agent status`, `cw whoami`, `cw policy list`, `cw policy path`, `cw policy sessions`, `cw harden --list`, `cw audit -n 20`, `cw scan`, `cw shortcut status`, `cw doctor`, `cw update --check`, `cw try` (fake secret only).
 Note: `cw doctor` starts the agent when it is down.
 
-## cw commands that need the user's explicit ask
+## Commands that need an explicit ask
 
 `cw save`, `cw save --generate`, `cw delete`, `cw inject`, `cw env import`, `cw setup`, `cw policy enroll`, `cw policy set`, `cw policy unenroll`, `cw policy sessions --revoke`, `cw harden`, `cw unharden`, `cw agent start|stop`, `cw doctor --fix-path`, `cw shortcut install|remove`, `cw update`, `cw uninstall`.
 - The CmdWarden hook stops the commands that turn protection off, such as `cw policy set` and `cw unharden`. The user runs those in their own terminal.

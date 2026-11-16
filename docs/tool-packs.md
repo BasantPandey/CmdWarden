@@ -17,7 +17,7 @@ cw harden --list       # pack tools show next to the built-in tools
 cw unharden npm        # remove the pin and the shim
 ```
 
-`cw harden --list` has a **source** column: `built-in`, `pack`, or `user pack`. A user pack that does not load shows a `pack not loaded` line with the reason.
+`cw harden --list` has a source column: `built-in`, `pack`, or `user pack`. A user pack that does not load shows a `pack not loaded` line with the reason.
 
 ## Write your own pack
 
@@ -71,19 +71,19 @@ Then run `cw harden terraform`. The pack file may have `//` comments.
 
 A rule has `match`, `class`, and two optional fields.
 
-- **`match`** is words and flags split by spaces.
+- `match` is words and flags split by spaces.
     - A word matches the command words in order, from the first one. `*` and `?` are wildcards. `a|b` is either word.
     - A flag (a token that starts with `-`) must be somewhere in the command, alone or as `flag=value`. `-a|-b` is either flag.
     - Words after `--` belong to the child command and do not count.
-- **`class`** is `read`, `write`, `secret-reveal`, or `unknown`. Policy decides from the class, as for the built-in tools.
-- **`secrets`** (default `true`): `false` gives the run no secret. Use it for commands that start other code, for example `npm run` or `npm install` without `--ignore-scripts`.
-- **`risk`** (default `normal`): `high` always shows the popup below the Full level, and no remembered answer covers it. `low` lets an enrolled launcher run the write when `cw policy low-risk allow` is on.
+- `class` is `read`, `write`, `secret-reveal`, or `unknown`. Policy decides from the class, as for the built-in tools.
+- `secrets` (default `true`): `false` gives the run no secret. Use it for commands that start other code, for example `npm run` or `npm install` without `--ignore-scripts`.
+- `risk` (default `normal`): `high` always shows the popup below the Full level, and no remembered answer covers it. `low` lets an enrolled launcher run the write when `cw policy low-risk allow` is on.
 
 A command that ends in `--help` or `-h`, a command of only `--version`, `-v`, or `-V`, and a command whose first word is `help` are help. Help is `read` and gets no secret.
 
 ### Secret files
 
-`path` starts with `~` for the user profile, or is relative to the working folder. `pattern` is a regular expression for one line. A matching line is a **high** finding. The finding names the file and the line number, never the value. `remediation` is optional.
+`path` starts with `~` for the user profile, or is relative to the working folder. `pattern` is a regular expression for one line. A matching line is a high finding. The finding names the file and the line number, never the value. `remediation` is optional.
 
 `cw scan` also reports a pack secret that is set in the environment, and a tool on PATH that has no pin.
 

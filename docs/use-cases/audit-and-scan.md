@@ -1,6 +1,6 @@
 # Audit and scan when something feels wrong
 
-**When:** A command was blocked, you are not sure the shim is active, or you suspect leftover env tokens.
+When: A command was blocked, you are not sure the shim is active, or you suspect leftover env tokens.
 
 ```powershell
 cw doctor
@@ -45,4 +45,4 @@ The event text has one `Label: value` line per field: tool, command class, polic
 
 The local audit trail stays the main record. A process that runs as you can delete that file, but it cannot clear the Application log without admin. `cw audit eventlog off` removes the source. Events already written stay in the log.
 
-**In CmdWarden Vault:** **Doctor** = `cw doctor`, **Hardened Tools** = `cw harden --list`, **Detectors** = `cw scan`, **Secret Usage** = `cw audit`, **Secret Gates** = `cw policy list` + `cw policy sessions`. The Detectors page scans the app's own environment. Run `cw scan` in a terminal to check that terminal's variables.
+In CmdWarden Vault: **Doctor** = `cw doctor`, **Hardened Tools** = `cw harden --list`, **Detectors** = `cw scan`, **Secret Usage** = `cw audit`, **Secret Gates** = `cw policy list` + `cw policy sessions`. The Detectors page scans the app's own environment. Run `cw scan` in a terminal to check that terminal's variables.

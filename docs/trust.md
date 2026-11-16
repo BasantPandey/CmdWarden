@@ -9,7 +9,7 @@ A security tool must earn your trust. This page tells you what CmdWarden sends, 
 
 ## What leaves your PC
 
-**Nothing about you.** CmdWarden has no telemetry, no account, and no server of its own.
+Nothing about you. CmdWarden has no telemetry, no account, and no server of its own.
 
 CmdWarden uses the network only for these commands:
 
@@ -27,7 +27,7 @@ Everything else runs on your PC. The Session Agent listens on a named pipe for y
 |------|-------|
 | Secret values | Windows Credential Manager, under `CmdWarden/`. Only the Session Agent reads them, and only after the policy or you allow it. |
 | Policy, pins, shims, audit | `%LOCALAPPDATA%\CmdWarden` |
-| Audit rows | Names, tools, launchers, and decisions. **Never a secret value.** A release writes its audit row first. When the row cannot be written, nothing is released. |
+| Audit rows | Names, tools, launchers, and decisions. Never a secret value. A release writes its audit row first. When the row cannot be written, nothing is released. |
 
 ## Check the files
 
@@ -75,7 +75,7 @@ CmdWarden is open source under the MIT license. Read the code, or build it yours
 
 An agent runs commands on your PC. So the fair question is: can it turn CmdWarden off?
 
-**What stops it:**
+What stops it:
 
 | Protection | What it does |
 |------------|--------------|
@@ -86,9 +86,9 @@ An agent runs commands on your PC. So the fair question is: can it turn CmdWarde
 | The launcher check | Policy follows the real process chain and the file hash or signature of the app, not a name the app gives. |
 | Agent accounts | When an agent runs under its own Windows account, such as the Codex sandbox accounts, that account is the launcher. It may only ask the gate. It cannot save, delete, or list secrets, change grants, or edit files in your profile. |
 
-**What does not stop it, and what to do:**
+What does not stop it, and what to do:
 
-- An agent that runs as **your own Windows user** can write files that your user can write. A script can edit `%LOCALAPPDATA%\CmdWarden\policy.json` without the hook seeing a `cw` command. The hook and the deny rules make this hard, not impossible.
+- An agent that runs as your own Windows user can write files that your user can write. A script can edit `%LOCALAPPDATA%\CmdWarden\policy.json` without the hook seeing a `cw` command. The hook and the deny rules make this hard, not impossible.
 - For a hard line, run the agent under its own Windows account. The Codex `elevated` sandbox does this. `cw setup` enrolls its accounts.
 - Watch the tray icon and `cw audit`. A policy change that you did not make shows up as decisions that you did not expect.
 
@@ -96,4 +96,4 @@ The [Threat model](threat-model.md) lists each attack, its answer, and the test 
 
 ## Report a problem
 
-Found a way around CmdWarden? Open a [private security advisory](https://github.com/BasantPandey/CmdWarden/security/advisories/new) instead of a public issue. The [security policy](https://github.com/BasantPandey/CmdWarden/blob/main/SECURITY.md) says what is in scope and when we answer.
+Found a way around CmdWarden? Open a [private security advisory](https://github.com/BasantPandey/CmdWarden/security/advisories/new) instead of a public issue. The [security policy](https://github.com/BasantPandey/CmdWarden/blob/main/SECURITY.md) says what is in scope and when you get an answer.

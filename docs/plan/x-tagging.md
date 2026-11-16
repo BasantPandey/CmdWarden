@@ -36,15 +36,15 @@ Verify each handle in the X search box before you post. Names change.
 
 ## Replies to post under your own thread
 
-**Reply A (day 1)**
+Reply A (day 1)
 
 > Built for people who run @claudeai, @cursor_ai, or Codex from @OpenAIDevs on Windows. Feedback welcome.
 
-**Reply B (day 1, a few hours later)**
+Reply B (day 1, a few hours later)
 
 > It is a @dotnet global tool. `dotnet tool install -g CmdWarden`. @davidfowl @shanselman this one is for the Windows folks.
 
-**Reply C (day 2, prompt injection angle)**
+Reply C (day 2, prompt injection angle)
 
 > @simonw this is the Windows side of the lethal trifecta problem. The agent runs a command, the token never reaches its shell.
 
@@ -55,6 +55,6 @@ Verify each handle in the X search box before you post. Names change.
 - [ ] Reply B, at least three hours later.
 - [ ] Reply C, next day.
 - [ ] Pin the thread to the profile.
-- [ ] Set the profile link to https://basantpandey.github.io/CmdWarden/
+- [ ] Set the profile link to the [CmdWarden docs](https://basantpandey.github.io/CmdWarden/).
 - [ ] Reply to every comment within two hours.
 - [ ] Repost after 24 hours with one new line on top.

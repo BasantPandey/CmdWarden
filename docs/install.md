@@ -5,7 +5,7 @@ description: Install CmdWarden on Windows with the setup zip, winget, or NuGet.o
 
 # Install CmdWarden
 
-CmdWarden carries its own .NET runtime. You need no .NET install and no admin prompt. Commands: **`cw`** and **`cmdwarden`**.
+CmdWarden carries its own .NET runtime. You need no .NET install and no admin prompt. Commands: `cw` and `cmdwarden`.
 
 | Section | Go there when |
 |---------|---------------|
@@ -25,8 +25,8 @@ CmdWarden carries its own .NET runtime. You need no .NET install and no admin pr
 
 | Need | Notes |
 |------|-------|
-| **Windows 10 or 11** | CmdWarden is Windows only. It needs a desktop session for the Approval Gate card. |
-| **About 250 MB of disk** | The download is about 95 MB. Most of it is the .NET runtime that CmdWarden carries. |
+| Windows 10 or 11 | CmdWarden is Windows only. It needs a desktop session for the Approval Gate card. |
+| About 250 MB of disk | The download is about 95 MB. Most of it is the .NET runtime that CmdWarden carries. |
 
 Install alone changes nothing. `gh`, `git`, and the other tools run as before until you run `cw setup` or `cw harden`.
 
@@ -36,16 +36,16 @@ Install alone changes nothing. `gh`, `git`, and the other tools run as before un
 
 Pick the setup zip, winget, or NuGet.org.
 
-**Setup zip**:
+Setup zip:
 
 1. Download `CmdWarden.<version>-setup.zip` from the [latest release](https://github.com/BasantPandey/CmdWarden/releases/latest).
-2. Extract the zip, then double-click **`install.cmd`**. Do not run it as admin.
+2. Extract the zip, then double-click `install.cmd`. Do not run it as admin.
 
-The installer copies CmdWarden to `%LOCALAPPDATA%\CmdWarden\app`, puts it on your user PATH, and adds **CmdWarden** to Windows Settings > Apps. When an older CmdWarden dotnet tool is there, it removes that copy. At the end it offers to run `cw setup`.
+The installer copies CmdWarden to `%LOCALAPPDATA%\CmdWarden\app`, puts it on your user PATH, and adds CmdWarden to Windows **Settings** > **Apps**. When an older CmdWarden dotnet tool is there, it removes that copy. At the end it offers to run `cw setup`.
 
-**Portable zip**: extract `CmdWarden.<version>-win-x64.zip` anywhere and run `.\cw.exe setup`.
+Portable zip: extract `CmdWarden.<version>-win-x64.zip` anywhere and run `.\cw.exe setup`.
 
-**winget**: the catalog has BasantPandey.CmdWarden version 0.10.0. The commands are `cw` and `cmdwarden`. Run:
+winget: the catalog has BasantPandey.CmdWarden version 0.10.0. The commands are `cw` and `cmdwarden`. Run:
 
 ```powershell
 winget source update
@@ -54,7 +54,7 @@ winget install BasantPandey.CmdWarden
 
 winget puts the install folder on your user PATH. After the install, open a new terminal. The [winstall page](https://winstall.app/apps/BasantPandey.CmdWarden) shows version 0.10.0.
 
-**NuGet.org**: NuGet.org has package CmdWarden 0.12.0: [CmdWarden 0.12.0 on NuGet.org](https://www.nuget.org/packages/CmdWarden/0.12.0). The tool needs the [.NET 10 SDK](https://dotnet.microsoft.com/download). The gallery form is `dotnet tool install --global CmdWarden --version 0.12.0`.
+NuGet.org: NuGet.org has package CmdWarden 0.12.0: [CmdWarden 0.12.0 on NuGet.org](https://www.nuget.org/packages/CmdWarden/0.12.0). The tool needs the [.NET 10 SDK](https://dotnet.microsoft.com/download). The gallery form is `dotnet tool install --global CmdWarden --version 0.12.0`.
 
 ```powershell
 dotnet tool install -g CmdWarden
@@ -66,7 +66,7 @@ Open a new terminal. Then run `cw setup`.
 
 ## Set up
 
-Run this once, in **your own terminal**, not in the AI harness:
+Run this once, in your own terminal, not in the AI harness:
 
 ```powershell
 cw setup
@@ -79,7 +79,7 @@ Each step asks first. Enter means yes. `cw setup --yes` runs every step with no 
 | terminal | Enrolls this terminal as Trusted. Your own work gets no card. |
 | tools | Hardens each tool it finds: `gh`, `git`, `az`, `docker`, `npm`, `aws`, `kubectl`, and `ssh`. When a tool comes before the shims on the machine PATH, it fixes PATH with one admin prompt. |
 | harnesses | Finds Claude Code, Cursor, Codex, and Grok. Enrolls each one at Read. Adds the policy hook, the leak guard, and the MCP server. For Codex, it also offers to enroll the sandbox accounts. |
-| shortcuts | Adds the Start Menu entry, the tray icon at logon, and the Settings > Apps entry. |
+| shortcuts | Adds the **Start Menu** entry, the tray icon at logon, and the **Settings** > **Apps** entry. |
 | canary | Plants fake tokens. A use of one shows an alarm and blocks the app that used it. |
 | protect | Turns on the secret protections that each harness has but leaves off. See [Trust](trust.md). |
 | try | Runs `cw try`: a stand-in agent asks for a fake secret, and you see the real card. |
@@ -104,7 +104,7 @@ Run `cw try` at any time to see the card again. It never uses a real token.
 
 ## Verify
 
-Open a **new** terminal, then run:
+Open a new terminal, then run:
 
 ```powershell
 cw version
@@ -150,7 +150,7 @@ The CmdWarden tray icon shows how many cards you answered today, lists live sess
 
 ### CmdWarden Vault
 
-Open **CmdWarden Vault** from the Start Menu. Six pages. Every page is read-only except Secrets and Secret Gates. The app never shows a secret value.
+Open CmdWarden Vault from the **Start Menu**. Six pages. Every page is read-only except **Secrets** and **Secret Gates**. The app never shows a secret value.
 
 **Secret Gates** - defaults per launcher kind, one card per enrolled launcher, and active session allows. Enroll with **Ctrl+E**, click a level to change it, and unenroll with **Del**.
 
@@ -164,7 +164,7 @@ Open **CmdWarden Vault** from the Start Menu. Six pages. Every page is read-only
 
 ![Hardened Tools page](images/vault-hardened-tools.png)
 
-**Secrets** - every secret name in the vault. Add with **Ctrl+N**. Select with the arrow keys and delete with **Del**. [All keys](vault.md#keys).
+Secrets - every secret name in the vault. Add with **Ctrl+N**. Select with the arrow keys and delete with **Del**. [All keys](vault.md#keys).
 
 ![Secrets page](images/vault-secrets.png)
 
@@ -180,7 +180,7 @@ Open **CmdWarden Vault** from the Start Menu. Six pages. Every page is read-only
 
 ## Other install ways
 
-### dotnet tool
+### The `dotnet` tool
 
 NuGet.org has package CmdWarden 0.12.0: [CmdWarden 0.12.0 on NuGet.org](https://www.nuget.org/packages/CmdWarden/0.12.0). The tool needs the [.NET 10 SDK](https://dotnet.microsoft.com/download). The gallery form is `dotnet tool install --global CmdWarden --version 0.12.0`.
 
@@ -206,7 +206,7 @@ The script builds every part and copies the .NET runtime of your SDK next to the
 
 ### GitHub Actions artifact
 
-Every green **build** on `main` uploads the portable folder. Open the [CmdWarden Actions tab](https://github.com/BasantPandey/CmdWarden/actions), pick the latest run, download the artifact, extract it, and run `.\cw.exe`.
+Every green build on `main` uploads the portable folder. Open the [CmdWarden Actions tab](https://github.com/BasantPandey/CmdWarden/actions), pick the latest run, download the artifact, extract it, and run `.\cw.exe`.
 
 ---
 
@@ -231,9 +231,9 @@ cw update           # install the newest release
 
 Use one of these:
 
-- Run `cw uninstall`. It runs the same uninstaller as Settings > Apps, in a new window.
-- Open Windows **Settings > Apps**, select **CmdWarden**, and click **Uninstall**.
-- Double-click **`uninstall.cmd`** from the setup zip.
+- Run `cw uninstall`. It runs the same uninstaller as **Settings** > **Apps**, in a new window.
+- Open Windows **Settings > Apps**, select CmdWarden, and click **Uninstall**.
+- Double-click `uninstall.cmd` from the setup zip.
 
 For a winget install, run `cw uninstall` first. It removes the hooks and shims, then it runs `winget uninstall` for you. A plain `winget uninstall` removes only the files.
 
@@ -242,12 +242,12 @@ The uninstaller works when `cw` is broken or gone. Each step runs on its own. A 
 1. Unhardens every tool, so their logins go back to the stock stores.
 2. Removes the hooks, MCP servers, and protections from Claude Code, Cursor, Codex, and Grok, and removes the canaries.
 3. Stops the Session Agent, the Approval Gate, and CmdWarden Vault.
-4. Removes the Start Menu entry and the Desktop icon.
+4. Removes the **Start Menu** entry and the **Desktop** icon.
 5. Uninstalls an old dotnet tool copy.
 6. Removes CmdWarden folders from the user PATH. For the machine PATH, it asks for one admin prompt.
 7. Deletes `%LOCALAPPDATA%\CmdWarden`: policy, pins, shims, audit, and the app.
 8. Asks before it deletes saved secrets from Credential Manager (`CmdWarden/...`). The default is to keep them.
-9. Removes the entry in Settings > Apps, and the winget package when winget installed it.
+9. Removes the entry in **Settings** > **Apps**, and the winget package when winget installed it.
 
 Options:
 
@@ -263,8 +263,8 @@ Options:
 
 | Symptom | Fix |
 |---------|-----|
-| `cw` not found | Open a **new** terminal. PATH changes reach only new terminals. |
-| SmartScreen warns about `install.cmd` | The release is not signed yet. Check the sha256 of the zip against the release page, then click **More info** > **Run anyway**. |
+| `cw` not found | Open a new terminal. PATH changes reach only new terminals. |
+| SmartScreen warns about `install.cmd` | The release is not signed yet. Check the sha256 of the zip against the release page, then click More info > Run anyway. |
 | `cw setup` skips the terminal step | You ran it inside an AI harness. Run it in your own terminal. |
 | `cw doctor` says agent binary missing | The install folder is not complete. Install again. |
 | `cw doctor` says pipe exists but access denied | An agent runs elevated or as another user. Run `cw agent stop` from that terminal, then `cw agent start` from a normal one. |

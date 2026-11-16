@@ -8,7 +8,7 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw try` | A stand-in agent that nobody enrolled asks for the fake secret `CW_TRY_TOKEN`. You see the real Approval Gate card, then the audit row |
 | `cw version` | Product / CLI version |
 | `cw update [--check]` | Install the newest release. The setup zip must match the sha256 digest of the release |
-| `cw uninstall` | Run the uninstaller of Settings > Apps > CmdWarden, or the one next to `cw` |
+| `cw uninstall` | Run the uninstaller of **Settings** > **Apps** > CmdWarden, or the one next to `cw` |
 | `cw doctor` | Session Agent health (lazy-start) |
 | `cw agent start\|stop\|status` | Explicit agent control |
 | `cw whoami` | Current launcher identity |
@@ -27,7 +27,7 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw github app setup\|status\|remove` | gh gets a [GitHub App token](use-cases/short-lived-github-tokens.md) for one repo that ends in one hour |
 | `cw proxy setup [--port N] [--trust]` | Make the per-user CA and turn on the [placeholder proxy](use-cases/api-keys-through-proxy.md) on 127.0.0.1 |
 | `cw proxy add <NAME> --host <host>` / `remove <NAME>` | Put the vault entry NAME in place of `cw://NAME` for these hosts |
-| `cw proxy add <NAME> --host <host> --body <path> --field <f>` | A sign-in key: only the body field f on that path gets the value, after the card ([UC17](use-cases/web-sign-in-through-proxy.md)) |
+| `cw proxy add <NAME> --host <host> --body <path> --field <f>` | A sign-in key: only the body field f on that path gets the value, after the card ([Let an agent sign in without the password](use-cases/web-sign-in-through-proxy.md)) |
 | `cw proxy add <NAME> ... --body <path> --field <f> --totp` | The vault entry is a TOTP key or an `otpauth://` link: the field gets the current one-time code ([Fill two-factor codes](use-cases/web-sign-in-through-proxy.md#fill-two-factor-codes-optional)) |
 | `cw proxy list\|strict on\|off\|uninstall` | Show the proxy; `strict on` gives 403 to a host that no key lists; remove the CA and config |
 | `cw harden --list` | One row per catalog tool and tool pack, same probe as `cw doctor` |
@@ -52,7 +52,7 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw protect install\|uninstall claude\|codex` | Turn on the secret protections of the harness: Claude Code deny rules and env scrub, the Codex shell environment policy. `uninstall` removes only what cw added. See [Trust](trust.md) |
 | `cw audit [-n N]` | Recent gate decisions |
 | `cw audit eventlog on\|off\|status` | Also write each gate decision to the Windows Application log, source `CmdWarden`. `on` and `off` ask for admin once |
-| `cw shortcut install [--desktop]\|remove\|status` | Start Menu (and Desktop) entry for CmdWarden Vault, a `cw launch` entry per harness on this PC, and the tray icon at logon |
+| `cw shortcut install [--desktop]\|remove\|status` | **Start Menu** (and Desktop) entry for CmdWarden Vault, a `cw launch` entry per harness on this PC, and the tray icon at logon |
 
 ## Grok
 
@@ -79,27 +79,27 @@ Grok reads the same hook reply as Claude Code. A deny uses `permissionDecision`.
 
 ## Screens
 
-**`cw doctor`** - agent health, caller identity, and hardened tools.
+`cw doctor` - agent health, caller identity, and hardened tools.
 
 ![cw doctor](images/cli-doctor.svg)
 
-**`cw whoami`** - the launcher identity for the current shell.
+`cw whoami` - the launcher identity for the current shell.
 
 ![cw whoami](images/cli-whoami.svg)
 
-**`cw policy list`** - defaults and enrolled launchers.
+`cw policy list` - defaults and enrolled launchers.
 
 ![cw policy list](images/cli-policy-list.svg)
 
-**`cw harden --list`** - one row per catalog tool.
+`cw harden --list` - one row per catalog tool.
 
 ![cw harden --list](images/cli-harden-list.svg)
 
-**`cw scan`** - residual risk findings.
+`cw scan` - residual risk findings.
 
 ![cw scan](images/cli-scan.svg)
 
-**`cw audit -n 6`** - the newest gate decisions.
+`cw audit -n 6` - the newest gate decisions.
 
 ![cw audit](images/cli-audit.svg)
 

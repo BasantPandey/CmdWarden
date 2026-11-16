@@ -50,24 +50,24 @@ nav:
       - AI harness rules: prompts/ai-harness-rules.md
   - Use cases:
       - use-cases/index.md
-      - UC1 gate your GitHub token: use-cases/gate-github-token-from-ai-agent.md
-      - UC2 approve a secret read mid-session: use-cases/approve-secret-read-mid-session.md
-      - UC3 agent reads, writes need approval: use-cases/agent-reads-github-writes-need-approval.md
-      - UC4 trust your terminal, not the agent: use-cases/trust-terminal-not-agent.md
-      - UC5 one-shot secret for a script: use-cases/one-shot-secret-for-script.md
-      - UC6 gate git, az, and docker: use-cases/gate-git-az-docker.md
-      - UC7 audit and scan: use-cases/audit-and-scan.md
-      - UC8 undo or uninstall: use-cases/undo-and-uninstall.md
-      - UC9 secrets in the Vault app: use-cases/vault-add-remove-secrets.md
-      - UC10 gate npm: use-cases/gate-npm.md
-      - UC11 gate the AWS CLI: use-cases/gate-aws.md
-      - UC12 gate kubectl: use-cases/gate-kubectl.md
-      - UC13 gate ssh key use: use-cases/gate-ssh-keys.md
-      - UC14 short-lived GitHub tokens: use-cases/short-lived-github-tokens.md
-      - UC15 keep API keys out of the agent: use-cases/api-keys-through-proxy.md
-      - UC16 keep .env secrets out of the agent: use-cases/env-files.md
-      - UC17 sign in without the password: use-cases/web-sign-in-through-proxy.md
-      - UC18 sign commits with a gated ssh key: use-cases/sign-commits-with-ssh.md
+      - Gate your GitHub token from an AI agent: use-cases/gate-github-token-from-ai-agent.md
+      - Approve or deny a secret read mid-session: use-cases/approve-secret-read-mid-session.md
+      - Let the agent read GitHub, gate writes and token export: use-cases/agent-reads-github-writes-need-approval.md
+      - Trust your terminal fully, not the agent: use-cases/trust-terminal-not-agent.md
+      - One-shot secret for a script: use-cases/one-shot-secret-for-script.md
+      - Gate git, az, and docker: use-cases/gate-git-az-docker.md
+      - Audit and scan when something feels wrong: use-cases/audit-and-scan.md
+      - Undo or uninstall: use-cases/undo-and-uninstall.md
+      - Add and remove secrets in CmdWarden Vault: use-cases/vault-add-remove-secrets.md
+      - Gate npm and your npm token: use-cases/gate-npm.md
+      - Gate the AWS CLI: use-cases/gate-aws.md
+      - Gate kubectl: use-cases/gate-kubectl.md
+      - Gate ssh key use: use-cases/gate-ssh-keys.md
+      - Short-lived GitHub tokens for one repo: use-cases/short-lived-github-tokens.md
+      - Keep API keys out of the agent: use-cases/api-keys-through-proxy.md
+      - Keep .env secrets out of the agent: use-cases/env-files.md
+      - Let an agent sign in without the password: use-cases/web-sign-in-through-proxy.md
+      - Sign git commits with a gated ssh key: use-cases/sign-commits-with-ssh.md
   - Guide:
       - user-guide.md
       - How it works: concepts.md

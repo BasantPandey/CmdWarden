@@ -1,12 +1,12 @@
 # Sign git commits with a gated ssh key
 
-**When:** You sign your git commits with an ssh key, so GitHub shows them as **Verified**. You want an AI harness to ask you before it signs a commit in your name. Your own terminal signs with no popup.
+When: You sign your git commits with an ssh key, so GitHub shows them as Verified. You want an AI harness to ask you before it signs a commit in your name. Your own terminal signs with no popup.
 
-Git signs a commit with `ssh-keygen -Y sign`. After `cw harden ssh`, that sign goes through the CmdWarden ssh gate, like a push over ssh ([UC13](gate-ssh-keys.md)). The gate reads it as class `write`.
+Git signs a commit with `ssh-keygen -Y sign`. After `cw harden ssh`, that sign goes through the CmdWarden ssh gate, like a push over ssh ([Gate ssh key use](gate-ssh-keys.md)). The gate reads it as class `write`.
 
 ## Gate the ssh agent
 
-Do [UC13](gate-ssh-keys.md) first. Your key must be in the OpenSSH agent:
+Do [Gate ssh key use](gate-ssh-keys.md) first. Your key must be in the OpenSSH agent:
 
 ```powershell
 cw harden ssh
@@ -35,7 +35,7 @@ After you gate the ssh agent, put that public key line after `key::`. With `key:
 
 ## Add the key to GitHub as a signing key
 
-On GitHub, open **Settings**, then **SSH and GPG keys**, then **New SSH key**. Set **Key type** to **Signing Key**, and paste that public key line. A key that you use to push must also be there as an **Authentication Key**.
+On GitHub, open **Settings**, then SSH and GPG keys, then New SSH key. Set Key type to Signing Key, and paste that public key line. A key that you use to push must also be there as an Authentication Key.
 
 ## Check a signed commit
 
@@ -62,13 +62,13 @@ git verify-commit HEAD
 | Your terminal | Trusted | Git signs with no popup |
 | An AI harness | Read | You get the card for each signed commit |
 
-The card shows the `ssh-keygen -Y sign` command and the key under **KEYS**. **Allow for session** lets the harness sign more commits until the session ends. A **Deny** stops the commit. Git shows `agent refused operation` and `fatal: failed to write commit object`.
+The card shows the `ssh-keygen -Y sign` command and the key under KEYS. **Allow for session** lets the harness sign more commits until the session ends. A **Deny** stops the commit. Git shows `agent refused operation` and `fatal: failed to write commit object`.
 
 Each sign writes an audit row with tool `ssh`, purpose `sign`, and the key name. To set a level for ssh only, run `cw policy set <policyKey> ssh <level>`.
 
 ## Limits
 
-- The limits of [UC13](gate-ssh-keys.md) apply. A key file with no passphrase in `~/.ssh` lets a program sign with no gate. Keep the key in the agent only.
+- The limits of [Gate ssh key use](gate-ssh-keys.md) apply. A key file with no passphrase in `~/.ssh` lets a program sign with no gate. Keep the key in the agent only.
 - Git for Windows 2.34 or later has ssh signing. Run `git --version` to check.
 
 ## Undo

@@ -7,7 +7,7 @@ description: How to test CmdWarden before a release. Automated checks first, the
 
 Use this page before each release. [Automated checks](#automated-checks) run in CI. [Manual checks](#manual-checks) need you. [Why some tests stay manual](#why-some-tests-stay-manual) explains the rest.
 
-Write **Pass** or **Fail** in the Result column. For each Fail, open an issue with the test ID, the step, and a screenshot.
+Write Pass or Fail in the Result column. For each Fail, open an issue with the test ID, the step, and a screenshot.
 
 ---
 
@@ -41,11 +41,11 @@ CI runs A2, A3, and A1 without the `Process` tests. The `Process` tests start re
 | ID | Steps | Expect | Result |
 |----|-------|--------|--------|
 | M1 | Run `winget source update`. Run `winget install BasantPandey.CmdWarden`. Open a new terminal. Run `cw version`. | No admin prompt. `cw version` shows 0.10.0. | |
-| M2 | On a second clean user, extract the setup zip. Double-click `install.cmd`. | No admin prompt. **CmdWarden** is in Settings > Apps. The installer offers to run `cw setup`. | |
+| M2 | On a second clean user, extract the setup zip. Double-click `install.cmd`. | No admin prompt. CmdWarden is in **Settings** > **Apps**. The installer offers to run `cw setup`. | |
 | M3 | Run the signature check from [Verify](../install.md#verify). | Each row shows `Valid`. | |
 | M4 | Run `cw setup`. Press Enter at each question. | Each step asks first. Each step ends with a clear result. The last step shows the card of `cw try`. | |
 | M5 | Run `cw setup` again. | Each step says that it is done. Nothing changes. | |
-| M6 | Run `cw doctor`. | Session Agent **UP**. No red row. | |
+| M6 | Run `cw doctor`. | Session Agent UP. No red row. | |
 
 ### Approval Gate card
 
@@ -76,7 +76,7 @@ Do these for each harness that you have: Claude Code, Cursor, Codex, and Grok. A
 
 | ID | Steps | Expect | Result |
 |----|-------|--------|--------|
-| H1 | In the harness terminal, run `cw whoami`. | The launcher is the harness, with kind **ai-harness**. | |
+| H1 | In the harness terminal, run `cw whoami`. | The launcher is the harness, with kind ai-harness. | |
 | H2 | Ask the agent: "Run `gh issue list` on this repo." | It runs with no card (Read class). | |
 | H3 | Ask the agent: "Run `gh auth token` and show me the result." | The card shows. Deny it. The agent says that CmdWarden denied the command. | |
 | H4 | Do the mid-session read in [Approve or deny a secret read mid-session](../use-cases/approve-secret-read-mid-session.md#middle-of-the-ai-session-agent-tries-to-read-that-secret) with `DEMO_TOKEN`. Approve. | The command runs. The agent output shows `[CmdWarden: DEMO_TOKEN]`, not the value. | |
@@ -89,27 +89,27 @@ Each use case page has the steps and the expected result. Do the steps and compa
 
 | ID | Page | Result |
 |----|------|--------|
-| T1 | [UC1 Gate your GitHub token](../use-cases/gate-github-token-from-ai-agent.md) | |
-| T2 | [UC3 Agent reads, writes need approval](../use-cases/agent-reads-github-writes-need-approval.md) | |
-| T3 | [UC4 Trust your terminal, not the agent](../use-cases/trust-terminal-not-agent.md) | |
-| T4 | [UC5 One-shot secret for a script](../use-cases/one-shot-secret-for-script.md) | |
-| T5 | [UC6 Gate git, az, and docker](../use-cases/gate-git-az-docker.md), with `--strong` for docker and gh | |
-| T6 | [UC7 Audit and scan](../use-cases/audit-and-scan.md) | |
-| T7 | [UC10 Gate npm](../use-cases/gate-npm.md) | |
-| T8 | [UC11 Gate the AWS CLI](../use-cases/gate-aws.md) | |
-| T9 | [UC12 Gate kubectl](../use-cases/gate-kubectl.md) | |
-| T10 | [UC13 Gate ssh key use](../use-cases/gate-ssh-keys.md) | |
-| T11 | [UC14 Short-lived GitHub tokens](../use-cases/short-lived-github-tokens.md) | |
-| T12 | [UC15 Keep API keys out of the agent](../use-cases/api-keys-through-proxy.md) | |
-| T13 | [UC16 Keep .env secrets out of the agent](../use-cases/env-files.md) | |
-| T14 | [UC17 Let an agent sign in without the password](../use-cases/web-sign-in-through-proxy.md) | |
+| T1 | [Gate your GitHub token from an AI agent](../use-cases/gate-github-token-from-ai-agent.md) | |
+| T2 | [Let the agent read GitHub, gate writes and token export](../use-cases/agent-reads-github-writes-need-approval.md) | |
+| T3 | [Trust your terminal fully, not the agent](../use-cases/trust-terminal-not-agent.md) | |
+| T4 | [One-shot secret for a script](../use-cases/one-shot-secret-for-script.md) | |
+| T5 | [Gate git, az, and docker](../use-cases/gate-git-az-docker.md), with `--strong` for docker and gh | |
+| T6 | [Audit and scan when something feels wrong](../use-cases/audit-and-scan.md) | |
+| T7 | [Gate npm and your npm token](../use-cases/gate-npm.md) | |
+| T8 | [Gate the AWS CLI](../use-cases/gate-aws.md) | |
+| T9 | [Gate kubectl](../use-cases/gate-kubectl.md) | |
+| T10 | [Gate ssh key use](../use-cases/gate-ssh-keys.md) | |
+| T11 | [Short-lived GitHub tokens for one repo](../use-cases/short-lived-github-tokens.md) | |
+| T12 | [Keep API keys out of the agent](../use-cases/api-keys-through-proxy.md) | |
+| T13 | [Keep .env secrets out of the agent](../use-cases/env-files.md) | |
+| T14 | [Let an agent sign in without the password](../use-cases/web-sign-in-through-proxy.md) | |
 
 ### CmdWarden Vault app and tray icon
 
 | ID | Steps | Expect | Result |
 |----|-------|--------|--------|
-| V1 | Open **CmdWarden Vault** from the Start Menu. Open each of the six pages. | Each page matches its screen in [CmdWarden Vault](../vault.md). No cut text. No empty page with no message. | |
-| V2 | Do [UC9](../use-cases/vault-add-remove-secrets.md): add a secret with **Ctrl+N**, then delete it with **Del**. | `cw inject` can use the new secret. After the delete, `cw inject` says that the secret is not there. | |
+| V1 | Open CmdWarden Vault from the **Start Menu**. Open each of the six pages. | Each page matches its screen in [CmdWarden Vault](../vault.md). No cut text. No empty page with no message. | |
+| V2 | Do [Add and remove secrets in CmdWarden Vault](../use-cases/vault-add-remove-secrets.md): add a secret with **Ctrl+N**, then delete it with **Del**. | `cw inject` can use the new secret. After the delete, `cw inject` says that the secret is not there. | |
 | V3 | On **Secret Gates**, enroll with **Ctrl+E**, change a level, and unenroll with **Del**. | `cw policy list` shows each change. | |
 | V4 | Run `cw agent stop`. Look at the app. | A yellow banner says that the Session Agent is not running. Actions are off. | |
 | V5 | Resize the window from small to full screen. | The layout stays clean at each size. | |
@@ -121,7 +121,7 @@ Each use case page has the steps and the expected result. Do the steps and compa
 |----|-------|--------|--------|
 | U1 | Install the previous release. Run `cw update`. | The new version installs. `cw version` shows it. Policy and secrets stay. | |
 | U2 | Run `cw uninstall`. Keep the secrets when it asks. | Each step prints a result. `gh auth status` works with the stock login. `%LOCALAPPDATA%\CmdWarden` is gone. No CmdWarden folder is on PATH. The secrets stay in Credential Manager. | |
-| U3 | Install again. Run `cw setup`. | Setup works. The kept secrets show on the **Secrets** page. | |
+| U3 | Install again. Run `cw setup`. | Setup works. The kept secrets show on the Secrets page. | |
 
 ---
 
@@ -136,6 +136,6 @@ A script cannot do these tests. This is on purpose, or it needs a real outside s
 | Look of the screens | A script can take a screenshot (A4). A person must decide if it looks right. |
 | AI harness behavior (H1 to H6) | The harness and its model change often. A script cannot tell if the agent reads the deny message correctly. |
 | Real logins (T1 to T13) | GitHub, npm, AWS, Azure, Docker, and kubectl need real test accounts. |
-| Clean install and uninstall (M1, M2, U1 to U3) | These change PATH, Settings > Apps, and Credential Manager. Use a clean machine. |
+| Clean install and uninstall (M1, M2, U1 to U3) | These change PATH, **Settings** > **Apps**, and Credential Manager. Use a clean machine. |
 
 The automated tests replace the card with a scripted gate (`CW_APPROVAL_MODE=allow|deny|session`). They also use a private pipe, vault, and folder (`CW_PIPE_NAME`, `CW_VAULT_ROOT`, `CW_PRODUCT_ROOT`, `CW_HOME`). So they test all the policy logic, but not the real click.

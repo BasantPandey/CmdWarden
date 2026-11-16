@@ -1,6 +1,6 @@
 # Gate the AWS CLI
 
-**When:** An AI harness runs `aws`, and you want commands that print keys or delete resources to ask you. Optional: keep your access keys in the vault, not in `~/.aws/credentials`.
+When: An AI harness runs `aws`, and you want commands that print keys or delete resources to ask you. Optional: keep your access keys in the vault, not in `~/.aws/credentials`.
 
 ```powershell
 cw harden aws
@@ -31,9 +31,9 @@ cw save AWS_SECRET_ACCESS_KEY
 
 ## What `cw scan` finds
 
-- **aws.plain_secret_file** (high): an `aws_secret_access_key` line in `~/.aws/credentials`.
-- **aws.ambient_secret_env** (high): an AWS key variable is set in the environment.
-- **aws.not_hardened** (medium): aws is on PATH with no pin.
+- aws.plain_secret_file (high): an `aws_secret_access_key` line in `~/.aws/credentials`.
+- aws.ambient_secret_env (high): an AWS key variable is set in the environment.
+- aws.not_hardened (medium): aws is on PATH with no pin.
 
 ## Undo
 

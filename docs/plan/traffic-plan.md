@@ -2,9 +2,9 @@
 
 Goal: Windows developers who run Claude Code, Cursor, or Codex with `gh`, `git`, `az`, or `docker` find CmdWarden, install it, and come back.
 
-One number to watch: **unique visitors to the docs site per week**. Second number: **installs** (release asset downloads + NuGet downloads). Third: **stars**.
+One number to watch: unique visitors to the docs site per week. Second number: installs (release asset downloads + NuGet downloads). Third: stars.
 
-## Who we want
+## The audience
 
 | Person | Where they are | What they search |
 |--------|----------------|------------------|
@@ -12,33 +12,33 @@ One number to watch: **unique visitors to the docs site per week**. Second numbe
 | Security-minded platform engineer | r/netsec, r/devops, Hacker News | "gate CLI credentials", "secret injection windows", "AI agent least privilege" |
 | .NET developer | r/dotnet, .NET Discord, dev.to | "dotnet tool security", "windows credential manager cli" |
 
-## Phase 0 - Foundation (this PR)
+## Phase 0: foundation (this pull request)
 
 - [x] Docs site on GitHub Pages with search, dark mode, one page per use case.
 - [x] Page titles and descriptions set for search engines. Sitemap comes with the site.
 - [x] README with badges and a link to the site.
 - [x] CLI screenshots rendered from the real product.
-- [ ] Enable Pages: Settings > Pages > Source: **GitHub Actions**.
+- [ ] Enable Pages: **Settings** > **Pages** > **Source**: **GitHub Actions**.
 - [ ] Set the repo homepage to the docs URL.
 - [ ] Add a `LICENSE` file. No license means no adoption at work. MIT is the common choice for a dev tool.
-- [ ] Upload a social preview image (Settings > General > Social preview, 1280x640). Use the Approval Gate card on a plain background. Every share on X, Slack, and Reddit shows it.
+- [ ] Upload a social preview image (**Settings** > **General** > **Social preview**, 1280x640). Use the Approval Gate card on a plain background. Every share on X, Slack, and Reddit shows it.
 
-## Phase 1 - Make install trivial (week 1)
+## Phase 1: make install trivial (week 1)
 
 Every extra step before `cw doctor` loses half the visitors.
 
-1. **Publish to NuGet.org.** Then install is `dotnet tool install -g CmdWarden`, no clone, no `--add-source`. NuGet.org also lists the package, which is its own traffic source. Needs an API key secret and one line in `release.yml`.
-2. **winget manifest.** `packaging/` has the template. Submit to `microsoft/winget-pkgs` once a release has a public zip. `winget install CmdWarden` is what Windows users type first.
-3. **Scoop and Chocolatey** from the same templates. Lower priority than winget.
-4. Cut **v0.2.0** with release notes that read like a changelog for humans. Pin the release on the repo home.
+1. Publish to NuGet.org. Then install is `dotnet tool install -g CmdWarden`, no clone, no `--add-source`. NuGet.org also lists the package, which is its own traffic source. Needs an API key secret and one line in `release.yml`.
+2. winget manifest. `packaging/` has the template. Submit to `microsoft/winget-pkgs` once a release has a public zip. `winget install CmdWarden` is what Windows users type first.
+3. Scoop and Chocolatey from the same templates. Lower priority than winget.
+4. Cut v0.2.0 with release notes that read like a changelog for humans. Pin the release on the repo home.
 
-## Phase 2 - Launch (week 2)
+## Phase 2: launch (week 2)
 
 One story, told in every channel: *"Your AI agent can run `gh auth token`. CmdWarden makes it ask you first."*
 
 Assets to make once:
 
-- A 20-second GIF: the agent runs a command, the card pops up, you click Deny. Put it at the top of the README and the home page.
+- A 20-second GIF: the agent runs a command, the card pops up, you click **Deny**. Put it at the top of the README and the home page.
 - A 600-word post: the problem, the 4-line setup, the card, the audit row. Publish on dev.to and the GitHub repo (as a Discussion). Cross-post the link, not the text.
 
 Channels, in order:
@@ -54,7 +54,7 @@ Channels, in order:
 
 Reply to every comment the same day. Turn each question into a docs page or a FAQ entry.
 
-## Phase 3 - Get listed (weeks 3-4)
+## Phase 3: get listed (weeks 3 to 4)
 
 Lists send steady traffic for months. Open a PR to each:
 
@@ -63,7 +63,7 @@ Lists send steady traffic for months. Open a PR to each:
 - `awesome-security`, `awesome-secrets-management`
 - Claude Code plugin marketplaces: ship a plugin that installs the harness rules and runs `cw doctor`. A plugin listing is a discovery surface of its own.
 
-## Phase 4 - Content that ranks (ongoing, one page every two weeks)
+## Phase 4: content that ranks (ongoing, one page every two weeks)
 
 Each page answers one search question. Short, with a real screen.
 
@@ -78,19 +78,19 @@ Each page answers one search question. Short, with a real screen.
 
 Add a `blog/` section to the site when the first two pages exist. Material supports it.
 
-## Phase 5 - Keep them (ongoing)
+## Phase 5: keep them (ongoing)
 
-- **Release every two to four weeks.** Each release is a reason to post again. Use GitHub Releases with notes; watchers get an email.
-- **Enable GitHub Discussions.** Questions in Discussions are indexed by search engines. Issues are not a help desk.
-- **Answer in public.** When someone asks on Reddit or Discord how to protect tokens from an agent, answer with the docs link.
-- **Ask for the star** once per touch point: end of the README, end of the install page, end of the release notes.
+- Release every two to four weeks. Each release is a reason to post again. Use GitHub Releases with notes; watchers get an email.
+- Enable GitHub Discussions. Questions in Discussions are indexed by search engines. Issues are not a help desk.
+- Answer in public. When someone asks on Reddit or Discord how to protect tokens from an agent, answer with the docs link.
+- Ask for the star once per touch point: end of the README, end of the install page, end of the release notes.
 
 ## Measure
 
 | Metric | Where | Cadence |
 |--------|-------|---------|
 | Docs visitors, top pages, referrers | Add a privacy-friendly counter to the site (GoatCounter or Plausible, one script tag in `mkdocs.yml`) | Weekly |
-| Repo views, clones, referrers | GitHub Insights > Traffic | Weekly |
+| Repo views, clones, referrers | GitHub **Insights** > **Traffic** | Weekly |
 | Installs | Release asset download counts, NuGet.org stats, winget stats | Weekly |
 | Stars, forks, watchers | Repo home | Weekly |
 | Search rank | Google Search Console after Pages is live | Monthly |

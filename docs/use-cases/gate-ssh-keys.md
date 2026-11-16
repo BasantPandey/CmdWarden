@@ -1,6 +1,6 @@
 # Gate ssh key use
 
-**When:** Your ssh keys sit in the OpenSSH agent, and an AI harness runs `git push` over ssh or `ssh` to a server. You want the harness to ask you before it signs with a key, and your own terminal to push with no popup.
+When: Your ssh keys sit in the OpenSSH agent, and an AI harness runs `git push` over ssh or `ssh` to a server. You want the harness to ask you before it signs with a key, and your own terminal to push with no popup.
 
 ```powershell
 # once, as admin, if the OpenSSH agent does not run yet
@@ -26,13 +26,13 @@ The gate reads the command line of the ssh client:
 | `ssh host git-upload-pack …` (git fetch, pull, clone) | read |
 | `ssh host git-receive-pack …` (git push) | write |
 | `ssh host` (a shell) or `ssh host <any command>` | write |
-| `ssh-keygen -Y sign` (git commit signing, [UC18](sign-commits-with-ssh.md)) | write |
+| `ssh-keygen -Y sign` (git commit signing, [Sign git commits with a gated ssh key](sign-commits-with-ssh.md)) | write |
 | any other program | unknown |
 
 The launcher is the process above ssh, git, and the shell that git starts, with the same rules as for the shims. With the default levels, your terminal (Trusted) pushes with no popup. An AI harness (Read) can fetch, and a push shows the card:
 
 - the impact line: `Signs in to git@github.com with the ssh key you@laptop (SHA256:…). Repo owner/repo.git.`
-- the ssh command, and the key under **KEYS**.
+- the ssh command, and the key under KEYS.
 
 Set a level for ssh only:
 

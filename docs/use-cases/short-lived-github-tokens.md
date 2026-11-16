@@ -1,6 +1,6 @@
 # Short-lived GitHub tokens for one repo
 
-**When:** An AI harness runs `gh pr create` and `gh issue list` in your repos. A leak of your personal token works on every repo you own, for months. You want each gh run to get a token that works on the current repo only and ends after one hour.
+When: An AI harness runs `gh pr create` and `gh issue list` in your repos. A leak of your personal token works on every repo you own, for months. You want each gh run to get a token that works on the current repo only and ends after one hour.
 
 ```powershell
 cw github app setup      # register a GitHub App in your browser; the key goes to the vault
