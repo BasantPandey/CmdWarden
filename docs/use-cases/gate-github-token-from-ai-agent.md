@@ -1,8 +1,8 @@
 # Gate your GitHub token from an AI agent
 
-**When:** You use Cursor / Claude Code / Codex and also use `gh`. You want the agent constrained, while your own terminal stays productive.
+When: You use Cursor / Claude Code / Codex and also use `gh`. You want the agent constrained, while your own terminal stays productive.
 
-**Outcome:** Terminal can do normal `gh` work (Trusted default). AI harness defaults to **Read** (list/view style); writes and secret-reveal need a prompt or a higher policy level.
+Outcome: Terminal can do normal `gh` work (Trusted default). AI harness defaults to **Read** (list/view style); writes and secret-reveal need a prompt or a higher policy level.
 
 ```powershell
 # 1. Install the latest release (other ways: the Install page)
@@ -30,4 +30,4 @@ cw policy list
 
 *Expect:* `cw doctor` shows Session Agent UP; enrollments appear in `policy list`; first `gh` on PATH is under CmdWarden shims; agent-driven `gh` that needs more than Read may prompt or block depending on command class.
 
-**Why two enrollments?** Policy is **tool + launcher**. Same `gh`, different caller (you vs agent) can get different levels.
+Why two enrollments? Policy is tool + launcher. Same `gh`, different caller (you vs agent) can get different levels.

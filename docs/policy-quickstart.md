@@ -8,9 +8,9 @@ Install first: [install.md](install.md). Terms: [Glossary](glossary.md).
 
 ## One-minute setup
 
-The short way: run `cw setup` in **your normal terminal**. It does all of this section, finds the AI harness for you, and ends with a real card. The steps below do the same by hand.
+The short way: run `cw setup` in your normal terminal. It does all of this section, finds the AI harness for you, and ends with a real card. The steps below do the same by hand.
 
-Run the first block in **your normal terminal** (Windows Terminal / PowerShell).
+Run the first block in your normal terminal (Windows Terminal / PowerShell).
 
 ```powershell
 cw doctor
@@ -21,33 +21,33 @@ cw harden az
 cw harden docker
 ```
 
-Run the second block in the **AI harness terminal** (Cursor / Claude Code / Codex panel).
+Run the second block in the AI harness terminal (Cursor / Claude Code / Codex panel).
 
 ```powershell
 cw policy enroll --kind ai-harness
 ```
 
-Open a **new** terminal, then check:
+Open a new terminal, then check:
 
 ```powershell
 where.exe gh
 cw policy list
 ```
 
-*Expect:* `cw doctor` shows Session Agent **UP**. `where.exe gh` shows the CmdWarden shim first. `cw policy list` shows two launchers: one **terminal**, one **ai_harness**.
+*Expect:* `cw doctor` shows Session Agent UP. `where.exe gh` shows the CmdWarden shim first. `cw policy list` shows two launchers: one terminal, one ai_harness.
 
-You are done. The defaults are the **Recommended** profile below. You do not need `cw policy set` for them.
+You are done. The defaults are the Recommended profile below. You do not need `cw policy set` for them.
 
 ---
 
 ## Pick a profile
 
-Policy is per **tool x launcher**. The `"*"` tool name sets one level for every tool on one launcher.
+Policy is per tool x launcher. The `"*"` tool name sets one level for every tool on one launcher.
 
 | Profile | Terminal | AI harness | Use when |
 |---------|----------|------------|----------|
-| **Recommended** (default) | Trusted | Read | Most people. The agent can list and view. Writes and secret reveal prompt you. |
-| **Cautious** | Trusted | Deny | Every agent tool call prompts you. Good for a demo or an untrusted repo. |
+| Recommended (default) | Trusted | Read | Most people. The agent can list and view. Writes and secret reveal prompt you. |
+| Cautious | Trusted | Deny | Every agent tool call prompts you. Good for a demo or an untrusted repo. |
 | **Open** | Full | Trusted | Solo machine. You accept agent writes. Secret reveal still prompts for the agent. |
 
 Find your keys first:
@@ -58,14 +58,14 @@ cw policy list
 # <harnessKey>  = the key with kind: ai_harness
 ```
 
-**Recommended** - nothing to set. To return to it after a change:
+Recommended - nothing to set. To return to it after a change:
 
 ```powershell
 cw policy set <terminalKey> "*" Trusted
 cw policy set <harnessKey> "*" Read
 ```
 
-**Cautious**
+Cautious
 
 ```powershell
 cw policy set <harnessKey> "*" Deny
@@ -84,7 +84,7 @@ cw policy set <harnessKey> "*" Trusted
 
 ## What each level auto-allows
 
-Every command gets one **command class**: **read**, **write**, **secret-reveal**, or **unknown**.
+Every command gets one command class: read, write, secret-reveal, or unknown.
 
 | Level | Auto-allows | Opens the Approval Gate |
 |-------|-------------|-------------------------|
@@ -93,7 +93,7 @@ Every command gets one **command class**: **read**, **write**, **secret-reveal**
 | **Trusted** | read, write | secret-reveal, unknown |
 | **Full** | everything | nothing |
 
-The Approval Gate is a desktop card with **Deny**, **Allow for session**, and **Approve Once**. Both allow buttons last until the launcher exits or 60 idle minutes pass. **Approve Once** covers the one command class you saw. **Allow for session** covers that class and every lower one. Neither covers secret-reveal. Above the buttons, choose how long **Allow for session** lasts: **Until exit**, **10 minutes**, or **1 hour**. If no desktop is available, the request **fails closed**.
+The Approval Gate is a desktop card with **Deny**, **Allow for session**, and **Approve Once**. Both allow buttons last until the launcher exits or 60 idle minutes pass. **Approve Once** covers the one command class you saw. **Allow for session** covers that class and every lower one. Neither covers secret-reveal. Above the buttons, choose how long **Allow for session** lasts: **Until exit**, **10 minutes**, or **1 hour**. If no desktop is available, the request fails closed.
 
 ### Risk: fewer popups, and the impact first
 
@@ -101,9 +101,9 @@ CmdWarden also reads the risk of each command from the repo and the branch of th
 
 | Risk | Examples | What happens |
 |------|----------|--------------|
-| **High** | `git push --force` or a branch delete on the default branch, `git push --mirror`, `gh repo delete`, `az group delete` | The Approval Gate always asks, even at **Trusted**. Only **Full** skips it. No session allow covers it |
-| **Low** | `git push` to a branch that is not the default branch | Runs with no popup when you turn on the low-risk rule (below) |
-| **Normal** | everything else | The level decides, as in the table above |
+| High | `git push --force` or a branch delete on the default branch, `git push --mirror`, `gh repo delete`, `az group delete` | The Approval Gate always asks, even at **Trusted**. Only **Full** skips it. No session allow covers it |
+| Low | `git push` to a branch that is not the default branch | Runs with no popup when you turn on the low-risk rule (below) |
+| Normal | everything else | The level decides, as in the table above |
 
 The card starts with one impact line, for example "Force-pushes to main of owner/repo. You cannot undo this." A high-risk line is red. The card also says when an app runs a command for the first time.
 
@@ -114,18 +114,18 @@ cw policy low-risk allow
 
 *Expect:* `git push` to a feature branch runs with no popup. `cw audit` shows `auto-allow` with the reason `LowRisk`.
 
-The tables below show how CmdWarden classifies each tool. Help and version flags are always **read**.
+The tables below show how CmdWarden classifies each tool. Help and version flags are always read.
 
-### gh
+### The `gh` tool
 
 | Class | Examples |
 |-------|----------|
 | read | `pr list`, `issue view`, `repo view`, `run list`, `release download`, `auth status`, `status`, `browse` |
-| write | `pr create`, `pr merge`, `issue close`, `release create`, `workflow run`, `auth login`, `auth logout`, **`api` (all calls)** |
+| write | `pr create`, `pr merge`, `issue close`, `release create`, `workflow run`, `auth login`, `auth logout`, `api` (all calls) |
 | secret-reveal | `auth token`, `auth git-credential get`, any command with `--show-token` |
 | unknown | a bare group such as `gh pr`, an unlisted verb, an extension command |
 
-### git
+### The `git` tool
 
 | Class | Examples |
 |-------|----------|
@@ -134,9 +134,9 @@ The tables below show how CmdWarden classifies each tool. Help and version flags
 | secret-reveal | `credential fill`, `credential get`, `credential-manager get`, any `-c credential.*`, `-c http.extraHeader`, `-c core.askpass` |
 | unknown | an unlisted command such as `git lfs` or a custom alias |
 
-### az
+### The `az` tool
 
-The **last** command word decides the class.
+The last command word decides the class.
 
 | Class | Examples |
 |-------|----------|
@@ -145,9 +145,9 @@ The **last** command word decides the class.
 | secret-reveal | `account get-access-token`, `ad sp create-for-rbac`, `ad sp credential reset`, `keyvault secret show`, `keyvault secret download`, `keyvault secret backup`, `storage account keys list`, `storage account keys renew` |
 | unknown | a bare group such as `az group`, an unlisted verb |
 
-### docker
+### The `docker` tool
 
-docker has **no secret-reveal class**. `Trusted` auto-allows every classified docker command.
+docker has no secret-reveal class. `Trusted` auto-allows every classified docker command.
 
 | Class | Examples |
 |-------|----------|
@@ -205,7 +205,7 @@ A team can keep one set of rules for every PC. Put a file `cmdwarden-team.json` 
 }
 ```
 
-Each rule is the **maximum** level for a launcher kind and a tool. `*` means every tool. A rule for a tool comes before `*`. Then each person runs:
+Each rule is the maximum level for a launcher kind and a tool. `*` means every tool. A rule for a tool comes before `*`. Then each person runs:
 
 ```powershell
 cw policy sync https://github.com/my-team/cmdwarden-policy.git
@@ -222,7 +222,7 @@ cw policy list
 
 ## Other tools and scripts
 
-Any script or CLI can get a vault secret through `cw inject`. The default tool name is `inject` and the default class is **write**. An agent at **Read** always gets a prompt for inject. That is on purpose.
+Any script or CLI can get a vault secret through `cw inject`. The default tool name is `inject` and the default class is write. An agent at **Read** always gets a prompt for inject. That is on purpose.
 
 Give a script its own tool name and class, then set a level for it:
 
@@ -248,7 +248,7 @@ cw harden git --strong     # .git-credentials -> Vault; git uses git-credential-
 cw harden docker --strong  # config.json auths -> Vault; docker uses docker-credential-cmdwarden
 ```
 
-`az` has no strong mode. It stays compat. `cw unharden <tool>` writes the originals back. Detail: [UC6](use-cases/gate-git-az-docker.md).
+`az` has no strong mode. It stays compat. `cw unharden <tool>` writes the originals back. Detail: [Gate git, az, and docker](use-cases/gate-git-az-docker.md).
 
 ---
 

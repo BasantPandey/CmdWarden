@@ -49,7 +49,7 @@ The Go code shares no code with this repo. It keeps these rules the same:
 - The policy levels (Deny, Read, Trusted, Full) and the command classes (read, write, secret-reveal, unknown). The defaults are the same: ai-harness is Read, terminal is Trusted, unenrolled is Deny.
 - The `gh` classification table of the Windows spec.
 - The audit row: one NDJSON line per gate decision, with the same fields and no secret values. A failed audit write blocks the release.
-- The card buttons: Deny, Approve Once, Allow for session.
+- The card buttons: **Deny**, **Approve Once**, **Allow for session**.
 - The stop text of the shim run (#22).
 
 ## What is new on Linux

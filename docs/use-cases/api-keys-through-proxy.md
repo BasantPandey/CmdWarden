@@ -1,6 +1,6 @@
 # Keep API keys out of the agent
 
-**When:** An AI harness calls an API with curl, Python, or Node, for example the OpenAI API. The SDK reads the key from the environment, so the agent can print it or send it anywhere. You want the agent to use a placeholder. The real key must go only to the API host, after the policy allows it.
+When: An AI harness calls an API with curl, Python, or Node, for example the OpenAI API. The SDK reads the key from the environment, so the agent can print it or send it anywhere. You want the agent to use a placeholder. The real key must go only to the API host, after the policy allows it.
 
 ```powershell
 cw proxy setup                                        # make the per-user CA, turn the proxy on
@@ -92,4 +92,4 @@ cw proxy uninstall                # remove the CA and the proxy config
 
 ## Passwords in sign-in forms
 
-An agent that drives a browser can sign in with `cw://NAME` too. The proxy then fills one form field, after the card. See [UC17](web-sign-in-through-proxy.md).
+An agent that drives a browser can sign in with `cw://NAME` too. The proxy then fills one form field, after the card. See [Let an agent sign in without the password](web-sign-in-through-proxy.md).

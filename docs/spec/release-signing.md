@@ -29,7 +29,7 @@ The workflow uploads `artifacts/to-sign/files` as a build artifact, asks SignPat
 ### Azure Artifact Signing (Trusted Signing)
 
 1. Create an Artifact Signing account and a certificate profile in Azure. Complete the identity validation.
-2. Create an app registration. Give it the role **Artifact Signing Certificate Profile Signer** on the account.
+2. Create an app registration. Give it the role Artifact Signing Certificate Profile Signer on the account.
 3. Add these repository secrets:
 
 | Secret | Value |

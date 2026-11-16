@@ -1,6 +1,6 @@
 # Security policy
 
-CmdWarden holds secrets and gates AI agents. We take each report seriously.
+CmdWarden holds secrets and gates AI agents. Each report gets a careful review.
 
 ## Supported versions
 
@@ -11,10 +11,10 @@ Only the [latest release](https://github.com/BasantPandey/CmdWarden/releases/lat
 Do not open a public issue for a security problem.
 
 1. Open a [private security advisory](https://github.com/BasantPandey/CmdWarden/security/advisories/new).
-2. Tell us the CmdWarden version (`cw version`), the Windows version, and the AI harness.
+2. Include the CmdWarden version (`cw version`), the Windows version, and the AI harness.
 3. Give the steps that show the problem, and what an attacker gets.
 
-We answer in 7 days. We tell you the plan for a fix, and we name you in the advisory if you want that.
+You get an answer in 7 days. You get the plan for a fix. The advisory names you if you want that.
 
 A public vulnerability is fixed in 60 days.
 A critical vulnerability is fixed faster than that.

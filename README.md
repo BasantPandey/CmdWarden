@@ -9,11 +9,11 @@
 
 The [Passing evidence](docs/passing-criteria.md) records each Passing answer. Release notes are in [NEWS.md](NEWS.md).
 
-**Docs site: [basantpandey.github.io/CmdWarden](https://basantpandey.github.io/CmdWarden/)**
+Docs site: [basantpandey.github.io/CmdWarden](https://basantpandey.github.io/CmdWarden/)
 
 CmdWarden makes AI coding agents ask before they use your secrets on Windows. Claude Code, Cursor, Codex, and Grok get a policy and an Approval Gate card. Your own terminal keeps working as before.
 
-CLI: **`cw`** (alias `cmdwarden`). Desktop app: **CmdWarden Vault**. Free and open source.
+CLI: `cw` (alias `cmdwarden`). Desktop app: CmdWarden Vault. Free and open source.
 
 [![CmdWarden demo: the agent asks, you press Deny or Approve Once](docs/images/cmdwarden-promo.gif)](docs/images/cmdwarden-promo.mp4)
 
@@ -21,7 +21,7 @@ Get the [video in high quality (MP4)](docs/images/cmdwarden-promo.mp4).
 
 ## Two steps
 
-1. Download `CmdWarden.<version>-setup.zip` from the [latest release](https://github.com/BasantPandey/CmdWarden/releases/latest). Extract it, and double-click **`install.cmd`**.
+1. Download `CmdWarden.<version>-setup.zip` from the [latest release](https://github.com/BasantPandey/CmdWarden/releases/latest). Extract it, and double-click `install.cmd`.
 2. Open a new terminal and run:
 
 ```powershell
@@ -36,9 +36,9 @@ The winget package is BasantPandey.CmdWarden version 0.10.0. Run this command:
 winget install BasantPandey.CmdWarden
 ```
 
-The commands are `cw` and `cmdwarden`. Run `winget source update` when your source is old. The setup zip above also installs CmdWarden. The winstall page is https://winstall.app/apps/BasantPandey.CmdWarden. It shows version 0.10.0.
+The commands are `cw` and `cmdwarden`. Run `winget source update` when your source is old. The setup zip above also installs CmdWarden. The [winstall page](https://winstall.app/apps/BasantPandey.CmdWarden) shows version 0.10.0.
 
-NuGet.org has package CmdWarden 0.12.0: https://www.nuget.org/packages/CmdWarden/0.12.0. You need the .NET 10 SDK. Run this command:
+NuGet.org has package CmdWarden 0.12.0: [CmdWarden 0.12.0 on NuGet.org](https://www.nuget.org/packages/CmdWarden/0.12.0). You need the .NET 10 SDK. Run this command:
 
 ```powershell
 dotnet tool install -g CmdWarden
@@ -46,25 +46,25 @@ dotnet tool install -g CmdWarden
 
 The gallery form is `dotnet tool install --global CmdWarden --version 0.12.0`.
 
-See the card with no risk at any time: `cw try`. **Uninstall:** `cw uninstall`.
+See the card with no risk at any time: `cw try`. Uninstall: `cw uninstall`.
 
-Details, other install ways, and update: **[docs/install.md](docs/install.md)**. What CmdWarden sends (nothing about you) and what an agent can do: **[docs/trust.md](docs/trust.md)**.
+Details, other install ways, and update: [docs/install.md](docs/install.md). What CmdWarden sends (nothing about you) and what an agent can do: [docs/trust.md](docs/trust.md).
 
 ## What it does
 
-- **Gates each tool.** A PATH shim asks the Session Agent before `gh`, `git`, `az`, `docker`, `npm`, `aws`, `kubectl`, or `ssh` uses your login.
-- **Knows who asks.** Policy follows the real app behind the command: your terminal, Claude Code, Cursor, Codex, Grok, or an unknown install script.
-- **Asks only when it matters.** Reads and low-risk writes of an enrolled harness run with no card. Secret reads, unknown commands, and risky writes ask. One **Allow for session** covers the task.
-- **Guards `.env` files.** `cw env import` moves the values into the vault. `cw inject --env-file .env -- npm run dev` gives them only to your program, and the output shows `[CmdWarden: NAME]`.
-- **Signs in for the agent.** The agent types `cw://NAME` in a sign-in form. You approve, and only the site gets the password or the 2FA code. `cw save NAME --generate` makes a new password that nobody sees ([UC17](docs/use-cases/web-sign-in-through-proxy.md)).
-- **Works with your harness.** A policy hook, a leak guard, and an MCP server for Claude Code, Cursor, Codex, and Grok.
-- **Fails closed.** No desktop means no card, and no card means no secret. Every release writes an audit row first.
+- Gates each tool. A PATH shim asks the Session Agent before `gh`, `git`, `az`, `docker`, `npm`, `aws`, `kubectl`, or `ssh` uses your login.
+- Knows who asks. Policy follows the real app behind the command: your terminal, Claude Code, Cursor, Codex, Grok, or an unknown install script.
+- Asks only when it matters. Reads and low-risk writes of an enrolled harness run with no card. Secret reads, unknown commands, and risky writes ask. One **Allow for session** covers the task.
+- Guards `.env` files. `cw env import` moves the values into the vault. `cw inject --env-file .env -- npm run dev` gives them only to your program, and the output shows `[CmdWarden: NAME]`.
+- Signs in for the agent. The agent types `cw://NAME` in a sign-in form. You approve, and only the site gets the password or the 2FA code. `cw save NAME --generate` makes a new password that nobody sees ([Let an agent sign in without the password](docs/use-cases/web-sign-in-through-proxy.md)).
+- Works with your harness. A policy hook, a leak guard, and an MCP server for Claude Code, Cursor, Codex, and Grok.
+- Fails closed. No desktop means no card, and no card means no secret. Every release writes an audit row first.
 
-Full setup with profiles and per-tool tables: **[docs/policy-quickstart.md](docs/policy-quickstart.md)**.
+Full setup with profiles and per-tool tables: [docs/policy-quickstart.md](docs/policy-quickstart.md).
 
 ## Documentation
 
-The full site is at **[basantpandey.github.io/CmdWarden](https://basantpandey.github.io/CmdWarden/)**. The same pages live in [docs/](docs/).
+The full site is at [basantpandey.github.io/CmdWarden](https://basantpandey.github.io/CmdWarden/). The same pages live in [docs/](docs/).
 
 | Page | Read it when |
 |------|--------------|
@@ -105,8 +105,8 @@ pwsh ./scripts/Test-Portable.ps1 -Folder artifacts/portable   # runs it with no 
 |---------|------|
 | `src/CmdWarden.Contracts` | Domain types, gRPC protos, policy store, command classifiers |
 | `src/CmdWarden.Agent` | Per-user Session Agent (gRPC over named pipe) |
-| `src/CmdWarden.Cli` | `cw` / `cmdwarden` CLI; packs as the **CmdWarden** dotnet tool |
-| `src/CmdWarden.ApprovalGate` | Approval Gate card (Deny / Allow for session / Approve Once) |
+| `src/CmdWarden.Cli` | `cw` / `cmdwarden` CLI; packs as the CmdWarden dotnet tool |
+| `src/CmdWarden.ApprovalGate` | Approval Gate card (**Deny** / **Allow for session** / **Approve Once**) |
 | `src/CmdWarden.SecretsManager` | CmdWarden Vault desktop app |
 | `src/CmdWarden.Shim.*` | PATH shims for `gh`, `git`, `az`, `docker`, and the tool packs |
 | `src/CmdWarden.TryAgent` | The stand-in agent of `cw try` |

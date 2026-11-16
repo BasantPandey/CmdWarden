@@ -1,6 +1,6 @@
 # Trust your terminal fully, not the agent
 
-**When:** You want maximum friction for the harness and less for yourself.
+When: You want maximum friction for the harness and less for yourself.
 
 ```powershell
 # From terminal after enroll + harden:

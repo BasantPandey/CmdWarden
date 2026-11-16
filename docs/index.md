@@ -5,13 +5,13 @@ description: CmdWarden stops AI agents and install scripts from using your gh, g
 
 # CmdWarden
 
-**Make AI coding agents ask before they use your secrets.** Claude Code, Cursor, Codex, and Grok run commands with your `gh`, `git`, `npm`, `az`, `aws`, and `docker` logins. CmdWarden puts a card in between. Your own terminal keeps working as before.
+Make AI coding agents ask before they use your secrets. Claude Code, Cursor, Codex, and Grok run commands with your `gh`, `git`, `npm`, `az`, `aws`, and `docker` logins. CmdWarden puts a card in between. Your own terminal keeps working as before.
 
 <video class="promo" src="images/cmdwarden-promo.mp4" poster="images/cmdwarden-promo-poster.jpg" autoplay muted loop playsinline controls aria-label="CmdWarden in 30 seconds: an AI agent asks for a GitHub token, and you press Deny or Approve Once on the Approval Gate card"></video>
 
 ## Two steps
 
-1. Download `CmdWarden.<version>-setup.zip` from the [latest release](https://github.com/BasantPandey/CmdWarden/releases/latest). Extract it, and double-click **`install.cmd`**.
+1. Download `CmdWarden.<version>-setup.zip` from the [latest release](https://github.com/BasantPandey/CmdWarden/releases/latest). Extract it, and double-click `install.cmd`.
 2. Open a new terminal and run:
 
 ```powershell
@@ -22,7 +22,7 @@ No .NET install, no admin prompt. `cw setup` finds your tools and your AI harnes
 
 ## The problem
 
-In 2025, the **s1ngularity** and **Shai-Hulud** attacks put code in npm packages. When a developer ran `npm install`, a `postinstall` script ran `gh auth token`, read `~/.npmrc` and cloud logins, and sent the tokens out. AI agents raise the stakes: they run `npm install` and many other commands all day, on your behalf, with your logins.
+In 2025, the s1ngularity and Shai-Hulud attacks put code in npm packages. When a developer ran `npm install`, a `postinstall` script ran `gh auth token`, read `~/.npmrc` and cloud logins, and sent the tokens out. AI agents raise the stakes: they run `npm install` and many other commands all day, on your behalf, with your logins.
 
 Your token is not safe because the agent means well. It is safe only when the program that uses it must ask first.
 
@@ -50,18 +50,18 @@ See it yourself with no risk: `cw try` starts a stand-in agent that nobody enrol
 
 ## What CmdWarden does
 
-- **Gates each tool.** A PATH shim asks the Session Agent before `gh`, `git`, `az`, `docker`, `npm`, `aws`, `kubectl`, or `ssh` uses your login.
-- **Knows who asks.** Policy follows the real app behind the command: your terminal, Claude Code, Cursor, Codex, Grok, or an unknown script.
-- **Asks only when it matters.** Reads and low-risk writes of an enrolled harness run with no card. Secret reads, unknown commands, and risky writes ask. One **Allow for session** covers the task.
-- **Guards `.env` files.** `cw env import` moves the values into the vault. `cw inject --env-file .env -- npm run dev` gives them back only to your program. The agent sees `[CmdWarden: NAME]`, never the value.
-- **Works with your harness.** Hooks, a leak guard, and an MCP server for Claude Code, Cursor, Codex, and Grok.
-- **Shows everything.** The tray icon counts the cards of today. CmdWarden Vault lists gates, secrets, and every decision.
+- Gates each tool. A PATH shim asks the Session Agent before `gh`, `git`, `az`, `docker`, `npm`, `aws`, `kubectl`, or `ssh` uses your login.
+- Knows who asks. Policy follows the real app behind the command: your terminal, Claude Code, Cursor, Codex, Grok, or an unknown script.
+- Asks only when it matters. Reads and low-risk writes of an enrolled harness run with no card. Secret reads, unknown commands, and risky writes ask. One **Allow for session** covers the task.
+- Guards `.env` files. `cw env import` moves the values into the vault. `cw inject --env-file .env -- npm run dev` gives them back only to your program. The agent sees `[CmdWarden: NAME]`, never the value.
+- Works with your harness. Hooks, a leak guard, and an MCP server for Claude Code, Cursor, Codex, and Grok.
+- Shows everything. The tray icon counts the cards of today. CmdWarden Vault lists gates, secrets, and every decision.
 
 ## Pick your next step
 
 <div class="grid cards" markdown>
 
--   :material-download:{ .lg .middle } **Install**
+-   :material-download:{ .lg .middle } Install
 
     ---
 
@@ -69,7 +69,7 @@ See it yourself with no risk: `cw try` starts a stand-in agent that nobody enrol
 
     [:octicons-arrow-right-24: Install](install.md)
 
--   :material-shield-check-outline:{ .lg .middle } **Trust**
+-   :material-shield-check-outline:{ .lg .middle } Trust
 
     ---
 
@@ -77,7 +77,7 @@ See it yourself with no risk: `cw try` starts a stand-in agent that nobody enrol
 
     [:octicons-arrow-right-24: Trust](trust.md)
 
--   :material-book-open-variant:{ .lg .middle } **Pick a use case**
+-   :material-book-open-variant:{ .lg .middle } Pick a use case
 
     ---
 
@@ -85,7 +85,7 @@ See it yourself with no risk: `cw try` starts a stand-in agent that nobody enrol
 
     [:octicons-arrow-right-24: Use cases](use-cases/index.md)
 
--   :material-robot-outline:{ .lg .middle } **Tell your agent the rules**
+-   :material-robot-outline:{ .lg .middle } Tell your agent the rules
 
     ---
 
@@ -99,9 +99,9 @@ See it yourself with no risk: `cw try` starts a stand-in agent that nobody enrol
 
 | Surface | What it is | When you see it |
 |---------|------------|-----------------|
-| **`cw` CLI** | `cw setup`, `cw try`, and the power-user commands | You type them in a terminal |
-| **Approval Gate** | A small card with **Deny** (Esc), **Allow for session** (Enter), and **Approve Once** (1) | A gated command waits for you |
-| **CmdWarden Vault** | Desktop app and tray icon: Secret Gates, Detectors, Hardened Tools, Secrets, Secret Usage, Doctor | You open it from the Start Menu or the tray |
+| `cw` CLI | `cw setup`, `cw try`, and the power-user commands | You type them in a terminal |
+| Approval Gate | A small card with **Deny** (**Esc**), **Allow for session** (**Enter**), and **Approve Once** (**1**) | A gated command waits for you |
+| CmdWarden Vault | Desktop app and tray icon: **Secret Gates**, **Detectors**, **Hardened Tools**, **Secrets**, **Secret Usage**, **Doctor** | You open it from the **Start Menu** or the tray |
 
 ![CmdWarden Vault Secret Gates page](images/vault-secret-gates.png)
 

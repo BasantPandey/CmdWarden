@@ -3,11 +3,11 @@ title: Let an agent sign in to a web site without seeing the password
 description: The agent types cw://NAME in the password field. You approve the card. The CmdWarden proxy puts the real password in the sign-in request, so the agent and the page never get it.
 ---
 
-# UC17 let an agent sign in without the password
+# Let an agent sign in without the password
 
-**When:** An AI agent drives a browser, for example with Playwright MCP or Chrome DevTools MCP. It must sign in to a web site. You do not want to give the agent your password.
+When: An AI agent drives a browser, for example with Playwright MCP or Chrome DevTools MCP. It must sign in to a web site. You do not want to give the agent your password.
 
-**How it works:** The agent types the placeholder `cw://NAME` in the password field. The browser sends the form through the CmdWarden proxy. You get the Approval Gate card. When you approve, the proxy puts the real password in the request, and only in the field that you named. The page, the browser, and the agent hold only the placeholder.
+How it works: The agent types the placeholder `cw://NAME` in the password field. The browser sends the form through the CmdWarden proxy. You get the Approval Gate card. When you approve, the proxy puts the real password in the request, and only in the field that you named. The page, the browser, and the agent hold only the placeholder.
 
 ```text
 Agent ──types cw://GITHUB_WEB_PASSWORD──> Browser
@@ -25,17 +25,17 @@ Do this one time. The browser uses the Windows certificate store, so it must tru
 cw proxy setup --trust
 ```
 
-*Expect:* Windows asks you to confirm the CA. The CA goes to the root store of your user only. See [UC15](api-keys-through-proxy.md) for more about the proxy.
+*Expect:* Windows asks you to confirm the CA. The CA goes to the root store of your user only. See [Keep API keys out of the agent](api-keys-through-proxy.md) for more about the proxy.
 
 ## Find the sign-in path and the password field
 
 The proxy fills one field on one path. Find them one time for each site:
 
 1. Open the sign-in page of the site in your own browser.
-2. Press **F12**, and open the **Network** tab.
+2. Press **F12**, and open the Network tab.
 3. Sign in one time.
 4. Find the `POST` request that sends your password. Write down its path, for example `/session`.
-5. Open the **Payload** tab of that request. Write down the name of the password field, for example `password`.
+5. Open the Payload tab of that request. Write down the name of the password field, for example `password`.
 
 Examples:
 
@@ -64,29 +64,29 @@ cw://GITHUB_WEB_PASSWORD: github.com; only in /session field password
 
 In Git Bash, set `MSYS_NO_PATHCONV=1` first. Git Bash changes `/session` into a Windows path.
 
-`cw save` asks for the value, and the value goes to the vault. A key that has `--body` is a **sign-in key**. It goes only in that field, on that path, on that host. It never goes in a header or in another field.
+`cw save` asks for the value, and the value goes to the vault. A key that has `--body` is a sign-in key. It goes only in that field, on that path, on that host. It never goes in a header or in another field.
 
 ## Send the agent browser through the proxy
 
 Pick the browser tool of your agent.
 
-**Playwright MCP in Claude Code:**
+Playwright MCP in Claude Code:
 
 ```powershell
 claude mcp add playwright -- `
   npx @playwright/mcp@latest --proxy-server http://127.0.0.1:47831
 ```
 
-**Chrome DevTools MCP in Claude Code:**
+Chrome DevTools MCP in Claude Code:
 
 ```powershell
 claude mcp add chrome-devtools -- `
   npx chrome-devtools-mcp@latest --proxyServer http://127.0.0.1:47831
 ```
 
-**Cursor or Codex:** add the same `--proxy-server` or `--proxyServer` argument to the MCP server entry in the config file of the harness.
+Cursor or Codex: add the same `--proxy-server` or `--proxyServer` argument to the MCP server entry in the config file of the harness.
 
-**A Chrome that you start yourself**, for an agent that attaches to it:
+A Chrome that you start yourself, for an agent that attaches to it:
 
 ```powershell
 & "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" `
@@ -133,7 +133,7 @@ A site can ask for a code from an authenticator app after the password. CmdWarde
 
 The proxy reads `digits`, `period`, and `algorithm` from an `otpauth://` link. Without a link, it uses 6 digits, 30 seconds, and SHA1, as most sites do.
 
-**If the code field takes only 6 characters:** many code fields have a length limit or accept only digits, so `cw://GITHUB_TOTP` does not fit. Use a short name, for example `cw save T` and `cw://T`, which has 6 characters. A field that accepts only digits still blocks the placeholder. Then the agent must set the field value with a script and send the form.
+If the code field takes only 6 characters: many code fields have a length limit or accept only digits, so `cw://GITHUB_TOTP` does not fit. Use a short name, for example `cw save T` and `cw://T`, which has 6 characters. A field that accepts only digits still blocks the placeholder. Then the agent must set the field value with a script and send the form.
 
 ## Make a new account (optional)
 

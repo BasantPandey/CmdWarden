@@ -1,20 +1,20 @@
 # Approve or deny a secret read mid-session
 
-**Story (this is the main “screens” use case):**
+Story (this is the main “screens” use case):
 
-1. **Beginning (you):** create / save a named secret into the CmdWarden Vault.  
-2. **Middle of an AI session:** you ask the agent to **read that same secret** (or run a command that needs it).  
-3. **Popup:** the **Approval Gate** appears on the desktop with **Deny** and **Approve Once** - the agent is blocked until you click.
+1. Beginning (you): create / save a named secret into the CmdWarden Vault.  
+2. Middle of an AI session: you ask the agent to read that same secret (or run a command that needs it).  
+3. Popup: the Approval Gate appears on the desktop with **Deny** and **Approve Once** - the agent is blocked until you click.
 
-Saving does **not** show the popup. The popup appears only when something tries to **release / use** the secret under a policy that does not auto-allow (typical: **AI harness** at **Read**).
+Saving does not show the popup. The popup appears only when something tries to release / use the secret under a policy that does not auto-allow (typical: AI harness at **Read**).
 
-**Prerequisites:** CmdWarden installed ([Install](../install.md)), Windows desktop session, and an AI product (Cursor / Claude Code / Codex / …) that can run shell commands.
+Prerequisites: CmdWarden installed ([Install](../install.md)), Windows desktop session, and an AI product (Cursor / Claude Code / Codex / …) that can run shell commands.
 
 ---
 
 ## Set up and create the secret (no popup)
 
-Do this in **your normal Windows Terminal / PowerShell** (not the AI chat).
+Do this in your normal Windows Terminal / PowerShell (not the AI chat).
 
 ```powershell
 # 1) Agent health
@@ -31,14 +31,14 @@ cw save DEMO_TOKEN --value "demo-not-a-real-secret"
 
 *Expect:*
 
-- `cw doctor` → Session Agent **UP**  
-- Enroll → a **terminal** row in `cw policy list`  
+- `cw doctor` → Session Agent UP  
+- Enroll → a terminal row in `cw policy list`  
 - Save → secret stored as Credential Manager target `CmdWarden/secret/DEMO_TOKEN`  
-- **No Approval Gate window** on save (you are only storing, not releasing)
+- No Approval Gate window on save (you are only storing, not releasing)
 
-**Without the CLI:** open **CmdWarden Vault** from the Start Menu, go to **Secrets**, click **+ Add secret**, type the name and value, click **Save**. See [UC9](vault-add-remove-secrets.md). The result is the same Credential Manager target.
+Without the CLI: open CmdWarden Vault from the **Start Menu**, go to **Secrets**, click **+ Add secret**, type the name and value, click **Save**. See [Add and remove secrets in CmdWarden Vault](vault-add-remove-secrets.md). The result is the same Credential Manager target.
 
-Optional - prove **you** can read it from the terminal without a popup (Trusted terminal auto-allows inject/write):
+Optional - prove you can read it from the terminal without a popup (Trusted terminal auto-allows inject/write):
 
 ```powershell
 cw inject +DEMO_TOKEN -- cmd /c echo %DEMO_TOKEN%
@@ -50,7 +50,7 @@ cw inject +DEMO_TOKEN -- cmd /c echo %DEMO_TOKEN%
 
 ## Enroll the AI harness (stricter: needs click to release secrets)
 
-In the **AI product’s integrated terminal** (Cursor / Claude Code / Codex terminal panel):
+In the AI product’s integrated terminal (Cursor / Claude Code / Codex terminal panel):
 
 ```powershell
 cw whoami
@@ -58,8 +58,8 @@ cw policy enroll --kind ai-harness
 cw policy list
 ```
 
-*Expect:* a second policy key with kind **ai-harness** (default tool level **Read**).  
-Read does **not** auto-allow `inject` (class **write**) or `gh` **secret-reveal** - those need the Approval Gate.
+*Expect:* a second policy key with kind ai-harness (default tool level **Read**).  
+Read does not auto-allow `inject` (class write) or `gh` secret-reveal - those need the Approval Gate.
 
 Give the harness the rules in [AI harness rules](../prompts/ai-harness-rules.md). Paste them into its rules file (`CLAUDE.md`, `.cursorrules`, `AGENTS.md`).
 
@@ -67,7 +67,7 @@ Give the harness the rules in [AI harness rules](../prompts/ai-harness-rules.md)
 
 ## Middle of the AI session: Agent tries to read that secret
 
-Stay in the AI product. In the **chat**, ask something that makes the agent run **inject for the secret you created**, for example:
+Stay in the AI product. In the chat, ask something that makes the agent run inject for the secret you created, for example:
 
 > Run this in the terminal and show me the output:  
 > `cw inject +DEMO_TOKEN -- cmd /c echo %DEMO_TOKEN%`
@@ -75,9 +75,9 @@ Stay in the AI product. In the **chat**, ask something that makes the agent run 
 What happens next:
 
 1. The agent starts the tool call (shell command).  
-2. CmdWarden Session Agent evaluates: **launcher = AI harness**, **tool = inject**, **secret name = DEMO_TOKEN**.  
-3. Policy does **not** auto-allow → the **Approval Gate** opens as a **Windows desktop popup** (Fluent-style card), while the agent is still mid-run and waiting.  
-4. The popup shows the launcher, the command, the **CWD**, and **KEYS: DEMO_TOKEN**. It shows the secret **name** only, never the value.
+2. CmdWarden Session Agent evaluates: launcher = AI harness, tool = inject, secret name = DEMO_TOKEN.  
+3. Policy does not auto-allow → the Approval Gate opens as a Windows desktop popup (Fluent-style card), while the agent is still mid-run and waiting.  
+4. The popup shows the launcher, the command, the CWD, and KEYS: DEMO_TOKEN. It shows the secret name only, never the value.
 
    ![Approval Gate card](../images/approval-gate.png)
 
@@ -85,16 +85,16 @@ What happens next:
 
    | You click or press | Result in the AI session |
    |--------------------|---------------------------|
-   | **Approve Once** (**Enter**, or **1** when the card offers **Allow for session**) | This read is allowed; the child can use `DEMO_TOKEN`; agent can continue. Later reads of the **same class** for this tool and secret are allowed until the launcher exits or after 60 idle minutes. A higher class prompts again. |
-   | **Allow for session** (**Enter** or **A**) | This read and every later read of the same class (or lower) for this tool and secret are allowed. The grant ends when the launcher process exits or after 60 idle minutes. To end it sooner, choose **10 minutes** or **1 hour** in the **Allow for session lasts** row first. The button is hidden for unenrolled launchers. It never covers secret-reveal. |
+   | **Approve Once** (**Enter**, or **1** when the card offers **Allow for session**) | This read is allowed; the child can use `DEMO_TOKEN`; agent can continue. Later reads of the same class for this tool and secret are allowed until the launcher exits or after 60 idle minutes. A higher class prompts again. |
+   | **Allow for session** (**Enter** or **A**) | This read and every later read of the same class (or lower) for this tool and secret are allowed. The grant ends when the launcher process exits or after 60 idle minutes. To end it sooner, choose **10 minutes** or **1 hour** in the Allow for session lasts row first. The button is hidden for unenrolled launchers. It never covers secret-reveal. |
    | **Deny** (**Esc**) | Release is blocked; agent sees failure / permission denied. For 2 minutes, the same launcher gets no new popup for this tool. Each retry is denied at once. |
-   | Close the window | Same as unavailable → **fail closed** (block). |
+   | Close the window | Same as unavailable → fail closed (block). |
 
    The popup ignores every key except **Esc** for the first 600 ms. Thus a key that you type in the terminal cannot approve it by mistake. **Esc** works at all times.
 
    Every decision appears on the **Secret Usage** page of CmdWarden Vault and in `cw audit`. Active session grants appear on the **Secret Gates** page. Revoke one with `cw policy sessions --revoke <id>`.
 
-**Important:** The Allow/Deny UI is a **separate OS window** on the desktop, not a message inside the chat. It appears **during** the agent step that tries to read the secret - that is the “middle of the AI session” moment.
+Important: The Allow/Deny UI is a separate OS window on the desktop, not a message inside the chat. It appears during the agent step that tries to read the secret - that is the “middle of the AI session” moment.
 
 Cleanup when you are done experimenting:
 
@@ -119,7 +119,7 @@ Then mid-AI session, ask the agent e.g.:
 
 > Run `gh auth token` and show me the result.
 
-That is a **secret-reveal** class command under **Read** for the harness → same **Approve Once / Deny** popup, with **keys** showing `GH_TOKEN` (name only).
+That is a secret-reveal class command under **Read** for the harness → same Approve Once / Deny popup, with keys showing `GH_TOKEN` (name only).
 
 ---
 
@@ -134,9 +134,9 @@ cw audit -n 20
 
 Check that:
 
-- Harness is enrolled as **ai-harness** (not the same key as terminal).  
+- Harness is enrolled as ai-harness (not the same key as terminal).  
 - The command actually goes through CmdWarden (`cw inject …` or shimmed `gh`).  
 - Approval helper exists: `agent\approval-gate\CmdWarden.ApprovalGate.exe` under the tool install.  
-- Missing helper → **fail closed** (no silent allow), not a chat-only error.
+- Missing helper → fail closed (no silent allow), not a chat-only error.
 
 The **Doctor** and **Secret Gates** pages of CmdWarden Vault show the same agent state and enrollments without a terminal.

@@ -6,9 +6,9 @@ The portable zip `CmdWarden.<version>-win-x64.zip` carries its own .NET runtime.
 
 | Manager | Source | Command for the user |
 |---------|--------|----------------------|
-| **winget** | `winget/` in the packages zip | `winget install BasantPandey.CmdWarden` |
-| **Scoop** | `scoop/cmdwarden.json` in the packages zip | `scoop install cmdwarden` (from a bucket) |
-| **NuGet.org** | [CmdWarden 0.12.0](https://www.nuget.org/packages/CmdWarden/0.12.0) | `dotnet tool install -g CmdWarden` |
+| winget | `winget/` in the packages zip | `winget install BasantPandey.CmdWarden` |
+| Scoop | `scoop/cmdwarden.json` in the packages zip | `scoop install cmdwarden` (from a bucket) |
+| NuGet.org | [CmdWarden 0.12.0](https://www.nuget.org/packages/CmdWarden/0.12.0) | `dotnet tool install -g CmdWarden` |
 
 Make the manifests by hand for any zip:
 
@@ -16,13 +16,13 @@ Make the manifests by hand for any zip:
 ./scripts/New-PackageManifests.ps1 -Version 0.8.0 -Zip artifacts/CmdWarden.0.8.0-win-x64.zip -Out artifacts/packages
 ```
 
-## winget
+## The `winget` manifests
 
-The manifests use schema 1.28.0. [microsoft/winget-pkgs#442236](https://github.com/microsoft/winget-pkgs/pull/442236) merged on 4 Nov 2026. The catalog package is BasantPandey.CmdWarden version 0.10.0.
+The manifests use schema 1.28.0. [microsoft/winget-pkgs#442236](https://github.com/microsoft/winget-pkgs/pull/442236) merged on November 4, 2026. The catalog package is BasantPandey.CmdWarden version 0.10.0.
 
 The installer manifest uses `ArchiveBinariesDependOnPath: true`. winget then puts the install folder on PATH and makes no symlink. `cw.exe` must run from its own folder, because it finds `runtime\` next to it.
 
-Run `winget install BasantPandey.CmdWarden`. The commands are `cw` and `cmdwarden`. Run `winget source update` when your source is old. The winstall page is https://winstall.app/apps/BasantPandey.CmdWarden. It shows version 0.10.0.
+Run `winget install BasantPandey.CmdWarden`. The commands are `cw` and `cmdwarden`. Run `winget source update` when your source is old. The [winstall page](https://winstall.app/apps/BasantPandey.CmdWarden) shows version 0.10.0.
 
 Check a manifest before you submit it:
 
@@ -35,7 +35,7 @@ The release submits the manifests to [microsoft/winget-pkgs](https://github.com/
 
 ## NuGet.org
 
-NuGet.org has package CmdWarden 0.12.0: https://www.nuget.org/packages/CmdWarden/0.12.0. The tool needs the .NET 10 SDK. The package id is CmdWarden. The command is `cw`.
+NuGet.org has package CmdWarden 0.12.0: [CmdWarden 0.12.0 on NuGet.org](https://www.nuget.org/packages/CmdWarden/0.12.0). The tool needs the .NET 10 SDK. The package id is CmdWarden. The command is `cw`.
 
 ```powershell
 dotnet tool install -g CmdWarden
@@ -57,6 +57,6 @@ The manifest has `checkver` and `autoupdate`, so a bucket bot can follow new rel
 | Secret or variable | Use |
 |--------------------|-----|
 | `SIGNPATH_API_TOKEN` (secret), `SIGNPATH_ORGANIZATION_ID`, `SIGNPATH_PROJECT_SLUG`, `SIGNPATH_SIGNING_POLICY_SLUG` (variables) | Sign every exe and dll through SignPath Foundation (free for open source) |
-| NuGet.org trusted publishing | Push the dotnet tool. Policy name CmdWarden. Package owner basantpandey. Workflow file release.yml. No long-lived API key. |
+| NuGet.org trusted publishing | Push the dotnet tool. Policy name CmdWarden. Package owner basantpandey. Workflow file `release.yml`. No long-lived API key. |
 | `WINGET_TOKEN` | Submit the winget manifests |
 | `REQUIRE_SIGNING` (variable) | `true` stops a release that is not signed |

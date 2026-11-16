@@ -3,9 +3,9 @@ title: Keep .env secrets out of the agent
 description: Move the secret values of a .env file into the CmdWarden vault. Your dev server still gets them; the AI agent sees only cw://NAME and [CmdWarden: NAME].
 ---
 
-# UC16 keep .env secrets out of the agent
+# Keep .env secrets out of the agent
 
-**When:** Your project has a `.env` file with API keys, database passwords, or tokens. An AI agent works in the same folder. You want your program to get the values, and the agent never to see them.
+When: Your project has a `.env` file with API keys, database passwords, or tokens. An AI agent works in the same folder. You want your program to get the values, and the agent never to see them.
 
 The ignore rules of Claude Code and Cursor hide `.env` from their file tools. They do not stop a shell command such as `cat .env`. CmdWarden takes the values out of the file.
 

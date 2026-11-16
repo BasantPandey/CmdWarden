@@ -1,6 +1,6 @@
 # Gate git, az, and docker
 
-**When:** The harness runs `git push`, `az …`, or `docker …` and you want those invocations mediated (approve/deny by launcher), even if CmdWarden does not own the ambient credential store.
+When: The harness runs `git push`, `az …`, or `docker …` and you want those invocations mediated (approve/deny by launcher), even if CmdWarden does not own the ambient credential store.
 
 ```powershell
 cw harden git
@@ -16,18 +16,18 @@ where.exe docker
 
 ![cw harden --list output: gh, git, az, docker all Hardened](../images/cli-harden-list.svg)
 
-*Expect:* PATH shims installed; **no** automatic vault import for git/az (GCM / MSAL stay). Docker optional: if you already `cw save DOCKER_AUTH_CONFIG`, child may get that on allow.
+*Expect:* PATH shims installed; no automatic vault import for git/az (GCM / MSAL stay). Docker optional: if you already `cw save DOCKER_AUTH_CONFIG`, child may get that on allow.
 
 | Tool | Harden does | Day-to-day secret behavior |
 |------|-------------|----------------------------|
-| **gh** | Pin + shim + import **GH_TOKEN** into Vault | Child gets `GH_TOKEN` when allowed |
-| **git** | Pin + shim | Gate only; GCM / helpers still ambient |
-| **az** | Pin + shim | Gate only; MSAL `~/.azure` still ambient |
-| **docker** | Pin + shim | Gate; optional vault `DOCKER_AUTH_CONFIG` if you saved it |
+| gh | Pin + shim + import GH_TOKEN into Vault | Child gets `GH_TOKEN` when allowed |
+| git | Pin + shim | Gate only; GCM / helpers still ambient |
+| az | Pin + shim | Gate only; MSAL `~/.azure` still ambient |
+| docker | Pin + shim | Gate; optional vault `DOCKER_AUTH_CONFIG` if you saved it |
 
 ## Strong mode for docker
 
-**When:** You want Docker registry credentials out of the Docker Desktop / wincred store and behind the Approval Gate.
+When: You want Docker registry credentials out of the Docker Desktop / wincred store and behind the Approval Gate.
 
 ```powershell
 cw harden docker --strong
@@ -39,7 +39,7 @@ cw unharden docker
 
 ## Strong mode for gh
 
-**When:** You want every gh token out of the stock gh store and behind the Approval Gate, absolute-path `gh` included.
+When: You want every gh token out of the stock gh store and behind the Approval Gate, absolute-path `gh` included.
 
 ```powershell
 cw harden gh --strong
@@ -51,7 +51,7 @@ cw unharden gh
 
 ## Strong mode for git
 
-**When:** You want Git HTTPS credentials out of Git Credential Manager and behind the Approval Gate.
+When: You want Git HTTPS credentials out of Git Credential Manager and behind the Approval Gate.
 
 ```powershell
 cw harden git --strong

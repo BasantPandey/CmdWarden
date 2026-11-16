@@ -4,10 +4,10 @@ Thank you for your help. This page tells you how to report a problem, how to bui
 
 ## Report a problem
 
-- **A bug or an idea:** open an [issue](https://github.com/BasantPandey/CmdWarden/issues). Give the `cw version` output, the command, what you expected, and what you saw. Do not paste a secret value.
+- A bug or an idea: open an issue on the [CmdWarden issue list](https://github.com/BasantPandey/CmdWarden/issues). Give the `cw version` output, the command, what you expected, and what you saw. Do not paste a secret value.
 - We answer a bug report on that issue tracker.
-- We answer an enhancement request on that issue tracker.
-- **A security problem:** do not open a public issue. Follow the [security policy](SECURITY.md).
+- You get an answer to an enhancement request on that issue tracker.
+- A security problem: do not open a public issue. Follow the [security policy](SECURITY.md).
 
 ## Build and test
 
@@ -43,12 +43,14 @@ A warning fails the build. Fix the warning; do not hide it.
 
 ## Writing style
 
-The docs, the CLI text, and the code comments use [ASD-STE100 Simplified Technical English](https://www.asd-ste100.org/):
+Write a doc with the [CmdWarden docs style guide](docs/style-guide.md).
 
-- One idea in one sentence, 20 words or less.
-- The active voice and the present tense.
-- Simple, common words. The same word for the same thing.
-- An instruction starts with the verb.
+The CLI text and the code comments use [ASD-STE100 Simplified Technical English](https://www.asd-ste100.org/):
+
+- Put one idea in one sentence. Keep a sentence to 20 words or less.
+- Use the active voice and the present tense.
+- Use simple words. Use the same word for the same thing.
+- Start an instruction with the verb.
 
 ## License
 
