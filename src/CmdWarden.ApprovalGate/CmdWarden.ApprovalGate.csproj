@@ -8,7 +8,7 @@
     <AssemblyName>CmdWarden.ApprovalGate</AssemblyName>
     <RootNamespace>CmdWarden.ApprovalGate</RootNamespace>
     <Description>CmdWarden Approval Gate helper - modern Fluent-style card. Exit 0=Approve Once, 1=Deny, 2=Unavailable.</Description>
-    <Version>0.1.0</Version>
+    <Version>0.13.0</Version>
     <PlatformTarget>x64</PlatformTarget>
     <ApplicationIcon>CmdWarden.ico</ApplicationIcon>
   </PropertyGroup>

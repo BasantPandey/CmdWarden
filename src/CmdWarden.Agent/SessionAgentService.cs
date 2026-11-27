@@ -36,6 +36,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     private readonly AlarmNotifier _alarm;
     private readonly SeenCommands _seen;
     private readonly GitHubAppTokens _githubApp;
+    private readonly BlessedScriptStore _scripts;
 
     public SessionAgentService(
         AgentRuntimeInfo runtime,
@@ -61,6 +62,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         _alarm = alarm;
         _seen = new SeenCommands(runtime.ProductRoot);
         _githubApp = new GitHubAppTokens(vault);
+        _scripts = new BlessedScriptStore(Path.Combine(_productRoot, BlessedScriptStore.FileName));
     }
 
     public override Task<HealthResponse> GetHealth(HealthRequest request, ServerCallContext context)
@@ -351,6 +353,13 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var hidden = HiddenWrapper(launcher);
         if (hidden is not null)
             decision = PolicyDecision.NeedsApproval;
+        // Issue 201: a reviewed file may use its caps after that force. Each call re-reads the hash.
+        // Secret reveal and a command with no matching file still show the card.
+        if (decision != PolicyDecision.AutoAllow && ReviewedScriptAllows(launcher, tool, commandClass))
+        {
+            decision = PolicyDecision.AutoAllow;
+            decisionReason = PolicyReasonCodes.BlessedScript;
+        }
 
         if (decision != PolicyDecision.AutoAllow)
         {
@@ -1137,6 +1146,51 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                     $"{ProductInfo.Name} blocks {who} (pid {launcher.Selected.Pid}) until it restarts.");
         return new RpcException(new Status(StatusCode.PermissionDenied,
             $"{PolicyReasonCodes.CanaryHit}: canary token {canaryName} used; launcher blocked."));
+    }
+
+    /// <summary>
+    /// Issue 201: true when a caller in the chain names a reviewed script whose hash and cap still match.
+    /// An unreadable file or a damaged store does not grant the cap.
+    /// </summary>
+    private bool ReviewedScriptAllows(LauncherResolution launcher, string tool, CommandClass commandClass)
+    {
+        IReadOnlyList<ScriptBlessing> blessings;
+        try
+        {
+            blessings = _scripts.Load();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+
+        var ancestors = new List<AncestorCommand>();
+        foreach (var node in launcher.Chain)
+        {
+            if (PowerShellInspector.ReadCommandLine(node.Pid) is { } line)
+            {
+                var args = PowerShellInspector.SplitCommandLine(line);
+                if (args.Count > 0)
+                    ancestors.Add(new AncestorCommand(node.FileName ?? args[0], args.Skip(1).ToList()));
+            }
+
+            if (node.Pid == launcher.Selected.Pid)
+                break;
+        }
+
+        return BlessedScriptMatch.Allows(blessings, ancestors, tool, commandClass, HashOrNull);
+    }
+
+    private static string? HashOrNull(string path)
+    {
+        try
+        {
+            return BoundFiles.Sha256(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

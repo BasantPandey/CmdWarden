@@ -25,6 +25,8 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw harden npm\|aws\|kubectl\|<pack tool>` | Pin + PATH shim from a [tool pack](tool-packs.md) |
 | `cw harden ssh [--upstream <pipe>]` | Ask before a sign with an ssh key; see [Gate ssh key use](use-cases/gate-ssh-keys.md) |
 | `cw github app setup\|status\|remove` | gh gets a [GitHub App token](use-cases/short-lived-github-tokens.md) for one repo that ends in one hour |
+| `cw script bless <path> --cap <tool>=read\|write` | Review one script. A run of that exact file may use the caps with no card. See [Review a script that publishes](use-cases/reviewed-script.md) |
+| `cw script list` / `cw script drop <path>` | Show the reviews, or clear one. Run bless and drop in your own terminal |
 | `cw proxy setup [--port N] [--trust]` | Make the per-user CA and turn on the [placeholder proxy](use-cases/api-keys-through-proxy.md) on 127.0.0.1 |
 | `cw proxy add <NAME> --host <host>` / `remove <NAME>` | Put the vault entry NAME in place of `cw://NAME` for these hosts |
 | `cw proxy add <NAME> --host <host> --body <path> --field <f>` | A sign-in key: only the body field f on that path gets the value, after the card ([Let an agent sign in without the password](use-cases/web-sign-in-through-proxy.md)) |

@@ -60,6 +60,7 @@ public static class PolicyHook
     private static readonly string[] WeakeningCommands =
     [
         "policy set", "policy enroll", "policy unenroll", "policy remove", "policy low-risk", "policy hello",
+        "script bless", "script drop",
         "unharden", "uninstall", "delete", "agent stop", "canary remove", "shortcut remove",
         "hook uninstall", "leak-guard uninstall", "mcp uninstall", "protect uninstall",
         "proxy add", "proxy remove", "proxy strict", "proxy uninstall", "github app remove",

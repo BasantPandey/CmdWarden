@@ -7,9 +7,9 @@
     <RootNamespace>CmdWarden.Agent</RootNamespace>
     <AssemblyName>CmdWarden.Agent</AssemblyName>
     <Description>Per-user Session Agent host (named-pipe gRPC).</Description>
-    <Version>0.1.0</Version>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <FileVersion>0.1.0.0</FileVersion>
+    <Version>0.13.0</Version>
+    <AssemblyVersion>0.13.0.0</AssemblyVersion>
+    <FileVersion>0.13.0.0</FileVersion>
     <!-- Console host; no launchSettings browser -->
     <NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
   </PropertyGroup>

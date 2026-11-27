@@ -67,6 +67,7 @@ public static partial class CliApp
             "canary" => CmdWarden.Cli.Hooks.LeakGuardCommands.Canary(args.AsSpan(1).ToArray()),
             "launch" => LaunchHarness(args.AsSpan(1).ToArray()),
             "github" => await GitHubAppCommands.RunAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
+            "script" => ScriptCommands.Run(args.AsSpan(1).ToArray()),
             "update" => await UpdateCommands.UpdateAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "uninstall" => UpdateCommands.Uninstall(args.AsSpan(1).ToArray()),
             "proxy" => await ProxyCommands.RunAsync(args.AsSpan(1).ToArray(), RestartAgentAsync).ConfigureAwait(false),
@@ -2235,6 +2236,7 @@ public static partial class CliApp
         Row("unharden docker|git|gh|az|ssh|<pack tool>", "Restore the stock store and config, remove pin and shim");
         Row("proxy setup|add|remove|list|strict|uninstall", "Put a vault key in place of cw://NAME for listed hosts (API keys)");
         Row("github app setup|status|remove", "gh gets a GitHub App token for one repo that ends in one hour");
+        Row("script bless|list|drop", "Review one script file so that exact file may use tool caps with no card");
         Row("audit [-n N]", "Show recent gate decisions (local audit trail)");
         Row("audit eventlog on|off|status", "Also write gate decisions to the Windows Application log (one admin prompt)");
         Row("scan", "First-catalog residual risk detectors (read-only)");

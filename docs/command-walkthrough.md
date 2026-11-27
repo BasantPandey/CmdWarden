@@ -610,6 +610,18 @@ cw github app remove
 
 Setup gives `gh` a GitHub App token for one repo. The token ends in one hour.
 
+### Reviewed scripts
+
+Run these in your own terminal. An agent cannot bless a file.
+
+```powershell
+cw script bless C:\src\release.ps1 --cap gh=write
+cw script list
+cw script drop C:\src\release.ps1
+```
+
+A run of that exact file may use the cap with no card. The same `gh` command from an agent still shows the card. A change of one byte clears the review. `gh auth token` still shows the card.
+
 ### `update` and `uninstall`
 
 ```powershell
