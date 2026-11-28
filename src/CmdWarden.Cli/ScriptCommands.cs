@@ -8,6 +8,11 @@ namespace CmdWarden.Cli;
 /// </summary>
 public static class ScriptCommands
 {
+    /// <summary>The review file. A test points this at a temp file.</summary>
+    internal static Func<string> StorePath = BlessedScriptStore.DefaultPath;
+
+    private static BlessedScriptStore Open() => new(StorePath());
+
     public static int Run(string[] args)
     {
         var sub = args.Length > 0 ? args[0].ToLowerInvariant() : "";
@@ -81,7 +86,7 @@ public static class ScriptCommands
             Sha256 = BoundFiles.Sha256(full),
             Caps = caps,
         };
-        new BlessedScriptStore(BlessedScriptStore.DefaultPath()).Save(blessing);
+        Open().Save(blessing);
         Ui.Title($"{ProductInfo.Name} script bless");
         Ui.Kv("path", full);
         Ui.Kv("sha256", blessing.Sha256);
@@ -91,7 +96,7 @@ public static class ScriptCommands
 
     private static int List()
     {
-        var scripts = new BlessedScriptStore(BlessedScriptStore.DefaultPath()).Load();
+        var scripts = Open().Load();
         if (scripts.Count == 0)
         {
             Console.WriteLine("No reviewed scripts.");
@@ -114,7 +119,7 @@ public static class ScriptCommands
     {
         if (args.Length != 1)
             return Usage();
-        var removed = new BlessedScriptStore(BlessedScriptStore.DefaultPath()).Remove(args[0]);
+        var removed = Open().Remove(args[0]);
         Console.WriteLine(removed ? $"Dropped {Path.GetFullPath(args[0])}" : "No reviewed script at that path.");
         return removed ? 0 : 1;
     }

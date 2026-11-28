@@ -26,6 +26,9 @@
     <PackageOutputPath>$(MSBuildThisFileDirectory)..\..\artifacts\nupkg\</PackageOutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="CmdWarden.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <ItemGroup>

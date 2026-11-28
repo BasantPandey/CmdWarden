@@ -1152,7 +1152,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     /// Issue 201: true when a caller in the chain names a reviewed script whose hash and cap still match.
     /// An unreadable file or a damaged store does not grant the cap.
     /// </summary>
-    private bool ReviewedScriptAllows(LauncherResolution launcher, string tool, CommandClass commandClass)
+    internal bool ReviewedScriptAllows(LauncherResolution launcher, string tool, CommandClass commandClass)
     {
         IReadOnlyList<ScriptBlessing> blessings;
         try
@@ -1181,7 +1181,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         return BlessedScriptMatch.Allows(blessings, ancestors, tool, commandClass, HashOrNull);
     }
 
-    private static string? HashOrNull(string path)
+    internal static string? HashOrNull(string path)
     {
         try
         {
