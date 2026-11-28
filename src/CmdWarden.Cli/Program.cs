@@ -52,6 +52,7 @@ public static partial class CliApp
             "agent" => await AgentAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "whoami" or "identity" => await WhoAmIAsync().ConfigureAwait(false),
             "save" => await SaveAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
+            "login" => await LoginAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "inject" => await InjectAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "read" => await ReadAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
             "delete" => await DeleteAsync(args.AsSpan(1).ToArray()).ConfigureAwait(false),
@@ -773,16 +774,20 @@ public static partial class CliApp
         {
             Console.WriteLine("Usage: cw save <NAME> [--value <secret>] [--project [folder]]");
             Console.WriteLine($"       cw save <NAME> --generate [--length <{PasswordGenerator.MinLength}-{PasswordGenerator.MaxLength}>] [--force]");
+            Console.WriteLine("       cw save <NAME> --user <account> --site <host> [--value <secret>|--generate]");
             Console.WriteLine("  Without --value, reads one line from stdin (not echoed to agent logs).");
             Console.WriteLine($"  --generate saves a random password ({PasswordGenerator.DefaultLength} characters) and never shows it.");
             Console.WriteLine("  --force lets --generate replace an entry that exists.");
             Console.WriteLine("  --project stores this value for that folder and its children. The nearest folder wins.");
+            Console.WriteLine("  --user and --site store a login. Both are required. The password stays hidden.");
             return args.Length > 0 && IsHelp(args[0]) ? 0 : 1;
         }
 
         var name = args[0];
         string? value = null;
         string? project = null;
+        string? user = null;
+        string? sites = null;
         int? length = null;
         bool generate = false, force = false;
         for (var i = 1; i < args.Length; i++)
@@ -804,6 +809,12 @@ public static partial class CliApp
                 case "--length" when i + 1 < args.Length && int.TryParse(args[i + 1], out var n):
                     length = n;
                     i++;
+                    break;
+                case "--user" when i + 1 < args.Length:
+                    user = args[++i];
+                    break;
+                case "--site" when i + 1 < args.Length:
+                    sites = args[++i];
                     break;
                 case "--force":
                     force = true;
@@ -827,6 +838,23 @@ public static partial class CliApp
         {
             Console.Error.WriteLine($"--length must be {PasswordGenerator.MinLength} to {PasswordGenerator.MaxLength}.");
             return 1;
+        }
+        LoginSave? login = null;
+        if (LoginSites.IsLogin(user, sites))
+        {
+            try
+            {
+                if (project is not null)
+                    throw new ArgumentException("A login does not take a project folder.");
+                user = LoginSites.Account(user);
+                sites = LoginSites.Format(sites)[LoginSites.Prefix.Length..];
+                login = new LoginSave(user, sites);
+            }
+            catch (ArgumentException ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+                return 1;
+            }
         }
 
         var ensure = await EnsureAgentClientAsync().ConfigureAwait(false);
@@ -876,13 +904,17 @@ public static partial class CliApp
                 valueBytes = Encoding.UTF8.GetBytes(line);
             }
 
-            var response = await AgentVaultClient.SaveAsync(name, valueBytes, projectPath: project).ConfigureAwait(false);
+            var response = await AgentVaultClient.SaveAsync(name, valueBytes, projectPath: project, login: login).ConfigureAwait(false);
             Array.Clear(valueBytes);
             Ui.Title($"{ProductInfo.Name} save");
             Ui.Line($"  {Ui.Dim("secret:")} [bold]{Ui.E(name)}[/]");
             Ui.Kv("target", response.TargetName);
             if (project is not null)
                 Ui.Kv("project", project);
+            if (user is not null)
+                Ui.Kv("user", user);
+            if (sites is not null)
+                Ui.Kv("sites", sites);
             if (generate)
                 Ui.Line($"  {Ui.Dim("A random password of")} {length ?? PasswordGenerator.DefaultLength} {Ui.Dim("characters. CmdWarden does not show it.")}");
             Ui.Line($"  {Ui.Ok("Saved.")} {Ui.Dim("Release is gated by policy: cw policy enroll --kind terminal")}");
@@ -896,6 +928,50 @@ public static partial class CliApp
         catch (Exception ex)
         {
             Console.Error.WriteLine($"save failed: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> LoginAsync(string[] args)
+    {
+        if (args.Length == 0 || IsHelp(args[0]))
+        {
+            Console.WriteLine("Usage: cw login list");
+            return args.Length > 0 && IsHelp(args[0]) ? 0 : 1;
+        }
+
+        if (!string.Equals(args[0], "list", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.Error.WriteLine($"Unknown command: login {args[0]}");
+            Console.WriteLine("Usage: cw login list");
+            return 1;
+        }
+
+        var ensure = await EnsureAgentClientAsync().ConfigureAwait(false);
+        if (ensure is int code)
+            return code;
+
+        try
+        {
+            var logins = await AgentVaultClient.ListLoginsAsync().ConfigureAwait(false);
+            if (logins.Count == 0)
+            {
+                Console.WriteLine("No login is stored.");
+                return 0;
+            }
+
+            foreach (var item in logins)
+                Console.WriteLine($"{item.Name} {item.Account} {item.Sites}");
+            return 0;
+        }
+        catch (Exception ex) when (AgentHealthClient.IsAgentUnreachable(ex))
+        {
+            Console.Error.WriteLine("Session Agent is not reachable. Start it with: cw agent start");
+            return 2;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"login list failed: {ex.Message}");
             return 1;
         }
     }
@@ -2246,7 +2322,9 @@ public static partial class CliApp
         Row("agent start|stop|status", "Session Agent lifecycle");
         Row("whoami", "Show hybrid launcher identity for this caller");
         Row("save <NAME> [--project [folder]]", "Store a secret. --project keeps a different value for that folder");
+        Row("save <NAME> --user <account> --site <host>", "Store a login. Both flags are required. The password stays hidden");
         Row("save <NAME> --generate", "Store a random password that nobody sees [--length N] [--force]");
+        Row("login list", "Show each login name, user, and site. The password stays hidden");
         Row("read <NAME>", "Show one secret, after the card and Windows Hello");
         Row("inject +NAME -- cmd", "Run cmd with secret only in child env [--tool T] [--class read|write|secret-reveal|unknown]");
         Row("inject --env-file .env -- cmd", "Same, for each KEY=cw://NAME line of the file; one card for the set");
