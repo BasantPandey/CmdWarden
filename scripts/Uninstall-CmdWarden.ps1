@@ -174,12 +174,12 @@ if (-not $Quiet) {
     }
 }
 
-Write-Step "Unharden gh, git, az, docker, npm, aws, kubectl, ssh"
+Write-Step "Unharden gh, git, az, docker, npm, aws, kubectl, winget, ssh"
 $cw = Find-Cw
 $wingetInstall = $cw -and ($cw[0] -match '\\Microsoft\\WinGet\\Packages\\')
 if ($cw) {
     Write-Ok "Using: $($cw -join ' ')"
-    foreach ($tool in "gh", "git", "az", "docker", "npm", "aws", "kubectl", "ssh") {
+    foreach ($tool in "gh", "git", "az", "docker", "npm", "aws", "kubectl", "winget", "ssh") {
         if ((Invoke-Cw $cw @("unharden", $tool)) -ne 0) {
             Write-Warn "cw unharden $tool failed. See the lines above."
         }

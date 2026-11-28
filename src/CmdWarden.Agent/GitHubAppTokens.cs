@@ -11,7 +11,7 @@ namespace CmdWarden.Agent;
 /// until five minutes before it ends, so most gh runs need no call to GitHub.
 /// </summary>
 [SupportedOSPlatform("windows")]
-public sealed class GitHubAppTokens(CredentialVault vault)
+public sealed class GitHubAppTokens(ICredentialVault vault)
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
     private readonly ConcurrentDictionary<string, GitHubAppToken> _cache = new(StringComparer.OrdinalIgnoreCase);

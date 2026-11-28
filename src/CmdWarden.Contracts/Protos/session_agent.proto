@@ -93,6 +93,8 @@ message CallerIdentityResponse {
 message SaveSecretRequest {
   string name = 1;
   bytes value = 2;
+  // Folder for a per-project value. Empty keeps the global secret.
+  string project_path = 3;
 }
 
 message SaveSecretResponse {
@@ -143,6 +145,8 @@ message ReleaseSecretResponse {
 
 message DeleteSecretRequest {
   string name = 1;
+  // Folder for a per-project value. Empty deletes the global secret. Field 3 matches SaveSecretRequest.
+  string project_path = 3;
 }
 
 message DeleteSecretResponse {

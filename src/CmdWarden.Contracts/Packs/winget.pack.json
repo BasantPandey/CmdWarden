@@ -1,0 +1,33 @@
+{
+  "tool": "winget",
+  "displayName": "Windows Package Manager",
+  "binaries": ["winget.exe"],
+  "secretEnv": [],
+  "flagsWithValue": [
+    "-q", "--query", "-s", "--source", "--id", "--name", "--moniker", "-m", "--manifest",
+    "-v", "--version", "-e", "--exact", "--scope", "--architecture", "--installer-type",
+    "--locale", "--location", "--log", "--override", "--custom", "--header",
+    "--accept-package-agreements", "--accept-source-agreements", "--dependency-source", "--count"
+  ],
+  "default": "write",
+  "rules": [
+    { "match": "source update|list|export", "class": "read" },
+    { "match": "settings export", "class": "read" },
+    { "match": "upgrade|update|list|search|show|features|hash|validate|export|info", "class": "read" },
+    { "match": "source add|remove|reset", "class": "write" },
+    { "match": "install|uninstall|repair|pin|import|configure|settings|download", "class": "write" }
+  ],
+  "samples": [
+    { "argv": "upgrade --id Git.Git", "class": "read" },
+    { "argv": "update", "class": "read" },
+    { "argv": "source update", "class": "read" },
+    { "argv": "list", "class": "read" },
+    { "argv": "search git", "class": "read" },
+    { "argv": "settings export", "class": "read" },
+    { "argv": "install --id Git.Git", "class": "write" },
+    { "argv": "install -v 1.0", "class": "write" },
+    { "argv": "uninstall --id Git.Git", "class": "write" },
+    { "argv": "source add winget", "class": "write" },
+    { "argv": "--version", "class": "read" }
+  ]
+}

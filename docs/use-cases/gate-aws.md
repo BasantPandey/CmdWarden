@@ -15,7 +15,7 @@ cw save AWS_SECRET_ACCESS_KEY
 # then delete the two lines from ~/.aws/credentials
 ```
 
-*Expect:* `aws` through PATH starts the shim. On an allowed run, each of `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN` that is in the vault goes into the env of that one run. With no vault keys, the shim gates the run and aws uses its own profiles or `aws sso login`.
+*Expect:* `aws` through PATH starts the shim. On an allowed run, CmdWarden reads the long-term key from the vault and asks AWS for a session key. The child gets that key for 15 minutes. The long-term key stays in the vault. `aws sts get-session-token` and `aws sts get-federation-token` still use the long-term key, and each one shows a card. If AWS refuses the session key, the run stops and the child does not get the long-term key. With no vault keys, the shim gates the run and aws uses its own profiles or `aws sso login`.
 
 | Command | Class |
 |---------|-------|

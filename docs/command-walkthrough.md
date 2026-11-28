@@ -133,7 +133,7 @@ Above the buttons, pick how long **Allow for session** lasts: **Until exit**, **
 
 A closed card is a deny. No desktop means no card. No card means the command does not run.
 
-When Windows Hello is on, you approve, then you pass Hello. The default mode is `secret-reveal`. A canceled Hello does not count as an approval.
+When Windows Hello is on, you approve, then you pass Hello. The default mode is `secret-reveal`. An agent write also asks for Hello. `cw policy hello off` turns that off. A canceled Hello does not count as an approval.
 
 The card can show **The agent says:** when the command set `CW_REASON`. That line is a note. Policy does not treat it as proof.
 

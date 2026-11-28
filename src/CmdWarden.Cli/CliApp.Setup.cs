@@ -114,7 +114,7 @@ public static partial class CliApp
         Console.WriteLine("Usage: cw setup [--yes] [--skip <step,...>]");
         Console.WriteLine("  Set up CmdWarden in one command. Each step asks first; Enter means yes.");
         Console.WriteLine("  terminal   Enroll this terminal as Trusted (your own work gets no card).");
-        Console.WriteLine("  tools      Harden each installed tool: gh, git, az, docker, npm, aws, kubectl, ssh. Fix PATH when needed.");
+        Console.WriteLine("  tools      Harden each installed tool: gh, git, az, docker, npm, aws, kubectl, winget, ssh. Fix PATH when needed.");
         Console.WriteLine("  harnesses  Enroll Claude Code, Cursor, Codex, and Grok at Read. Add the hook, the leak guard, and the MCP server.");
         Console.WriteLine("  shortcuts  Start Menu entry, tray icon at logon, and the Settings > Apps entry.");
         Console.WriteLine("  canary     Fake tokens that show an attack when used.");

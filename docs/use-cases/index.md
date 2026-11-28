@@ -1,6 +1,6 @@
 ---
 title: Use cases
-description: Nineteen short guides for CmdWarden, from gating your GitHub token from an AI agent to reviewing one script that publishes.
+description: Twenty-one short guides for CmdWarden, from the first scan to reviewing one script that publishes.
 ---
 
 # Use cases
@@ -28,5 +28,7 @@ Each guide states when to use it, the commands to type, and what to expect. Want
 | UC17 | [Let an agent sign in without the password](web-sign-in-through-proxy.md) | The agent types `cw://NAME` in a sign-in form; you approve, and only the site gets the password |
 | UC18 | [Sign git commits with a gated ssh key](sign-commits-with-ssh.md) | Your terminal signs commits freely; an agent gets the card before it signs in your name |
 | UC19 | [Review a script that publishes](reviewed-script.md) | That exact file may run `gh release create` with no card. The same command from an agent still shows the card |
+| UC20 | [Scan, harden, and check](start.md) | `cw doctor`, `cw scan`, and `cw harden gh` in one place |
+| UC21 | [Gate winget](gate-winget.md) | Update and search run. Install and uninstall ask |
 
-New here? Run `cw setup`, then read [Approve or deny a secret read mid-session](approve-secret-read-mid-session.md). Terms you meet along the way are in the [Glossary](../glossary.md).
+New to CmdWarden? Read [Scan, harden, and check](start.md). Terms you meet along the way are in the [Glossary](../glossary.md).

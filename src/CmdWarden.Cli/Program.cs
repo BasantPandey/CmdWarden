@@ -771,20 +771,28 @@ public static partial class CliApp
     {
         if (args.Length < 1 || IsHelp(args[0]))
         {
-            Console.WriteLine("Usage: cw save <NAME> [--value <secret>]");
+            Console.WriteLine("Usage: cw save <NAME> [--value <secret>] [--project [folder]]");
             Console.WriteLine($"       cw save <NAME> --generate [--length <{PasswordGenerator.MinLength}-{PasswordGenerator.MaxLength}>] [--force]");
             Console.WriteLine("  Without --value, reads one line from stdin (not echoed to agent logs).");
             Console.WriteLine($"  --generate saves a random password ({PasswordGenerator.DefaultLength} characters) and never shows it.");
             Console.WriteLine("  --force lets --generate replace an entry that exists.");
+            Console.WriteLine("  --project stores this value for that folder and its children. The nearest folder wins.");
             return args.Length > 0 && IsHelp(args[0]) ? 0 : 1;
         }
 
         var name = args[0];
         string? value = null;
+        string? project = null;
         int? length = null;
         bool generate = false, force = false;
         for (var i = 1; i < args.Length; i++)
         {
+            if (ProjectPathOption.TryTake(args, ref i, out var folder))
+            {
+                project = Path.GetFullPath(folder ?? Environment.CurrentDirectory);
+                continue;
+            }
+
             switch (args[i])
             {
                 case "--value" or "-v" when i + 1 < args.Length:
@@ -830,7 +838,7 @@ public static partial class CliApp
         {
             if (generate)
             {
-                if (!force && (await AgentVaultClient.ListSecretNamesAsync().ConfigureAwait(false)).Contains(name, StringComparer.OrdinalIgnoreCase))
+                if (!force && project is null && (await AgentVaultClient.ListSecretNamesAsync().ConfigureAwait(false)).Contains(name, StringComparer.OrdinalIgnoreCase))
                 {
                     Console.Error.WriteLine($"The vault has {name} already. A new password replaces it, and the old one is lost.");
                     Console.Error.WriteLine("Use a new name, or add --force to replace it.");
@@ -868,11 +876,13 @@ public static partial class CliApp
                 valueBytes = Encoding.UTF8.GetBytes(line);
             }
 
-            var response = await AgentVaultClient.SaveAsync(name, valueBytes).ConfigureAwait(false);
+            var response = await AgentVaultClient.SaveAsync(name, valueBytes, projectPath: project).ConfigureAwait(false);
             Array.Clear(valueBytes);
             Ui.Title($"{ProductInfo.Name} save");
             Ui.Line($"  {Ui.Dim("secret:")} [bold]{Ui.E(name)}[/]");
             Ui.Kv("target", response.TargetName);
+            if (project is not null)
+                Ui.Kv("project", project);
             if (generate)
                 Ui.Line($"  {Ui.Dim("A random password of")} {length ?? PasswordGenerator.DefaultLength} {Ui.Dim("characters. CmdWarden does not show it.")}");
             Ui.Line($"  {Ui.Ok("Saved.")} {Ui.Dim("Release is gated by policy: cw policy enroll --kind terminal")}");
@@ -1439,6 +1449,7 @@ public static partial class CliApp
         store.SetHelloMode(mode);
         store.Save();
         Console.WriteLine($"Windows Hello after Approve: {mode}");
+        Console.WriteLine("An agent write asks for Hello unless the mode is off.");
         Console.WriteLine($"  policy file: {store.Path}");
         return 0;
     }
@@ -1560,7 +1571,7 @@ public static partial class CliApp
         Console.WriteLine("  set <policyKey> <tool> <Deny|Read|Trusted|Full>");
         Console.WriteLine("  unenroll <policyKey>");
         Console.WriteLine("  sessions [--revoke <id> | --revoke-all]   List/withdraw active session allows");
-        Console.WriteLine("  hello <off|secret-reveal|write-and-up>    When the Approval Gate asks for Windows Hello (default secret-reveal)");
+        Console.WriteLine("  hello <off|secret-reveal|write-and-up>    When the Approval Gate asks for Windows Hello (default secret-reveal). An agent write asks unless the mode is off.");
         Console.WriteLine("  low-risk <ask|allow>                      allow: a low-risk write, like a push to a feature branch, runs with no popup (default ask)");
         Console.WriteLine("  sync [<git repo>] [--file F] [--ref R] | --remove   Team rules from a git repo; they only lower a level");
         Console.WriteLine();
@@ -1579,7 +1590,20 @@ public static partial class CliApp
     {
         if (args.Length < 1)
         {
-            Console.WriteLine("Usage: cw delete <NAME>");
+            Console.WriteLine("Usage: cw delete <NAME> [--project [folder]]");
+            return 1;
+        }
+
+        string? project = null;
+        for (var i = 1; i < args.Length; i++)
+        {
+            if (ProjectPathOption.TryTake(args, ref i, out var folder))
+            {
+                project = Path.GetFullPath(folder ?? Environment.CurrentDirectory);
+                continue;
+            }
+
+            Console.Error.WriteLine($"Unknown option for cw delete: {args[i]}");
             return 1;
         }
 
@@ -1589,9 +1613,11 @@ public static partial class CliApp
 
         try
         {
-            var deleted = await AgentVaultClient.DeleteAsync(args[0]).ConfigureAwait(false);
+            var deleted = await AgentVaultClient.DeleteAsync(args[0], projectPath: project).ConfigureAwait(false);
             Ui.Title($"{ProductInfo.Name} delete");
             Ui.Line($"  {Ui.Dim("secret:")} [bold]{Ui.E(args[0])}[/]");
+            if (project is not null)
+                Ui.Kv("project", project);
             Ui.Line($"  {(deleted ? Ui.Ok("Deleted.") : Ui.Warn("Not present."))}");
             return 0;
         }
@@ -1855,7 +1881,7 @@ public static partial class CliApp
             Console.WriteLine("  cw harden docker  Discover real docker, pin, install PATH shim (compat; leave Desktop store).");
             Console.WriteLine("  cw harden ssh     Gate each ssh key sign: SSH_AUTH_SOCK points to the CmdWarden ssh-agent pipe.");
             Console.WriteLine("                    --upstream <pipe> names the real agent (default \\.\\pipe\\openssh-ssh-agent).");
-            Console.WriteLine("  cw harden <pack>  Pin a tool from its tool pack and install the pack shim, for example npm, aws, kubectl.");
+            Console.WriteLine("  cw harden <pack>  Pin a tool from its tool pack and install the pack shim, for example npm, aws, kubectl, winget.");
             Console.WriteLine($"                    Add your own packs as JSON files in {ToolPacks.UserDir()}.");
             Console.WriteLine("Options:");
             Console.WriteLine("  --path <exe>       Absolute path to real tool (skip discovery)");
@@ -2219,19 +2245,19 @@ public static partial class CliApp
         Row("doctor [--fix-path]", "Check Session Agent + vault UI / Start Menu shortcut; --fix-path elevates once");
         Row("agent start|stop|status", "Session Agent lifecycle");
         Row("whoami", "Show hybrid launcher identity for this caller");
-        Row("save <NAME>", "Store secret in Credential Manager via agent");
+        Row("save <NAME> [--project [folder]]", "Store a secret. --project keeps a different value for that folder");
         Row("save <NAME> --generate", "Store a random password that nobody sees [--length N] [--force]");
         Row("read <NAME>", "Show one secret, after the card and Windows Hello");
         Row("inject +NAME -- cmd", "Run cmd with secret only in child env [--tool T] [--class read|write|secret-reveal|unknown]");
         Row("inject --env-file .env -- cmd", "Same, for each KEY=cw://NAME line of the file; one card for the set");
         Row("inject --template f -- cmd {template}", "Fill each cw://NAME in a copy of f; cmd gets its path; the copy goes away after the run");
         Row("inject ... --no-masking", "Show secret values in the output (default: [CmdWarden: NAME])");
-        Row("delete <NAME>", "Remove secret from vault");
+        Row("delete <NAME> [--project [folder]]", "Remove a secret. --project removes only the value for that folder");
         Row("policy ...", "List/enroll/set tool x launcher policy levels");
         Row("harden gh|git|az|docker", "Pin real tool, install PATH shim (gh also imports token)");
         Row("harden docker|git|gh|az --strong", "Also move the tool's credentials into the vault (vault-only)");
         Row("harden ssh", "Ask before an AI harness signs with an ssh key (git push over ssh)");
-        Row("harden <pack tool>", "Gate a tool from its tool pack: npm, aws, kubectl, or your own JSON pack");
+        Row("harden <pack tool>", "Gate a tool from its tool pack: npm, aws, kubectl, winget, or your own JSON pack");
         Row("harden --list", "One status row per catalog tool and tool pack");
         Row("unharden docker|git|gh|az|ssh|<pack tool>", "Restore the stock store and config, remove pin and shim");
         Row("proxy setup|add|remove|list|strict|uninstall", "Put a vault key in place of cw://NAME for listed hosts (API keys)");

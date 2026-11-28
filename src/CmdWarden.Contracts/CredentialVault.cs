@@ -8,7 +8,7 @@ namespace CmdWarden.Contracts;
 /// Windows Credential Manager vault (CRED_TYPE_GENERIC) for CmdWarden secrets.
 /// </summary>
 [SupportedOSPlatform("windows")]
-public sealed class CredentialVault
+public sealed class CredentialVault : ICredentialVault
 {
     private const int CredTypeGeneric = 1;
     private const int CredPersistLocalMachine = 2;

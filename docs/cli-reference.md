@@ -18,11 +18,11 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw policy set <key> <tool> <Deny\|Read\|Trusted\|Full>` | Per tool × launcher level; tool `"*"` sets every tool |
 | `cw policy unenroll <key>` | Remove enrollment |
 | `cw policy sessions [--revoke <id> \| --revoke-all]` | List or revoke active session allows |
-| `cw policy hello off\|secret-reveal\|write-and-up` | When the Approval Gate asks for Windows Hello after Approve (default `secret-reveal`) |
+| `cw policy hello off\|secret-reveal\|write-and-up` | When the Approval Gate asks for Windows Hello after Approve (default `secret-reveal`). An agent write asks unless the mode is off |
 | `cw policy sync [<git repo>] [--file F] [--ref R] \| --remove` | Read team rules from a git repo (default file `cmdwarden-team.json`). A team rule sets a maximum level, so it only lowers a level |
 | `cw policy low-risk ask\|allow` | `allow`: a low-risk write of an enrolled launcher, like a push to a feature branch, runs with no popup. A new policy file starts with `allow`; an older one keeps its setting |
 | `cw harden gh\|git\|az\|docker` | Pin + PATH shim (+ gh token import) |
-| `cw harden npm\|aws\|kubectl\|<pack tool>` | Pin + PATH shim from a [tool pack](tool-packs.md) |
+| `cw harden npm\|aws\|kubectl\|winget\|<pack tool>` | Pin + PATH shim from a [tool pack](tool-packs.md) |
 | `cw harden ssh [--upstream <pipe>]` | Ask before a sign with an ssh key; see [Gate ssh key use](use-cases/gate-ssh-keys.md) |
 | `cw github app setup\|status\|remove` | gh gets a [GitHub App token](use-cases/short-lived-github-tokens.md) for one repo that ends in one hour |
 | `cw script bless <path> --cap <tool>=read\|write` | Review one script. A run of that exact file may use the caps with no card. See [Review a script that publishes](use-cases/reviewed-script.md) |
@@ -36,7 +36,7 @@ Every command prints plain text. Colors turn off when you pipe the output or set
 | `cw harden gh\|git\|docker\|az --strong` | Also move the tool's stock credentials into the Vault |
 | `cw unharden gh\|git\|docker\|az\|ssh\|<pack tool>` | Restore the stock store, remove pin and shim |
 | `cw doctor --fix-path` | Put the shims dir first on the machine PATH (one UAC prompt) |
-| `cw save <NAME>` / `cw delete <NAME>` | Named vault secret |
+| `cw save <NAME> [--project [folder]]` / `cw delete <NAME> [--project [folder]]` | Named vault secret. `--project` stores a different value for that folder and its children. The nearest folder wins |
 | `cw save <NAME> --generate [--length N] [--force]` | Save a random password (24 characters by default) and never show it. `--force` replaces an entry that exists ([Make a new account](use-cases/web-sign-in-through-proxy.md#make-a-new-account-optional)) |
 | `cw read <NAME> [--no-newline]` | Show one secret value. The class is `secret-reveal`: you get the card each time, and Windows Hello when it is set up. A session grant never covers it |
 | `cw inject +NAME -- <cmd>` | Run cmd with secret in child env only. The output shows `[CmdWarden: NAME]` in place of each value |
