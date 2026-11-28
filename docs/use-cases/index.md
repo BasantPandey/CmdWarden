@@ -1,6 +1,6 @@
 ---
 title: Use cases
-description: Eighteen short guides for CmdWarden, from gating your GitHub token from an AI agent to keeping your .env out of the agent.
+description: Nineteen short guides for CmdWarden, from gating your GitHub token from an AI agent to reviewing one script that publishes.
 ---
 
 # Use cases
@@ -27,5 +27,6 @@ Each guide states when to use it, the commands to type, and what to expect. Want
 | UC16 | [Keep .env secrets out of the agent](env-files.md) | `cw env import` moves the values; `cw inject --env-file` or `--template` gives them only to your program |
 | UC17 | [Let an agent sign in without the password](web-sign-in-through-proxy.md) | The agent types `cw://NAME` in a sign-in form; you approve, and only the site gets the password |
 | UC18 | [Sign git commits with a gated ssh key](sign-commits-with-ssh.md) | Your terminal signs commits freely; an agent gets the card before it signs in your name |
+| UC19 | [Review a script that publishes](reviewed-script.md) | That exact file may run `gh release create` with no card. The same command from an agent still shows the card |
 
 New here? Run `cw setup`, then read [Approve or deny a secret read mid-session](approve-secret-read-mid-session.md). Terms you meet along the way are in the [Glossary](../glossary.md).

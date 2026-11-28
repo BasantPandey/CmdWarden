@@ -6,6 +6,15 @@ These notes are a summary. They are not a git log.
 
 No release in this file is signed.
 
+## 0.13.0
+
+Reviewed scripts. `cw script bless` stores a path, a file hash, and tool caps.
+A run of that exact file may use the caps with no card.
+The same command from an agent still shows the card.
+A change of one byte clears the review.
+A secret reveal still shows the card.
+This note is for the source version. It is not a tagged release.
+
 ## 0.12.0
 
 Tag `v0.12.0` is the current release.

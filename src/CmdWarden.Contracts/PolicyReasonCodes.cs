@@ -40,6 +40,8 @@ public static class PolicyReasonCodes
     public const string ScriptChanged = "ScriptChanged";
     /// <summary>A PowerShell wrapper in the caller chain runs code CmdWarden cannot read, so the popup is forced (#31).</summary>
     public const string HiddenCommand = "HiddenCommand";
+    /// <summary>A reviewed script file still matches its hash and its tool cap (issue 201).</summary>
+    public const string BlessedScript = "BlessedScript";
     /// <summary>The risk check marked this write low risk, and policy auto-allows low-risk writes (#35).</summary>
     public const string LowRisk = "LowRisk";
     /// <summary>The risk check marked this command high risk, so the Approval Gate asks below Full (#35).</summary>
