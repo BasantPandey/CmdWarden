@@ -7,7 +7,6 @@ using CmdWarden.Cli.Launch;
 using CmdWarden.Cli.Mcp;
 using CmdWarden.Contracts;
 using CmdWarden.Contracts.GitHub;
-using Spectre.Console;
 
 namespace CmdWarden.Tests;
 
@@ -343,33 +342,8 @@ public sealed class GrokHarnessCoverageTests : IDisposable
         return captured;
     }
 
-    private static async Task<(int Code, string Out, string Err)> Capture(Func<Task<int>> run)
-    {
-        var stdout = new StringWriter();
-        var stderr = new StringWriter();
-        var oldOut = Console.Out;
-        var oldErr = Console.Error;
-        var previous = AnsiConsole.Console;
-        var console = AnsiConsole.Create(new AnsiConsoleSettings
-        {
-            Out = new AnsiConsoleOutput(stdout),
-            Ansi = AnsiSupport.No,
-            Interactive = InteractionSupport.No,
-        });
-        Console.SetOut(stdout);
-        Console.SetError(stderr);
-        AnsiConsole.Console = console;
-        try
-        {
-            return (await run().ConfigureAwait(false), stdout.ToString(), stderr.ToString());
-        }
-        finally
-        {
-            Console.SetOut(oldOut);
-            Console.SetError(oldErr);
-            AnsiConsole.Console = previous;
-        }
-    }
+    private static Task<(int Code, string Out, string Err)> Capture(Func<Task<int>> run) =>
+        CliOutput.Capture(run, width: null);
 }
 
 /// <summary>Path lookup, the npm shim, the Grok leak source, and the app JWT. These tests change no home.</summary>

@@ -126,27 +126,7 @@ public class PolicySessionsProcessTests
 
     private static async Task<(int ExitCode, string Output)> CaptureAsync(Func<Task<int>> run)
     {
-        var writer = new StringWriter();
-        Console.SetOut(writer);
-        // AnsiConsole keeps the writer of its first use; an earlier test in this process may have made it.
-        var previous = Spectre.Console.AnsiConsole.Console;
-        var console = Spectre.Console.AnsiConsole.Create(new Spectre.Console.AnsiConsoleSettings
-        {
-            Out = new Spectre.Console.AnsiConsoleOutput(writer),
-            Ansi = Spectre.Console.AnsiSupport.No,
-            Interactive = Spectre.Console.InteractionSupport.No,
-        });
-        console.Profile.Width = 200;
-        Spectre.Console.AnsiConsole.Console = console;
-        try
-        {
-            var exit = await run();
-            return (exit, writer.ToString());
-        }
-        finally
-        {
-            Console.Out.Flush();
-            Spectre.Console.AnsiConsole.Console = previous;
-        }
+        var captured = await CliOutput.Capture(run, width: 200).ConfigureAwait(false);
+        return (captured.Code, captured.Out);
     }
 }

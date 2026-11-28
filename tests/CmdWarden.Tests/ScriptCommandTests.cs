@@ -4,7 +4,6 @@ using CmdWarden.Agent.Approval;
 using CmdWarden.Agent.Identity;
 using CmdWarden.Cli;
 using CmdWarden.Contracts;
-using Spectre.Console;
 
 namespace CmdWarden.Tests;
 
@@ -232,34 +231,8 @@ public class ScriptCommandTests
     private static (int Code, string Out, string Err) Capture(Func<int> run) =>
         CaptureAsync(() => Task.FromResult(run())).GetAwaiter().GetResult();
 
-    private static async Task<(int Code, string Out, string Err)> CaptureAsync(Func<Task<int>> run)
-    {
-        var stdout = new StringWriter();
-        var stderr = new StringWriter();
-        var oldOut = Console.Out;
-        var oldErr = Console.Error;
-        var previous = AnsiConsole.Console;
-        var console = AnsiConsole.Create(new AnsiConsoleSettings
-        {
-            Out = new AnsiConsoleOutput(stdout),
-            Ansi = AnsiSupport.No,
-            Interactive = InteractionSupport.No,
-        });
-        console.Profile.Width = 400;
-        AnsiConsole.Console = console;
-        Console.SetOut(stdout);
-        Console.SetError(stderr);
-        try
-        {
-            return (await run().ConfigureAwait(false), stdout.ToString(), stderr.ToString());
-        }
-        finally
-        {
-            Console.SetOut(oldOut);
-            Console.SetError(oldErr);
-            AnsiConsole.Console = previous;
-        }
-    }
+    private static Task<(int Code, string Out, string Err)> CaptureAsync(Func<Task<int>> run) =>
+        CliOutput.Capture(run);
 
     private static string TempDir()
     {
