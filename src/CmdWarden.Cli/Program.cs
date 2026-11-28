@@ -811,10 +811,10 @@ public static partial class CliApp
                     i++;
                     break;
                 case "--user" when i + 1 < args.Length:
-                    user = args[++i];
+                    user = NextArg(args, ref i);
                     break;
                 case "--site" when i + 1 < args.Length:
-                    sites = args[++i];
+                    sites = NextArg(args, ref i);
                     break;
                 case "--force":
                     force = true;
@@ -839,23 +839,8 @@ public static partial class CliApp
             Console.Error.WriteLine($"--length must be {PasswordGenerator.MinLength} to {PasswordGenerator.MaxLength}.");
             return 1;
         }
-        LoginSave? login = null;
-        if (LoginSites.IsLogin(user, sites))
-        {
-            try
-            {
-                if (project is not null)
-                    throw new ArgumentException("A login does not take a project folder.");
-                user = LoginSites.Account(user);
-                sites = LoginSites.Format(sites)[LoginSites.Prefix.Length..];
-                login = new LoginSave(user, sites);
-            }
-            catch (ArgumentException ex)
-            {
-                Console.Error.WriteLine(ex.Message);
-                return 1;
-            }
-        }
+        if (!TryReadLogin(ref user, ref sites, project, out var login))
+            return 1;
 
         var ensure = await EnsureAgentClientAsync().ConfigureAwait(false);
         if (ensure is int code)
@@ -935,17 +920,10 @@ public static partial class CliApp
     private static async Task<int> LoginAsync(string[] args)
     {
         if (args.Length == 0 || IsHelp(args[0]))
-        {
-            Console.WriteLine("Usage: cw login list");
-            return args.Length > 0 && IsHelp(args[0]) ? 0 : 1;
-        }
+            return LoginUsage(args.Length > 0 && IsHelp(args[0]));
 
         if (!string.Equals(args[0], "list", StringComparison.OrdinalIgnoreCase))
-        {
-            Console.Error.WriteLine($"Unknown command: login {args[0]}");
-            Console.WriteLine("Usage: cw login list");
-            return 1;
-        }
+            return UnknownLogin(args[0]);
 
         var ensure = await EnsureAgentClientAsync().ConfigureAwait(false);
         if (ensure is int code)
@@ -953,27 +931,81 @@ public static partial class CliApp
 
         try
         {
-            var logins = await AgentVaultClient.ListLoginsAsync().ConfigureAwait(false);
-            if (logins.Count == 0)
-            {
-                Console.WriteLine("No login is stored.");
-                return 0;
-            }
-
-            foreach (var item in logins)
-                Console.WriteLine($"{item.Name} {item.Account} {item.Sites}");
-            return 0;
+            return PrintLogins(await AgentVaultClient.ListLoginsAsync().ConfigureAwait(false));
         }
         catch (Exception ex) when (AgentHealthClient.IsAgentUnreachable(ex))
         {
-            Console.Error.WriteLine("Session Agent is not reachable. Start it with: cw agent start");
-            return 2;
+            return AgentDown();
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"login list failed: {ex.Message}");
-            return 1;
+            return LoginFailed(ex.Message);
         }
+    }
+
+    private static string NextArg(string[] args, ref int index)
+    {
+        index++;
+        return args[index];
+    }
+
+    private static bool TryReadLogin(ref string? user, ref string? sites, string? project, out LoginSave? login)
+    {
+        login = null;
+        if (!LoginSites.IsLogin(user, sites))
+            return true;
+        try
+        {
+            if (project is not null)
+                throw new ArgumentException("A login does not take a project folder.");
+            user = LoginSites.Account(user);
+            sites = LoginSites.Format(sites)[LoginSites.Prefix.Length..];
+            login = new LoginSave(user, sites);
+            return true;
+        }
+        catch (ArgumentException ex)
+        {
+            Console.Error.WriteLine(ex.Message);
+            return false;
+        }
+    }
+
+    private static int LoginUsage(bool help)
+    {
+        Console.WriteLine("Usage: cw login list");
+        return help ? 0 : 1;
+    }
+
+    private static int PrintLogins(IReadOnlyList<LoginInfo> logins)
+    {
+        if (logins.Count == 0)
+        {
+            Console.WriteLine("No login is stored.");
+            return 0;
+        }
+
+        foreach (var item in logins)
+            Console.WriteLine($"{item.Name} {item.Account} {item.Sites}");
+        return 0;
+    }
+
+    private static int UnknownLogin(string command)
+    {
+        Console.Error.WriteLine($"Unknown command: login {command}");
+        Console.WriteLine("Usage: cw login list");
+        return 1;
+    }
+
+    private static int AgentDown()
+    {
+        Console.Error.WriteLine("Session Agent is not reachable. Start it with: cw agent start");
+        return 2;
+    }
+
+    private static int LoginFailed(string message)
+    {
+        Console.Error.WriteLine($"login list failed: {message}");
+        return 1;
     }
 
     private static async Task<int> InjectAsync(string[] args)

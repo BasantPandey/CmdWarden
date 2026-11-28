@@ -134,8 +134,12 @@ public class LoginCommandTests
             return new LoginPipe(app, vault, pipe, Environment.GetEnvironmentVariable("CW_PIPE_NAME"));
         }
 
-        public Task<(int Code, string Out, string Err)> Run(params string[] args) =>
-            CliOutput.Capture(() => CliApp.RunAsync(args));
+        public Task<(int Code, string Out, string Err)> Run(params string[] args)
+        {
+            if (!string.Equals(Environment.GetEnvironmentVariable("CW_PIPE_NAME"), Pipe, StringComparison.Ordinal))
+                throw new InvalidOperationException("The login pipe is not selected.");
+            return CliOutput.Capture(() => CliApp.RunAsync(args));
+        }
 
         public async ValueTask DisposeAsync()
         {
