@@ -12,12 +12,18 @@ public static class AgentVaultClient
         string? pipeName = null,
         TimeSpan? timeout = null,
         CancellationToken cancellationToken = default,
-        string? projectPath = null)
+        string? projectPath = null,
+        string? account = null,
+        string? sites = null)
     {
         using var call = AgentCall.Create(pipeName, timeout, cancellationToken);
         var request = new SaveSecretRequest { Name = name, Value = ByteString.CopyFrom(value) };
         if (!string.IsNullOrWhiteSpace(projectPath))
             request.ProjectPath = projectPath;
+        if (!string.IsNullOrWhiteSpace(account))
+            request.Account = account;
+        if (!string.IsNullOrWhiteSpace(sites))
+            request.Sites = sites;
         return await call.Client.SaveSecretAsync(request, cancellationToken: call.Token).ConfigureAwait(false);
     }
 
@@ -85,5 +91,17 @@ public static class AgentVaultClient
             new ListSecretNamesRequest(),
             cancellationToken: call.Token).ConfigureAwait(false);
         return response.Names;
+    }
+
+    public static async Task<IReadOnlyList<LoginInfo>> ListLoginsAsync(
+        string? pipeName = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var call = AgentCall.Create(pipeName, timeout, cancellationToken);
+        var response = await call.Client.ListLoginsAsync(
+            new ListLoginsRequest(),
+            cancellationToken: call.Token).ConfigureAwait(false);
+        return response.Logins;
     }
 }

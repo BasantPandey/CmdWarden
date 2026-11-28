@@ -158,7 +158,8 @@ public sealed class CredentialVault : ICredentialVault
                 var credPtr = Marshal.ReadIntPtr(credentialsPtr, i * IntPtr.Size);
                 var cred = Marshal.PtrToStructure<CREDENTIAL>(credPtr);
                 targets.Add(new VaultTarget(cred.TargetName, cred.UserName ?? "",
-                    DateTimeOffset.FromFileTime(((long)cred.LastWritten.dwHighDateTime << 32) | (uint)cred.LastWritten.dwLowDateTime)));
+                    DateTimeOffset.FromFileTime(((long)cred.LastWritten.dwHighDateTime << 32) | (uint)cred.LastWritten.dwLowDateTime),
+                    cred.Comment ?? ""));
             }
             return targets;
         }
@@ -360,9 +361,10 @@ public sealed class CredentialVault : ICredentialVault
 /// <summary>One stored credential: user name metadata plus the secret bytes.</summary>
 public sealed record VaultEntry(string UserName, byte[] Blob, string Comment = "");
 
-/// <summary>One listed credential: target and user name only.</summary>
+/// <summary>One listed credential. The blob is not copied.</summary>
 /// <param name="LastWritten">#97: when the value last changed, for the vault age report of cw scan.</param>
-public sealed record VaultTarget(string Target, string UserName, DateTimeOffset LastWritten = default);
+/// <param name="Comment">Metadata. A login stores its site list here.</param>
+public sealed record VaultTarget(string Target, string UserName, DateTimeOffset LastWritten = default, string Comment = "");
 
 /// <summary>One foreign credential read by label, e.g. a Docker Desktop registry entry.</summary>
 public sealed record LabeledEntry(string Target, string UserName, byte[] Blob);

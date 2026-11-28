@@ -13,6 +13,8 @@ service SessionAgent {
   rpc DeleteSecret (DeleteSecretRequest) returns (DeleteSecretResponse);
   // Names only — never blobs, never values, on the wire.
   rpc ListSecretNames (ListSecretNamesRequest) returns (ListSecretNamesResponse);
+  // Login rows only. Never the password.
+  rpc ListLogins (ListLoginsRequest) returns (ListLoginsResponse);
   // Authorize tool invocation (gh spike vertical) — Grant | Denial via status.
   rpc Authorize (AuthorizeRequest) returns (AuthorizeResponse);
   // Active "Allow for session" grants (#134). Read-only; never prompts; names only, never values.
@@ -95,6 +97,10 @@ message SaveSecretRequest {
   bytes value = 2;
   // Folder for a per-project value. Empty keeps the global secret.
   string project_path = 3;
+  // Site account. Empty keeps a normal secret. Set with sites.
+  string account = 4;
+  // Comma-separated hosts. Empty keeps a normal secret. Set with account.
+  string sites = 5;
 }
 
 message SaveSecretResponse {
@@ -157,6 +163,18 @@ message ListSecretNamesRequest {}
 
 message ListSecretNamesResponse {
   repeated string names = 1;
+}
+
+message ListLoginsRequest {}
+
+message LoginInfo {
+  string name = 1;
+  string account = 2;
+  string sites = 3;
+}
+
+message ListLoginsResponse {
+  repeated LoginInfo logins = 1;
 }
 
 message AuthorizeRequest {
