@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using CmdWarden.Contracts;
 using CmdWarden.Contracts.Grpc;
 using CmdWarden.SecretsManager;
@@ -79,6 +80,26 @@ public class LoginWindowTests
             () => Task.FromResult<IReadOnlyList<LoginInfo>>(Array.Empty<LoginInfo>()));
         Assert.Empty(failed.Rows);
 
+        var listed = await LoginListView.LoadAsync(
+            () => Task.FromResult(true),
+            () => Task.FromResult<IReadOnlyList<LoginInfo>>(new[]
+            {
+                new LoginInfo { Name = "GITHUB", Account = "ada", Sites = "github.com" },
+            }));
+        Assert.Equal("ada", Assert.Single(listed.Rows).Account);
+        Assert.Equal("github.com", Assert.Single(listed.Rows).Sites);
+        Assert.Equal("1 login", listed.CountText);
+
+        await StaAsync(async () =>
+        {
+            var page = Bind();
+            await page.Page.RefreshAsync(
+                () => throw new InvalidOperationException("down"),
+                () => Task.FromResult<IReadOnlyList<LoginInfo>>(Array.Empty<LoginInfo>()));
+            Assert.Equal(LoginListView.OfflineText, page.EmptyText.Text);
+            Assert.Empty(page.Page.Rows);
+        });
+
         var xaml = File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "src", "CmdWarden.SecretsManager", "MainWindow.xaml"));
         var start = xaml.IndexOf("x:Name=\"PageLogins\"", StringComparison.Ordinal);
         var end = xaml.IndexOf("Secret Gates", start, StringComparison.Ordinal);
@@ -90,6 +111,43 @@ public class LoginWindowTests
         Assert.DoesNotContain("Reveal", tab, StringComparison.Ordinal);
         Assert.DoesNotContain("Password", tab, StringComparison.Ordinal);
         Assert.DoesNotContain("{Binding Value}", tab, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_logins_tab_opens_from_the_secrets_window()
+    {
+        await StaAsync(async () =>
+        {
+            if (Application.Current == null)
+            {
+                var app = new App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+                app.InitializeComponent();
+            }
+
+            var window = new MainWindow { ShowInTaskbar = false };
+            try
+            {
+                var title = (TextBlock)window.FindName("PageTitleText")!;
+                Assert.Equal("Secrets", title.Text);
+                var nav = (Button)window.FindName("NavLogins")!;
+                nav.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal("Logins", title.Text);
+                var primary = (Button)window.FindName("PagePrimaryButton")!;
+                Assert.True(primary.IsEnabled);
+                primary.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                var empty = (TextBlock)window.FindName("LoginEmptyText")!;
+                var list = (ItemsControl)window.FindName("LoginsList")!;
+                await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                Assert.True(
+                    empty.Text is "No login is stored." or "Session Agent is not running." || list.Items.Count > 0);
+                Assert.DoesNotContain("Password", empty.Text, StringComparison.Ordinal);
+                Assert.All(list.Items.OfType<LoginListItem>(), row => Assert.False(string.IsNullOrWhiteSpace(row.Name)));
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
     }
 
     private static Bound Bind()
@@ -106,20 +164,37 @@ public class LoginWindowTests
 
     private static Task StaAsync(Func<Task> action)
     {
-        var done = new TaskCompletionSource();
+        var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = new Thread(() =>
         {
             try
             {
-                action().GetAwaiter().GetResult();
-                done.SetResult();
+                var frame = new DispatcherFrame();
+                _ = Dispatcher.CurrentDispatcher.InvokeAsync(async () =>
+                {
+                    try
+                    {
+                        await action().ConfigureAwait(true);
+                        done.SetResult();
+                    }
+                    catch (Exception ex)
+                    {
+                        done.SetException(ex);
+                    }
+                    finally
+                    {
+                        frame.Continue = false;
+                    }
+                });
+                Dispatcher.PushFrame(frame);
             }
             catch (Exception ex)
             {
-                done.SetException(ex);
+                done.TrySetException(ex);
             }
         });
         thread.SetApartmentState(ApartmentState.STA);
+        thread.IsBackground = true;
         thread.Start();
         return done.Task;
     }
