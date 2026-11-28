@@ -84,7 +84,7 @@ public class LoginSaveTests
         var pipe = "cw-no-agent-" + Guid.NewGuid().ToString("N");
         var timeout = TimeSpan.FromMilliseconds(400);
         await Assert.ThrowsAnyAsync<Exception>(() =>
-            AgentVaultClient.SaveAsync("GITHUB", [1], pipeName: pipe, timeout: timeout, account: "ada", sites: "github.com"));
+            AgentVaultClient.SaveAsync("GITHUB", [1], pipeName: pipe, timeout: timeout, login: new LoginSave("ada", "github.com")));
         await Assert.ThrowsAnyAsync<Exception>(() =>
             AgentVaultClient.ListLoginsAsync(pipe, timeout));
     }

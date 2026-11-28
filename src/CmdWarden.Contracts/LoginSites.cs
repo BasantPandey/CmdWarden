@@ -15,11 +15,8 @@ public static class LoginSites
     public static string Account(string? account)
     {
         var raw = account ?? "";
-        foreach (var c in raw)
-        {
-            if (char.IsControl(c))
-                throw new ArgumentException("Site account must not contain control characters.");
-        }
+        if (raw.Where(char.IsControl).Any())
+            throw new ArgumentException("Site account must not contain control characters.");
         var text = raw.Trim();
         if (text.Length == 0)
             throw new ArgumentException("Site account is required.");

@@ -4,6 +4,8 @@ using CmdWarden.Contracts.Grpc;
 
 namespace CmdWarden.Contracts;
 
+public readonly record struct LoginSave(string? Account = null, string? Sites = null);
+
 public static class AgentVaultClient
 {
     public static async Task<SaveSecretResponse> SaveAsync(
@@ -13,16 +15,15 @@ public static class AgentVaultClient
         TimeSpan? timeout = null,
         CancellationToken cancellationToken = default,
         string? projectPath = null,
-        string? account = null,
-        string? sites = null)
+        LoginSave? login = null)
     {
         using var call = AgentCall.Create(pipeName, timeout, cancellationToken);
         var request = new SaveSecretRequest { Name = name, Value = ByteString.CopyFrom(value) };
         if (!string.IsNullOrWhiteSpace(projectPath))
             request.ProjectPath = projectPath;
-        if (!string.IsNullOrWhiteSpace(account))
+        if (login is { Account: { } account } && !string.IsNullOrWhiteSpace(account))
             request.Account = account;
-        if (!string.IsNullOrWhiteSpace(sites))
+        if (login is { Sites: { } sites } && !string.IsNullOrWhiteSpace(sites))
             request.Sites = sites;
         return await call.Client.SaveSecretAsync(request, cancellationToken: call.Token).ConfigureAwait(false);
     }
