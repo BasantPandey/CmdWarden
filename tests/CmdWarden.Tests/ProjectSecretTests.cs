@@ -112,6 +112,22 @@ public class ProjectSecretTests
         index = 1;
         Assert.False(ProjectPathOption.TryTake(other, ref index, out path));
         Assert.Equal(1, index);
+
+        index = 5;
+        Assert.False(ProjectPathOption.TryTake(other, ref index, out path));
+        Assert.Throws<ArgumentException>(() => VaultNames.ProjectTarget("TOKEN", ""));
+        Assert.Throws<ArgumentException>(() => VaultNames.ProjectTarget("TOKEN", @"C:\a*b"));
+        Assert.Throws<ArgumentException>(() => VaultNames.ProjectTarget("TOKEN", "C:\\a\nb"));
+    }
+
+    [Fact]
+    public void An_empty_global_blob_is_not_a_hit()
+    {
+        var store = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            [VaultNames.TargetName("TOKEN")] = [],
+        };
+        Assert.Null(ProjectSecrets.Find("TOKEN", null, Read(store), Named(store)));
     }
 
     private static Func<string, byte[]?> Read(Dictionary<string, byte[]> store) =>

@@ -90,6 +90,7 @@ public static class AgentHost
         builder.Services.AddSingleton(audit);
         builder.Services.AddSingleton(new AlarmNotifier(approvalGate is ProcessApprovalGate));
         builder.Services.AddSingleton<CredentialVault>();
+        builder.Services.AddSingleton<ICredentialVault>(sp => sp.GetRequiredService<CredentialVault>());
         builder.Services.AddSingleton<LauncherIdentityResolver>();
         // One service for every call, so the popup lock and the caches hold across calls; the ssh gate uses it too.
         builder.Services.AddSingleton<SessionAgentService>();

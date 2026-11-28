@@ -104,6 +104,23 @@ public class AwsSessionTests
             first);
     }
 
+    [Fact]
+    public void A_bad_reply_throws()
+    {
+        var env = Env();
+        Assert.Throws<AwsSessionException>(() => AwsSession.Apply(env, ["s3", "ls"], _ =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("<not-xml"),
+            })));
+        Assert.Throws<AwsSessionException>(() => AwsSession.Apply(env, ["s3", "ls"], _ =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("<GetSessionTokenResponse></GetSessionTokenResponse>"),
+            })));
+        Assert.Equal("AKIAEXAMPLE", env["AWS_ACCESS_KEY_ID"]);
+    }
+
     private static Dictionary<string, string> Env() => new()
     {
         ["AWS_ACCESS_KEY_ID"] = "AKIAEXAMPLE",

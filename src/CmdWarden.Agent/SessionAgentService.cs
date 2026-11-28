@@ -22,8 +22,10 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     /// <summary>Child env key so nested go-gh helpers use the pinned real binary (#39).</summary>
     public const string GhPathEnvName = "GH_PATH";
 
+    internal static Func<HttpRequestMessage, Task<HttpResponseMessage>>? AwsSendForTests;
+
     private readonly string _pipeName;
-    private readonly CredentialVault _vault;
+    private readonly ICredentialVault _vault;
     private readonly LauncherIdentityResolver _identity;
     private readonly PolicyStore _policy;
     private readonly IApprovalGate _approvalGate;
@@ -40,7 +42,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
 
     public SessionAgentService(
         AgentRuntimeInfo runtime,
-        CredentialVault vault,
+        ICredentialVault vault,
         LauncherIdentityResolver identity,
         PolicyStore policy,
         IApprovalGate approvalGate,
@@ -536,7 +538,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             }
 
             if (tool == "aws")
-                AwsSession.Apply(response.Env, argv);
+                AwsSession.Apply(response.Env, argv, AwsSendForTests);
 
             if (appToken is not null)
                 response.Env["GH_TOKEN"] = appToken.Token;
