@@ -133,7 +133,15 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             try
             {
                 var target = ProjectSecrets.TargetFor(request.Name, request.ProjectPath);
-                if (string.IsNullOrWhiteSpace(request.ProjectPath))
+                if (LoginSites.IsLogin(request.Account, request.Sites))
+                {
+                    if (!string.IsNullOrWhiteSpace(request.ProjectPath))
+                        throw new ArgumentException("A login does not take a project folder.");
+                    var account = LoginSites.Account(request.Account);
+                    var comment = LoginSites.Format(request.Sites);
+                    _vault.SaveTarget(target, account, bytes, comment: comment);
+                }
+                else if (string.IsNullOrWhiteSpace(request.ProjectPath))
                     _vault.Save(request.Name, bytes);
                 else
                 {
@@ -312,6 +320,30 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         catch (Exception ex)
         {
             throw new RpcException(new Status(StatusCode.Internal, "ListSecretNames failed: " + ex.Message));
+        }
+    }
+
+    public override Task<ListLoginsResponse> ListLogins(ListLoginsRequest request, ServerCallContext context)
+    {
+        try
+        {
+            var response = new ListLoginsResponse();
+            foreach (var target in _vault.ListTargets(VaultNames.TargetPrefix))
+            {
+                if (!LoginSites.TryParse(target.Comment, out var sites))
+                    continue;
+                response.Logins.Add(new LoginInfo
+                {
+                    Name = VaultNames.SecretName(target.Target),
+                    Account = target.UserName,
+                    Sites = sites,
+                });
+            }
+            return Task.FromResult(response);
+        }
+        catch (Exception ex)
+        {
+            throw new RpcException(new Status(StatusCode.Internal, "ListLogins failed: " + ex.Message));
         }
     }
 
