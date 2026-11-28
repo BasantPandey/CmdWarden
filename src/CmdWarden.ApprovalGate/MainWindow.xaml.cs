@@ -35,13 +35,6 @@ public partial class MainWindow : Window
             || payload.LauncherDisplayName == ApprovalPresentation.UnknownAppDisplayName
             ? "?"
             : char.ToUpperInvariant(payload.LauncherDisplayName.Trim()[0]).ToString();
-        if (BrandImages.ForLauncher(payload.LauncherDisplayName, payload.LauncherPath) is { } launcherIcon)
-        {
-            LauncherIcon.Source = launcherIcon;
-            LauncherIcon.Visibility = Visibility.Visible;
-            IconGlyph.Visibility = Visibility.Collapsed;
-        }
-
         if (BrandImages.ForTool(payload.Tool) is { } toolIcon)
         {
             ToolIcon.Source = toolIcon;
@@ -134,7 +127,17 @@ public partial class MainWindow : Window
             }
         };
         Closed += (_, _) => _hooks?.Dispose();
-        ContentRendered += (_, _) => _shownFor.Start();
+        ContentRendered += (_, _) =>
+        {
+            _shownFor.Start();
+            // The exe icon can stall the first paint. Draw the card, then load it.
+            if (BrandImages.ForLauncher(_payload.LauncherDisplayName, _payload.LauncherPath) is { } launcherIcon)
+            {
+                LauncherIcon.Source = launcherIcon;
+                LauncherIcon.Visibility = Visibility.Visible;
+                IconGlyph.Visibility = Visibility.Collapsed;
+            }
+        };
         // CenterScreen uses the DPI of sign-in, and Details grows the card. Center again in physical
         // pixels on each size change, so the buttons never go below the screen.
         SourceInitialized += (_, _) => ScreenPlacement.Center(this);

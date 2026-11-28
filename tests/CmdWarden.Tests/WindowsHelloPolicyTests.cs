@@ -18,6 +18,26 @@ public class WindowsHelloPolicyTests
         Assert.Equal(expected, WindowsHelloPolicy.Requires(mode, commandClass));
 
     [Theory]
+    [InlineData("off", CommandClass.Write, "ai_harness", false)]
+    [InlineData("off", CommandClass.SecretReveal, "ai_harness", false)]
+    [InlineData("secret-reveal", CommandClass.Write, "ai_harness", true)]
+    [InlineData("secret-reveal", CommandClass.Read, "ai_harness", false)]
+    [InlineData("secret-reveal", CommandClass.SecretReveal, "ai_harness", true)]
+    [InlineData("secret-reveal", CommandClass.Write, "terminal", false)]
+    [InlineData("secret-reveal", CommandClass.SecretReveal, "terminal", true)]
+    [InlineData("write-and-up", CommandClass.Write, "terminal", true)]
+    [InlineData("write-and-up", CommandClass.Read, "ai_harness", false)]
+    [InlineData(null, CommandClass.Write, "ai_harness", true)]
+    [InlineData("secret-reveal", CommandClass.Unknown, "ai_harness", true)]
+    public void An_agent_write_asks_for_hello_unless_the_mode_is_off(
+        string? mode, CommandClass commandClass, string enrollmentKind, bool expected)
+    {
+        Assert.Equal(expected, WindowsHelloPolicy.Requires(mode, commandClass, enrollmentKind));
+        var fromAgent = enrollmentKind == LauncherEnrollmentKindNames.AiHarness;
+        Assert.Equal(expected, WindowsHelloPolicy.Requires(mode, commandClass, fromAgent));
+    }
+
+    [Theory]
     [InlineData(0, HelloCheck.Verified)]
     [InlineData(1, HelloCheck.NotAvailable)]
     [InlineData(2, HelloCheck.NotAvailable)]

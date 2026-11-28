@@ -21,6 +21,9 @@ public static class VaultNames
 
     public static readonly string TargetPrefix = ProductPrefix + "secret/";
 
+    /// <summary>Per-folder overrides. Not under <see cref="TargetPrefix"/>, so name lists stay global.</summary>
+    public static readonly string ProjectPrefix = ProductPrefix + "project/";
+
     /// <summary>Short name for any CmdWarden target: the secret name, or <c>&lt;tool&gt;/&lt;key&gt;</c>.</summary>
     public static string DisplayName(string targetName) =>
         targetName.StartsWith(TargetPrefix, StringComparison.Ordinal) ? targetName[TargetPrefix.Length..]
@@ -65,6 +68,51 @@ public static class VaultNames
         targetName.StartsWith(TargetPrefix, StringComparison.Ordinal)
             ? targetName[TargetPrefix.Length..]
             : targetName;
+
+    /// <summary>Full path, with no trailing slash except a drive root such as <c>C:\</c>. Null when the path is unusable.</summary>
+    public static string? NormalizeFolder(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return null;
+        try
+        {
+            var full = Path.GetFullPath(path.Trim());
+            if (full.Length > 3)
+                full = full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return full;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The parent folder, or null at a root.</summary>
+    public static string? ParentFolder(string folder)
+    {
+        try
+        {
+            var parent = Path.GetDirectoryName(folder);
+            if (string.IsNullOrEmpty(parent) || parent.Equals(folder, StringComparison.OrdinalIgnoreCase))
+                return null;
+            return parent;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary><c>CmdWarden/project/&lt;NAME&gt;/&lt;full path&gt;</c>.</summary>
+    public static string ProjectTarget(string secretName, string folder)
+    {
+        var name = SecretName(TargetName(secretName));
+        if (string.IsNullOrWhiteSpace(folder))
+            throw new ArgumentException("Project folder is required.", nameof(folder));
+        if (folder.Contains('*') || folder.Contains('\n') || folder.Contains('\r'))
+            throw new ArgumentException("Project folder must not contain '*' or a line break.", nameof(folder));
+        return ProjectPrefix + name + "/" + folder;
+    }
 
     public static string EnvVarName(string secretName)
     {

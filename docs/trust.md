@@ -82,7 +82,7 @@ What stops it:
 | The policy hook | A harness that runs a `cw` command that weakens protection gets a deny with "Ask the user". The hook also reads the command inside `cmd /c`, `powershell -Command`, `bash -c`, `Start-Process`, and `dotnet cw.dll`. This covers `cw policy set`, `enroll`, `unenroll`, `low-risk`, and `hello`; `cw script bless` and `cw script drop`; `cw unharden`; `cw uninstall`; `cw delete`; `cw agent stop`; the `uninstall` of `hook`, `leak-guard`, `mcp`, and `protect`; `cw canary remove`; and the `proxy` changes, `add` too. It also stops `cw read`, which shows a secret value to the agent. |
 | Claude Code deny rules | `cw setup` adds `Edit` and `Write` deny rules for `~/AppData/Local/CmdWarden/**`, so the file tools of Claude Code cannot change the policy file. |
 | Real input only | The Approval Gate accepts Approve only from real keyboard or mouse input. A program that sends keys or clicks to the card gets nothing. |
-| Windows Hello | A secret read asks for Windows Hello after Approve (`cw policy hello`). |
+| Windows Hello | An agent write, and a secret read, ask for Windows Hello after Approve. `cw policy hello off` turns that off. |
 | The launcher check | Policy follows the real process chain and the file hash or signature of the app, not a name the app gives. |
 | Agent accounts | When an agent runs under its own Windows account, such as the Codex sandbox accounts, that account is the launcher. It may only ask the gate. It cannot save, delete, or list secrets, change grants, or edit files in your profile. |
 

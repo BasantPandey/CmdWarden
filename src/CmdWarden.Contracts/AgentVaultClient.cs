@@ -11,12 +11,14 @@ public static class AgentVaultClient
         byte[] value,
         string? pipeName = null,
         TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? projectPath = null)
     {
         using var call = AgentCall.Create(pipeName, timeout, cancellationToken);
-        return await call.Client.SaveSecretAsync(
-            new SaveSecretRequest { Name = name, Value = ByteString.CopyFrom(value) },
-            cancellationToken: call.Token).ConfigureAwait(false);
+        var request = new SaveSecretRequest { Name = name, Value = ByteString.CopyFrom(value) };
+        if (!string.IsNullOrWhiteSpace(projectPath))
+            request.ProjectPath = projectPath;
+        return await call.Client.SaveSecretAsync(request, cancellationToken: call.Token).ConfigureAwait(false);
     }
 
     public static async Task<ReleaseSecretResponse> ReleaseAsync(
@@ -59,12 +61,14 @@ public static class AgentVaultClient
         string name,
         string? pipeName = null,
         TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? projectPath = null)
     {
         using var call = AgentCall.Create(pipeName, timeout, cancellationToken);
-        var response = await call.Client.DeleteSecretAsync(
-            new DeleteSecretRequest { Name = name },
-            cancellationToken: call.Token).ConfigureAwait(false);
+        var request = new DeleteSecretRequest { Name = name };
+        if (!string.IsNullOrWhiteSpace(projectPath))
+            request.ProjectPath = projectPath;
+        var response = await call.Client.DeleteSecretAsync(request, cancellationToken: call.Token).ConfigureAwait(false);
         return response.Deleted;
     }
 

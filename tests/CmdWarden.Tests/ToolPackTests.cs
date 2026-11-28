@@ -25,7 +25,7 @@ public class ToolPackTests
     public void Built_in_packs_load_and_pass_their_samples()
     {
         var tools = ToolPacks.BuiltIn.Select(p => p.Tool).ToList();
-        Assert.Equal(["aws", "kubectl", "npm"], tools);
+        Assert.Equal(["aws", "kubectl", "npm", "winget"], tools);
         Assert.All(ToolPacks.BuiltIn, p =>
         {
             Assert.NotEmpty(p.Samples);
@@ -71,6 +71,20 @@ public class ToolPackTests
         Assert.False(pack.ReleasesSecrets(["deploy", "--help"]));
         Assert.Equal(RiskLevel.High, pack.Assess(["deploy", "app"]).Level);
         Assert.Equal(RiskLevel.Normal, pack.Assess(["list"]).Level);
+    }
+
+    [Fact]
+    public void Winget_update_is_read_and_install_asks()
+    {
+        var winget = ToolPacks.BuiltIn.Single(p => p.Tool == "winget");
+        Assert.Equal(CommandClass.Read, winget.Classify(["update"]));
+        Assert.Equal(CommandClass.Read, winget.Classify(["source", "update"]));
+        Assert.Equal(CommandClass.Read, winget.Classify(["settings", "export"]));
+        Assert.Equal(CommandClass.Write, winget.Classify(["install", "--id", "Git.Git"]));
+        Assert.Equal(CommandClass.Write, winget.Classify(["install", "-v", "1.0"]));
+        Assert.Equal(CommandClass.Write, winget.Classify(["source", "add", "winget"]));
+        Assert.Equal(CommandClass.Read, winget.Classify(["--version"]));
+        Assert.Equal(CommandClass.Write, winget.Classify(["foo"]));
     }
 
     [Fact]

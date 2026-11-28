@@ -27,6 +27,23 @@ public static class WindowsHelloPolicy
             WriteAndUp => commandClass is not CommandClass.Read,
             _ => commandClass == CommandClass.SecretReveal,
         };
+
+    /// <summary>
+    /// Same as <see cref="Requires(string?, CommandClass)"/>, and also when an AI harness runs a command that is not a read.
+    /// <paramref name="enrollmentKind"/> is the formatted kind, <c>ai_harness</c>. Mode <c>off</c> never asks.
+    /// </summary>
+    public static bool Requires(string? mode, CommandClass commandClass, string? enrollmentKind) =>
+        Requires(mode, commandClass, string.Equals(enrollmentKind, LauncherEnrollmentKindNames.AiHarness, StringComparison.Ordinal));
+
+    /// <summary>Mode <c>off</c> never asks. Any other mode asks for an agent command that is not a read.</summary>
+    public static bool Requires(string? mode, CommandClass commandClass, bool fromAgent)
+    {
+        if (string.Equals(TryParse(mode, out var parsed) ? parsed : Default, Off, StringComparison.Ordinal))
+            return false;
+        if (Requires(mode, commandClass))
+            return true;
+        return fromAgent && commandClass is not CommandClass.Read;
+    }
 }
 
 /// <summary>What the Windows Hello step gave, when the popup asked for it.</summary>

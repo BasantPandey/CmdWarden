@@ -128,12 +128,25 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         try
         {
             var bytes = request.Value.ToByteArray();
-            _vault.Save(request.Name, bytes);
-            Array.Clear(bytes);
-            return Task.FromResult(new SaveSecretResponse
+            try
             {
-                TargetName = VaultNames.TargetName(request.Name),
-            });
+                var target = ProjectSecrets.TargetFor(request.Name, request.ProjectPath);
+                if (string.IsNullOrWhiteSpace(request.ProjectPath))
+                    _vault.Save(request.Name, bytes);
+                else
+                {
+                    // CredMan stores at most 256 characters in the comment.
+                    var folder = VaultNames.NormalizeFolder(request.ProjectPath);
+                    var comment = folder is { Length: > 256 } ? folder[..256] : folder;
+                    _vault.SaveTarget(target, Environment.UserName, bytes, comment: comment);
+                }
+
+                return Task.FromResult(new SaveSecretResponse { TargetName = target });
+            }
+            finally
+            {
+                Array.Clear(bytes);
+            }
         }
         catch (ArgumentException ex)
         {
@@ -190,9 +203,8 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             ?? FindCanary([request.CommandLine], []);
         if (canary is not null)
             throw CanaryAlarm(launcher, resolved, tool, className, levelName, canary.Name, request.Purpose);
-        // Name a missing entry before the card asks about it. Names only; no value leaves the vault.
-        var stored = new HashSet<string>(_vault.ListNames(), StringComparer.OrdinalIgnoreCase);
-        if (extraNames.Prepend(request.Name).FirstOrDefault(n => !stored.Contains(n)) is { } missing)
+        // Name a missing entry before the card asks about it. The check clears any value it reads.
+        if (extraNames.Prepend(request.Name).FirstOrDefault(n => !HasSecret(n, request.WorkingDirectory)) is { } missing)
             throw new RpcException(new Status(StatusCode.NotFound, $"No vault entry named {missing}. Add it with: cw save {missing}"));
         var hidden = HiddenWrapper(launcher);
         if (hidden is not null)
@@ -224,12 +236,13 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
 
         try
         {
-            var bytes = _vault.Read(request.Name);
+            var hit = FindSecret(request.Name, request.WorkingDirectory)
+                ?? throw new KeyNotFoundException($"Secret '{request.Name}' not found in vault.");
             var response = new ReleaseSecretResponse
             {
                 Name = VaultNames.EnvVarName(request.Name),
-                Value = ByteString.CopyFrom(bytes),
-                TargetName = VaultNames.TargetName(request.Name),
+                Value = ByteString.CopyFrom(hit.Bytes),
+                TargetName = hit.Target,
                 LauncherPolicyKey = launcher.Selected.PolicyKey,
                 LauncherKind = launcher.Selected.Kind,
                 Tool = tool,
@@ -239,12 +252,13 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
                 EnrollmentKind = LauncherEnrollmentKindNames.Format(resolved.EnrollmentKind),
             };
             response.BoundFiles.AddRange(boundFiles.Select(f => new BoundFileEntry { Path = f.Path, Sha256 = f.Sha256 }));
-            Array.Clear(bytes);
+            Array.Clear(hit.Bytes);
             foreach (var extra in extraNames)
             {
-                var extraBytes = _vault.Read(extra);
-                response.ExtraValues[VaultNames.EnvVarName(extra)] = ByteString.CopyFrom(extraBytes);
-                Array.Clear(extraBytes);
+                var extraHit = FindSecret(extra, request.WorkingDirectory)
+                    ?? throw new KeyNotFoundException($"Secret '{extra}' not found in vault.");
+                response.ExtraValues[VaultNames.EnvVarName(extra)] = ByteString.CopyFrom(extraHit.Bytes);
+                Array.Clear(extraHit.Bytes);
             }
             return Task.FromResult(response);
         }
@@ -268,7 +282,9 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
     {
         try
         {
-            var deleted = _vault.Delete(request.Name);
+            var deleted = string.IsNullOrWhiteSpace(request.ProjectPath)
+                ? _vault.Delete(request.Name)
+                : _vault.DeleteTarget(ProjectSecrets.TargetFor(request.Name, request.ProjectPath));
             return Task.FromResult(new DeleteSecretResponse { Deleted = deleted });
         }
         catch (ArgumentException ex)
@@ -320,7 +336,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var appRepo = appConfig is null ? null
             : GitHubApp.RepoFor(argv, request.CallerEnv.TryGetValue("GH_REPO", out var ghRepo) ? ghRepo : null, NullIfEmpty(request.WorkingDirectory));
         var packSecrets = pack is not null && pack.ReleasesSecrets(argv)
-            ? pack.SecretEnv.Intersect(_vault.ListNames(), StringComparer.OrdinalIgnoreCase).ToList()
+            ? pack.SecretEnv.Where(name => HasSecret(name, request.WorkingDirectory)).ToList()
             : [];
         // Audit secret id only when a vault value may be released (gh always; docker when present).
         var auditSecretName = appRepo is not null ? GitHubApp.TokenLabel(appRepo)
@@ -434,7 +450,7 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         var auditedSecretName = strongAz ? AzStrongStore.AuditName
             : packSecrets.Count > 0 || appRepo is not null ? auditSecretName
             : requireVaultSecret
-            || (optionalDockerAuth && _vault.ListNames().Contains(secretName, StringComparer.OrdinalIgnoreCase))
+            || (optionalDockerAuth && HasSecret(secretName, request.WorkingDirectory))
             ? secretName
             : null;
         AppendOrThrow(GateRecord(decisionLabel, decisionReason, tool, className, levelName,
@@ -513,33 +529,33 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
 
             foreach (var name in packSecrets)
             {
-                var bytes = _vault.Read(name);
-                response.Env[name] = System.Text.Encoding.UTF8.GetString(bytes);
-                Array.Clear(bytes);
+                var packHit = FindSecret(name, request.WorkingDirectory)
+                    ?? throw new KeyNotFoundException($"Secret '{name}' not found in vault.");
+                response.Env[name] = System.Text.Encoding.UTF8.GetString(packHit.Bytes);
+                Array.Clear(packHit.Bytes);
             }
+
+            if (tool == "aws")
+                AwsSession.Apply(response.Env, argv);
 
             if (appToken is not null)
                 response.Env["GH_TOKEN"] = appToken.Token;
 
             if (requireVaultSecret && appToken is null)
             {
-                var bytes = _vault.Read(secretName);
-                var token = System.Text.Encoding.UTF8.GetString(bytes);
-                Array.Clear(bytes);
-                response.Env[secretName] = token;
+                var tokenHit = FindSecret(secretName, request.WorkingDirectory)
+                    ?? throw new KeyNotFoundException($"Secret '{secretName}' not found in vault.");
+                response.Env[secretName] = System.Text.Encoding.UTF8.GetString(tokenHit.Bytes);
+                Array.Clear(tokenHit.Bytes);
             }
             else if (optionalDockerAuth)
             {
                 // Child-only DOCKER_AUTH_CONFIG; never mutates parent process env (#42).
-                try
+                var dockerHit = FindSecret(secretName, request.WorkingDirectory);
+                if (dockerHit is { } docker)
                 {
-                    var bytes = _vault.Read(secretName);
-                    response.Env[DefaultDockerAuthConfigSecretName] = System.Text.Encoding.UTF8.GetString(bytes);
-                    Array.Clear(bytes);
-                }
-                catch (KeyNotFoundException)
-                {
-                    // Compat: gate-only grant; ambient Desktop/wincred store remains (#42).
+                    response.Env[DefaultDockerAuthConfigSecretName] = System.Text.Encoding.UTF8.GetString(docker.Bytes);
+                    Array.Clear(docker.Bytes);
                 }
             }
 
@@ -548,6 +564,10 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         catch (KeyNotFoundException ex)
         {
             throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+        catch (AwsSessionException)
+        {
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, "AWS session mint failed."));
         }
         catch (Exception ex)
         {
@@ -1505,6 +1525,26 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
         }
     }
 
+    private byte[]? ReadTargetBlob(string target) => _vault.ReadTarget(target)?.Blob;
+
+    private byte[]? ReadNamedOrNull(string secret)
+    {
+        try
+        {
+            return _vault.Read(secret);
+        }
+        catch (KeyNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    private SecretBlob? FindSecret(string name, string? workingDirectory) =>
+        ProjectSecrets.Find(name, workingDirectory, ReadTargetBlob, ReadNamedOrNull);
+
+    private bool HasSecret(string name, string? workingDirectory) =>
+        ProjectSecrets.Exists(name, workingDirectory, ReadTargetBlob, ReadNamedOrNull);
+
     /// <summary>
     /// Build a card-ready approval request (secret names only — never values).
     /// </summary>
@@ -1550,7 +1590,10 @@ public sealed class SessionAgentService : SessionAgent.SessionAgentBase
             LauncherPublisher: selected.Publisher,
             RequestedAt: DateTimeOffset.UtcNow,
             LauncherPid: selected.Pid,
-            HelloRequired: WindowsHelloPolicy.Requires(_policy.HelloMode, CommandClassNames.ParseOrUnknown(className)));
+            HelloRequired: WindowsHelloPolicy.Requires(
+                _policy.HelloMode,
+                CommandClassNames.ParseOrUnknown(className),
+                enrollmentKind));
     }
 
     private static string FormatCommandLine(string tool, IReadOnlyList<string> argv)

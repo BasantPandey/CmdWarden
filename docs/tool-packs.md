@@ -7,7 +7,7 @@ description: Gate a CLI tool with one JSON file. No C# code. The pack gives the 
 
 A tool pack describes one CLI tool in one JSON file. One generic shim reads the pack, so a new tool needs no new code.
 
-CmdWarden has three built-in packs: [npm](use-cases/gate-npm.md), [aws](use-cases/gate-aws.md), and [kubectl](use-cases/gate-kubectl.md). The tools `gh`, `git`, `az`, and `docker` keep their own code, because they have strong mode and credential helpers.
+CmdWarden has four built-in packs: [npm](use-cases/gate-npm.md), [aws](use-cases/gate-aws.md), [kubectl](use-cases/gate-kubectl.md), and [winget](use-cases/gate-winget.md). The tools `gh`, `git`, `az`, and `docker` keep their own code, because they have strong mode and credential helpers.
 
 ## Use a pack
 
