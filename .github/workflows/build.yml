@@ -44,7 +44,7 @@ jobs:
           if ($out -match 'has the following vulnerable packages') { throw "A package has a known vulnerability. Update it." }
 
       - name: Build
-        run: dotnet build CmdWarden.sln -c Release --no-restore
+        run: dotnet build CmdWarden.sln -c Release --no-restore -m:1
 
       - name: Test
         run: dotnet test CmdWarden.sln -c Release --no-build --filter "Category!=Process"
@@ -97,7 +97,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Build
-        run: dotnet build CmdWarden.sln -c Release
+        run: dotnet build CmdWarden.sln -c Release -m:1
 
       - name: Process tests
         run: dotnet test CmdWarden.sln -c Release --no-build --filter "Category=Process" --blame-hang-timeout 5m --logger "console;verbosity=normal"

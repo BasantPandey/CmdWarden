@@ -51,7 +51,7 @@ jobs:
 
       - name: Build
         if: env.SONAR_TOKEN != ''
-        run: dotnet build CmdWarden.sln -c Release
+        run: dotnet build CmdWarden.sln -c Release -m:1
 
       - name: Test
         if: env.SONAR_TOKEN != ''
