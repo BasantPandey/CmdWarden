@@ -85,6 +85,14 @@
               <TextBlock x:Name="NavSecretsLabel" Text="Secrets" Margin="8,0,0,0" />
             </StackPanel>
           </Button>
+          <Button x:Name="NavLogins" Style="{StaticResource NavButtonStyle}" Tag="logins"
+                  Click="NavButton_Click" ToolTip="Logins" Margin="0,1">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="&#xE77B;" Width="22" TextAlignment="Center" FontSize="15"
+                         FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" VerticalAlignment="Center" />
+              <TextBlock x:Name="NavLoginsLabel" Text="Logins" Margin="8,0,0,0" />
+            </StackPanel>
+          </Button>
           <Button x:Name="NavUsage" Style="{StaticResource NavButtonStyle}" Tag="usage"
                   Click="NavButton_Click" ToolTip="Secret Usage" Margin="0,1">
             <StackPanel Orientation="Horizontal">
@@ -229,6 +237,34 @@
                         </StackPanel>
                       </Button>
                     </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </DockPanel>
+
+        <DockPanel x:Name="PageLogins" Visibility="Collapsed" LastChildFill="True">
+          <Border DockPanel.Dock="Top" Background="{StaticResource SurfaceBrush}"
+                  BorderBrush="{StaticResource StrokeBrush}" BorderThickness="0,0,0,1" Padding="12,10">
+            <TextBlock x:Name="LoginCountText" Text="0 logins" FontSize="11"
+                       Foreground="{StaticResource TextTertiaryBrush}" HorizontalAlignment="Right" />
+          </Border>
+          <StackPanel x:Name="LoginEmptyPanel" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="320">
+            <TextBlock x:Name="LoginEmptyText" Text="No login is stored." FontSize="15" FontWeight="SemiBold"
+                       HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
+          </StackPanel>
+          <ScrollViewer x:Name="LoginScroll" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+            <ItemsControl x:Name="LoginsList" Margin="8">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border BorderThickness="1" CornerRadius="8" Padding="14,12" Margin="4"
+                          Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource StrokeBrush}">
+                    <StackPanel>
+                      <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" />
+                      <TextBlock Text="{Binding Account}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" />
+                      <TextBlock Text="{Binding Sites}" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" />
+                    </StackPanel>
                   </Border>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>

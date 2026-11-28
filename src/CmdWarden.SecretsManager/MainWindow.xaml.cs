@@ -17,8 +17,11 @@ public partial class MainWindow : Window
 
     private const double ExpandedSidebarWidth = 228;
     private const double CollapsedSidebarWidth = 64;
+    private const string LoginsPage = "logins";
+    private const string RefreshLabel = "Refresh";
 
     private readonly ObservableCollection<VaultSecretListItem> _secrets = [];
+    private readonly LoginPage _logins = new();
     private readonly DispatcherTimer _pollTimer;
     private readonly Dictionary<string, FrameworkElement> _pages;
     private readonly Dictionary<string, Button> _navButtons;
@@ -64,11 +67,17 @@ public partial class MainWindow : Window
         {
             ["gates"] = ("Secret Gates", "+ Enroll launcher", "Ctrl+E"),
             ["detectors"] = ("Detectors", "Run scan", "F5"),
-            ["tools"] = ("Hardened Tools", "Refresh", "F5"),
+            ["tools"] = ("Hardened Tools", RefreshLabel, "F5"),
             ["secrets"] = ("Secrets", "+ Add secret", "Ctrl+N"),
-            ["usage"] = ("Secret Usage", "Refresh", "F5"),
-            ["doctor"] = ("Doctor", "Refresh", "F5"),
+            ["usage"] = ("Secret Usage", RefreshLabel, "F5"),
+            ["doctor"] = ("Doctor", RefreshLabel, "F5"),
+            [LoginsPage] = ("Logins", RefreshLabel, "F5"),
         };
+        _pages[LoginsPage] = PageLogins;
+        _navButtons[LoginsPage] = NavLogins;
+        _navLabels[LoginsPage] = NavLoginsLabel;
+        _logins.Attach(new LoginPage.Controls(
+            LoginsList, LoginEmptyText, LoginEmptyPanel, LoginScroll, LoginCountText));
 
         _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         _pollTimer.Tick += async (_, _) =>
@@ -104,6 +113,8 @@ public partial class MainWindow : Window
             e.Handled = true;
             if (onSecrets)
                 await RefreshAsync().ConfigureAwait(true);
+            else if (_currentPage == LoginsPage)
+                await _logins.RefreshAsync().ConfigureAwait(true);
             else if (onGates)
                 await GatesRefreshAsync().ConfigureAwait(true);
             else if (PagePrimaryButton.IsEnabled)
@@ -203,7 +214,7 @@ public partial class MainWindow : Window
         PageTitleText.Text = chrome.Title;
         PagePrimaryButton.Content = KeyedContent(chrome.Primary, chrome.Key);
         PagePrimaryButton.ToolTip = $"{chrome.Primary.TrimStart('+', ' ')} ({chrome.Key})";
-        PagePrimaryButton.IsEnabled = page is "secrets" or "usage" or "doctor" or "tools" or "detectors" or "gates";
+        PagePrimaryButton.IsEnabled = page is "secrets" or "usage" or "doctor" or "tools" or "detectors" or "gates" or LoginsPage;
         PageSubtitleText.Visibility = page == "detectors" && PageSubtitleText.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 
         // Banner only relevant on Secrets (agent list).
@@ -220,12 +231,17 @@ public partial class MainWindow : Window
             _ = DetectorsScanAsync();
         if (page == "gates")
             _ = GatesRefreshAsync();
+        if (page == LoginsPage)
+            _ = _logins.RefreshAsync();
     }
 
     private async void PagePrimaryButton_Click(object sender, RoutedEventArgs e)
     {
         switch (_currentPage)
         {
+            case LoginsPage:
+                await _logins.RefreshAsync().ConfigureAwait(true);
+                break;
             case "secrets":
                 await AddSecretFlowAsync().ConfigureAwait(true);
                 break;

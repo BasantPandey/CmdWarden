@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -22,10 +23,13 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Using Include="System.IO" />
+    <Using Include="System.Net.Http" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\CmdWarden.Contracts\CmdWarden.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\CmdWarden.SecretsManager\CmdWarden.SecretsManager.csproj" />
     <ProjectReference Include="..\..\src\CmdWarden.Cli\CmdWarden.Cli.csproj" />
     <ProjectReference Include="..\..\src\CmdWarden.Agent\CmdWarden.Agent.csproj" />
     <ProjectReference Include="..\..\src\CmdWarden.Shim.Gh\CmdWarden.Shim.Gh.csproj" />
@@ -36,5 +40,16 @@
     <ProjectReference Include="..\..\src\CmdWarden.Helper.Docker\CmdWarden.Helper.Docker.csproj" />
     <ProjectReference Include="..\..\src\CmdWarden.Shim.Pack\CmdWarden.Shim.Pack.csproj" />
   </ItemGroup>
+
+  <!-- The test host folder is not a full agent layout. Put the full agent build in agent/. -->
+  <Target Name="CopyCompleteAgentBesideTests" AfterTargets="Build">
+    <PropertyGroup>
+      <_AgentOut>$(MSBuildThisFileDirectory)..\..\src\CmdWarden.Agent\bin\$(Configuration)\net10.0\</_AgentOut>
+    </PropertyGroup>
+    <ItemGroup>
+      <_AgentFiles Include="$(_AgentOut)**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_AgentFiles)" DestinationFiles="@(_AgentFiles->'$(TargetDir)agent\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="Exists('$(_AgentOut)CmdWarden.Agent.dll')" />
+  </Target>
 
 </Project>
